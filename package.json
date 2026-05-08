@@ -1,0 +1,13 @@
+{
+  "name": "tandem_project_2026",
+  "version": "1.0.0",
+  "description": "proyecto final ORT 2026",
+  "license": "ISC",
+  "author": "Ilan Busso",
+  "type": "modules",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
