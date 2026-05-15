@@ -9,8 +9,6 @@ import administradorController from '../controllers/AdministradorController.js';
 import actividadController from '../controllers/ActividadController.js';
 import rutinaController from '../controllers/RutinaController.js';
 import vinculoController from '../controllers/VinculoController.js';
-import permisoController from '../controllers/PermisoController.js';
-import suscripcionController from '../controllers/SuscripcionController.js';
 
 const router = Router();
 router.use('/health', healthController);
