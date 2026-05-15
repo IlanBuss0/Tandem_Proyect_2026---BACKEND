@@ -13,6 +13,14 @@ class UsuarioRepository extends BaseCrudRepository {
   findByNombreUsuario(nombreUsuario) {
     return BD.queryOne('SELECT * FROM usuarios WHERE nombre_usuario = $1', [nombreUsuario]);
   }
+
+  findByEmail(email) {
+    return BD.queryOne('SELECT * FROM usuarios WHERE email = $1', [email]);
+  }
+
+  findByNombreUsuario(nombreUsuario) {
+    return BD.queryOne('SELECT * FROM usuarios WHERE nombre_usuario = $1', [nombreUsuario]);
+  }
 }
 
 export default new UsuarioRepository();
