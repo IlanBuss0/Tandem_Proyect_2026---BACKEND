@@ -8,6 +8,7 @@ class AuthService {
   async register(data) {
     const user = await UsuarioService.create(data);
     const token = signJwt({ id: user.id, correo: user.correo, nombre_usuario: user.nombre_usuario });
+    const token = signJwt({ id: user.id, email: user.email, nombre_usuario: user.nombre_usuario });
     return { user, token };
   }
 
@@ -17,11 +18,13 @@ class AuthService {
     if (!user) throw new AppError('Credenciales inválidas', 401);
 
     const valid = await compareValue(password, user.contrasena_hash || user.password_hash || user.password);
+    const valid = await compareValue(password, user.password_hash || user.password);
     if (!valid) throw new AppError('Credenciales inválidas', 401);
     delete user.contrasena_hash;
     delete user.password_hash;
     delete user.password;
     const token = signJwt({ id: user.id, correo: user.correo, nombre_usuario: user.nombre_usuario });
+    const token = signJwt({ id: user.id, email: user.email, nombre_usuario: user.nombre_usuario });
     return { user, token };
   }
 

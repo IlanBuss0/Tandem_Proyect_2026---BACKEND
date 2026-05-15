@@ -25,6 +25,26 @@ class ActividadRepository extends BaseCrudRepository {
   findByTipo(idTipoActividad) {
     return this.findByCategoria(idTipoActividad);
   }
+
+  findByPerteneciente(idPerteneciente) {
+    return BD.query('SELECT * FROM actividades WHERE id_perteneciente = $1 ORDER BY id DESC', [idPerteneciente]);
+  }
+
+  findBase() {
+    return BD.query('SELECT * FROM actividades WHERE (es_base = true OR tipo = $1) ORDER BY id DESC', ['base']);
+  }
+
+  findPersonalizadas() {
+    return BD.query('SELECT * FROM actividades WHERE (es_base = false OR tipo = $1) ORDER BY id DESC', ['personalizada']);
+  }
+
+  findByCategoria(categoria) {
+    return BD.query('SELECT * FROM actividades WHERE categoria = $1 ORDER BY id DESC', [categoria]);
+  }
+
+  findByTipo(tipo) {
+    return BD.query('SELECT * FROM actividades WHERE tipo = $1 ORDER BY id DESC', [tipo]);
+  }
 }
 
 export default new ActividadRepository();
