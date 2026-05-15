@@ -1,0 +1,14 @@
+import { Router } from 'express';
+import ChatService from '../services/ChatService.js';
+const router = Router();
+router.get('/conversaciones', async (req,res,next)=>{ try{ res.status(200).json({ok:true,data:await ChatService.list()}); }catch(e){next(e);} });
+router.get('/conversaciones/:id', async (req,res,next)=>{ try{ res.status(200).json({ok:true,data:await ChatService.getById(Number(req.params.id))}); }catch(e){next(e);} });
+router.post('/conversaciones', async (req,res,next)=>{ try{ res.status(201).json({ok:true,data:await ChatService.create(req.body)}); }catch(e){next(e);} });
+router.put('/conversaciones/:id', async (req,res,next)=>{ try{ res.status(200).json({ok:true,data:await ChatService.update(Number(req.params.id),req.body)}); }catch(e){next(e);} });
+router.delete('/conversaciones/:id', async (req,res,next)=>{ try{ await ChatService.remove(Number(req.params.id)); res.status(204).send(); }catch(e){next(e);} });
+router.get('/conversaciones/:id/mensajes', async (req,res,next)=>{ try{ res.status(200).json({ok:true,data:await ChatService.listMensajes(Number(req.params.id))}); }catch(e){next(e);} });
+router.post('/conversaciones/:id/mensajes', async (req,res,next)=>{ try{ res.status(201).json({ok:true,data:await ChatService.createMensaje(Number(req.params.id),req.body)}); }catch(e){next(e);} });
+router.put('/mensajes/:id', async (req,res,next)=>{ try{ res.status(200).json({ok:true,data:await ChatService.updateMensaje(Number(req.params.id),req.body)}); }catch(e){next(e);} });
+router.delete('/mensajes/:id', async (req,res,next)=>{ try{ await ChatService.removeMensaje(Number(req.params.id)); res.status(204).send(); }catch(e){next(e);} });
+router.get('/usuario/:idUsuario/conversaciones', async (req,res,next)=>{ try{ res.status(200).json({ok:true,data:await ChatService.listConversacionesByUsuario(Number(req.params.idUsuario))}); }catch(e){next(e);} });
+export default router;

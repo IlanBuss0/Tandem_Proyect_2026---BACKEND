@@ -9,6 +9,13 @@ import administradorController from '../controllers/AdministradorController.js';
 import actividadController from '../controllers/ActividadController.js';
 import rutinaController from '../controllers/RutinaController.js';
 import vinculoController from '../controllers/VinculoController.js';
+import permisoController from '../controllers/PermisoController.js';
+import suscripcionController from '../controllers/SuscripcionController.js';
+import calendarioController from '../controllers/CalendarioController.js';
+import chatController from '../controllers/ChatController.js';
+import emocionController from '../controllers/EmocionController.js';
+import objetivoController from '../controllers/ObjetivoController.js';
+import ubicacionController from '../controllers/UbicacionController.js';
 
 const router = Router();
 router.use('/health', healthController);
@@ -23,5 +30,10 @@ router.use('/rutinas', rutinaController);
 router.use('/vinculos', vinculoController);
 router.use('/permisos', permisoController);
 router.use('/', suscripcionController);
+router.use('/calendario', calendarioController);
+router.use('/chat', chatController);
+router.use('/emociones', emocionController);
+router.use('/objetivos', objetivoController);
+router.use('/ubicaciones', ubicacionController);
 
 export default router;
