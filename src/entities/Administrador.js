@@ -1,13 +1,13 @@
-class Tutor {
+class Administrador {
   constructor({
     id = null,
     id_usuario,
-    parentesco = null,
+    id_rol,
   }) {
     this.id = id;
     this.id_usuario = id_usuario;
-    this.parentesco = parentesco;
+    this.id_rol = id_rol;
   }
 }
 
-export default Tutor;
+export default Administrador;

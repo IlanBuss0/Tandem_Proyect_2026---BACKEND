@@ -1,7 +1,7 @@
-class Actividad {
+class Contacto {
   constructor(data = {}) {
     Object.assign(this, { id: null }, data);
   }
 }
 
-export default Actividad;
+export default Contacto;
