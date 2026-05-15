@@ -1,0 +1,95 @@
+import BaseCrudRepository from './BaseCrudRepository.js';
+import BD from '../db/BD.js';
+
+class CompositeVinculoTutorRepository extends BaseCrudRepository {
+  constructor() { super('VinculosTutorPertenecientes', { softDelete: { field: 'fecha_fin' } }); }
+  findByIds(id_tutor, id_perteneciente) { return BD.queryOne('SELECT * FROM VinculosTutorPertenecientes WHERE id_tutor = $1 AND id_perteneciente = $2', [id_tutor, id_perteneciente]); }
+  async removeByIds(id_tutor, id_perteneciente) { const r = await BD.queryOne('UPDATE VinculosTutorPertenecientes SET fecha_fin = NOW() WHERE id_tutor = $1 AND id_perteneciente = $2 RETURNING id', [id_tutor, id_perteneciente]); return Boolean(r); }
+}
+class CompositeVinculoProfesionalRepository extends BaseCrudRepository {
+  constructor() { super('VinculosProfesionalPertenecientes', { softDelete: { field: 'fecha_fin' } }); }
+  findByIds(id_profesional, id_perteneciente) { return BD.queryOne('SELECT * FROM VinculosProfesionalPertenecientes WHERE id_profesional = $1 AND id_perteneciente = $2', [id_profesional, id_perteneciente]); }
+  async removeByIds(id_profesional, id_perteneciente) { const r = await BD.queryOne('UPDATE VinculosProfesionalPertenecientes SET fecha_resolucion = NOW() WHERE id_profesional = $1 AND id_perteneciente = $2 RETURNING id', [id_profesional, id_perteneciente]); return Boolean(r); }
+}
+
+export const repositories = {
+  TiposUsuarios: new BaseCrudRepository('TiposUsuarios'),
+  EstadosSuscripciones: new BaseCrudRepository('EstadosSuscripciones'),
+  TiposEventosAuditorias: new BaseCrudRepository('TiposEventosAuditorias'),
+  EntidadesAfectadasAuditorias: new BaseCrudRepository('EntidadesAfectadasAuditorias'),
+  NivelesApoyos: new BaseCrudRepository('NivelesApoyos'),
+  AutonomiasOperativas: new BaseCrudRepository('AutonomiasOperativas'),
+  CatalogoPermisosPertenecientes: new BaseCrudRepository('CatalogoPermisosPertenecientes'),
+  CatalogoPermisosProfesionales: new BaseCrudRepository('CatalogoPermisosProfesionales'),
+  EstadosVinculos: new BaseCrudRepository('EstadosVinculos'),
+  TiposActividades: new BaseCrudRepository('TiposActividades'),
+  EstadosActividades: new BaseCrudRepository('EstadosActividades'),
+  PuntosOtorgados: new BaseCrudRepository('PuntosOtorgados'),
+  DificultadesActividades: new BaseCrudRepository('DificultadesActividades'),
+  RolesAdministradores: new BaseCrudRepository('RolesAdministradores'),
+  EstadosValidacionesProfesionales: new BaseCrudRepository('EstadosValidacionesProfesionales'),
+  TiposItemsAvatares: new BaseCrudRepository('TiposItemsAvatares'),
+  TiposMovimientosPuntos: new BaseCrudRepository('TiposMovimientosPuntos'),
+  EstadosPagos: new BaseCrudRepository('EstadosPagos'),
+  TiposChats: new BaseCrudRepository('TiposChats'),
+  TiposMensajes: new BaseCrudRepository('TiposMensajes'),
+  EstadosContactos: new BaseCrudRepository('EstadosContactos'),
+  TiposArchivos: new BaseCrudRepository('TiposArchivos'),
+  TiposPermisosArchivos: new BaseCrudRepository('TiposPermisosArchivos'),
+  AlcancesArchivos: new BaseCrudRepository('AlcancesArchivos'),
+  TiposNotificaciones: new BaseCrudRepository('TiposNotificaciones'),
+  EstadosReportes: new BaseCrudRepository('EstadosReportes'),
+  TiposEventosZonasSeguras: new BaseCrudRepository('TiposEventosZonasSeguras'),
+  Usuarios: new BaseCrudRepository('Usuarios', { softDelete: { field: 'activo' } }),
+  Pertenecientes: new BaseCrudRepository('Pertenecientes'),
+  Tutores: new BaseCrudRepository('Tutores'),
+  Profesionales: new BaseCrudRepository('Profesionales'),
+  Administradores: new BaseCrudRepository('Administradores'),
+  ConfiguracionesUsuarios: new BaseCrudRepository('ConfiguracionesUsuarios'),
+  ConfiguracionesAccesibilidad: new BaseCrudRepository('ConfiguracionesAccesibilidad'),
+  PermisosOtorgadosPertenecientes: new BaseCrudRepository('PermisosOtorgadosPertenecientes'),
+  HistorialPermisosOtorgadosPertenecientes: new BaseCrudRepository('HistorialPermisosOtorgadosPertenecientes'),
+  VinculosTutorPertenecientes: new CompositeVinculoTutorRepository(),
+  VinculosProfesionalPertenecientes: new CompositeVinculoProfesionalRepository(),
+  PermisosOtorgadosProfesionales: new BaseCrudRepository('PermisosOtorgadosProfesionales'),
+  HistorialPermisosOtorgadosProfesionales: new BaseCrudRepository('HistorialPermisosOtorgadosProfesionales'),
+  ValidacionesProfesionales: new BaseCrudRepository('ValidacionesProfesionales'),
+  EvaluacionesAutonomias: new BaseCrudRepository('EvaluacionesAutonomias'),
+  Avatares: new BaseCrudRepository('Avatares'),
+  ItemsAvatares: new BaseCrudRepository('ItemsAvatares', { softDelete: { field: 'activo' } }),
+  InventariosAvatares: new BaseCrudRepository('InventariosAvatares'),
+  SaldosPuntos: new BaseCrudRepository('SaldosPuntos'),
+  MovimientosPuntos: new BaseCrudRepository('MovimientosPuntos'),
+  Actividades: new BaseCrudRepository('Actividades', { softDelete: { field: 'activa' } }),
+  ActividadesPersonalizadas: new BaseCrudRepository('ActividadesPersonalizadas', { softDelete: { field: 'activa' } }),
+  ActividadesAsignadas: new BaseCrudRepository('ActividadesAsignadas'),
+  FavoritosActividades: new BaseCrudRepository('FavoritosActividades'),
+  CalificacionesActividades: new BaseCrudRepository('CalificacionesActividades'),
+  SesionesProfesionales: new BaseCrudRepository('SesionesProfesionales'),
+  PlanesSuscripciones: new BaseCrudRepository('PlanesSuscripciones', { softDelete: { field: 'activo' } }),
+  Suscripciones: new BaseCrudRepository('Suscripciones', { softDelete: { field: 'fecha_fin' } }),
+  BeneficiariosSuscripciones: new BaseCrudRepository('BeneficiariosSuscripciones'),
+  PagosSuscripciones: new BaseCrudRepository('PagosSuscripciones'),
+  PaquetesPuntos: new BaseCrudRepository('PaquetesPuntos', { softDelete: { field: 'activo' } }),
+  ComprasPuntos: new BaseCrudRepository('ComprasPuntos'),
+  Contactos: new BaseCrudRepository('Contactos'),
+  Chats: new BaseCrudRepository('Chats', { softDelete: { field: 'activo' } }),
+  ParticipantesChats: new BaseCrudRepository('ParticipantesChats'),
+  Mensajes: new BaseCrudRepository('Mensajes'),
+  Archivos: new BaseCrudRepository('Archivos', { softDelete: { field: 'activo' } }),
+  MensajesArchivos: new BaseCrudRepository('MensajesArchivos'),
+  PermisosArchivos: new BaseCrudRepository('PermisosArchivos'),
+  Dispositivos: new BaseCrudRepository('Dispositivos', { softDelete: { field: 'activo' } }),
+  UbicacionesActuales: new BaseCrudRepository('UbicacionesActuales'),
+  UbicacionesHistoriales: new BaseCrudRepository('UbicacionesHistoriales'),
+  ZonasSeguras: new BaseCrudRepository('ZonasSeguras', { softDelete: { field: 'activa' } }),
+  EventosZonasSeguras: new BaseCrudRepository('EventosZonasSeguras'),
+  PerfilesProfesionales: new BaseCrudRepository('PerfilesProfesionales'),
+  ResenasProfesionales: new BaseCrudRepository('ResenasProfesionales'),
+  Notificaciones: new BaseCrudRepository('Notificaciones'),
+  BloqueosUsuarios: new BaseCrudRepository('BloqueosUsuarios', { softDelete: { field: 'activo' } }),
+  ReportesUsuarios: new BaseCrudRepository('ReportesUsuarios'),
+  AuditoriasEventos: new BaseCrudRepository('AuditoriasEventos'),
+};
+
+export default repositories;
