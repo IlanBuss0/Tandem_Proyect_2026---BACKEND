@@ -1,2 +1,0 @@
--- Placeholder de esquema inicial para TÁNDEM.
--- Mantener aquí los scripts DDL versionados.
