@@ -21,5 +21,7 @@ router.use('/admins', administradorController);
 router.use('/actividades', actividadController);
 router.use('/rutinas', rutinaController);
 router.use('/vinculos', vinculoController);
+router.use('/permisos', permisoController);
+router.use('/', suscripcionController);
 
 export default router;
