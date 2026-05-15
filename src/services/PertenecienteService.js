@@ -1,6 +1,7 @@
 import BaseCrudService from './BaseCrudService.js';
 import PertenecienteRepository from '../repositories/PertenecienteRepository.js';
 import AppError from '../modules/errors/AppError.js';
+import VinculoService from './VinculoService.js';
 
 class PertenecienteService extends BaseCrudService {
   constructor() {
@@ -43,6 +44,8 @@ class PertenecienteService extends BaseCrudService {
 
     return { perteneciente, tutores, profesionales, actividades, rutinas, eventos, emociones, objetivos, ubicaciones, notificaciones };
   }
+  listTutores(idPerteneciente) { return VinculoService.getTutoresByPerteneciente(idPerteneciente); }
+  listProfesionales(idPerteneciente) { return VinculoService.getProfesionalesByPerteneciente(idPerteneciente); }
 }
 
 export default new PertenecienteService();
