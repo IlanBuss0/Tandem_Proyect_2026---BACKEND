@@ -1,0 +1,14 @@
+import { Router } from 'express';
+import UbicacionService from '../services/UbicacionService.js';
+const router = Router();
+router.get('/', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await UbicacionService.list() }); } catch (e) { next(e); } });
+router.get('/perteneciente/:idPerteneciente', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await UbicacionService.listByPerteneciente(Number(req.params.idPerteneciente)) }); } catch (e) { next(e); } });
+router.get('/zonas/perteneciente/:idPerteneciente', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await UbicacionService.listZonasByPerteneciente(Number(req.params.idPerteneciente)) }); } catch (e) { next(e); } });
+router.post('/zonas', async (req, res, next) => { try { res.status(201).json({ ok: true, data: await UbicacionService.createZona(req.body) }); } catch (e) { next(e); } });
+router.put('/zonas/:id', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await UbicacionService.updateZona(Number(req.params.id), req.body) }); } catch (e) { next(e); } });
+router.delete('/zonas/:id', async (req, res, next) => { try { await UbicacionService.removeZona(Number(req.params.id)); res.status(204).send(); } catch (e) { next(e); } });
+router.get('/:id', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await UbicacionService.getById(Number(req.params.id)) }); } catch (e) { next(e); } });
+router.post('/', async (req, res, next) => { try { res.status(201).json({ ok: true, data: await UbicacionService.create(req.body) }); } catch (e) { next(e); } });
+router.put('/:id', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await UbicacionService.update(Number(req.params.id), req.body) }); } catch (e) { next(e); } });
+router.delete('/:id', async (req, res, next) => { try { await UbicacionService.remove(Number(req.params.id)); res.status(204).send(); } catch (e) { next(e); } });
+export default router;

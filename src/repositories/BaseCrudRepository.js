@@ -1,9 +1,10 @@
 import BD from '../db/BD.js';
 
 export default class BaseCrudRepository {
-  constructor(tableName, idField = 'id') {
+  constructor(tableName, { idField = 'id', softDelete = null } = {}) {
     this.tableName = tableName;
     this.idField = idField;
+    this.softDelete = softDelete;
   }
 
   findAll() {
@@ -25,6 +26,7 @@ export default class BaseCrudRepository {
 
   update(id, data) {
     const entries = Object.entries(data).filter(([, value]) => value !== undefined);
+    if (!entries.length) return this.findById(id);
     const sets = entries.map(([key], i) => `${key} = $${i + 1}`);
     const values = entries.map(([, value]) => value);
     const sql = `UPDATE ${this.tableName} SET ${sets.join(', ')} WHERE ${this.idField} = $${values.length + 1} RETURNING *`;
@@ -32,6 +34,18 @@ export default class BaseCrudRepository {
   }
 
   async remove(id) {
+    if (this.softDelete?.field === 'activo') {
+      const row = await BD.queryOne(`UPDATE ${this.tableName} SET activo = 0 WHERE ${this.idField} = $1 RETURNING ${this.idField}`, [id]);
+      return Boolean(row);
+    }
+    if (this.softDelete?.field === 'fecha_fin') {
+      const row = await BD.queryOne(`UPDATE ${this.tableName} SET fecha_fin = NOW() WHERE ${this.idField} = $1 RETURNING ${this.idField}`, [id]);
+      return Boolean(row);
+    }
+    if (this.softDelete?.field === 'fecha_baja') {
+      const row = await BD.queryOne(`UPDATE ${this.tableName} SET fecha_baja = NOW() WHERE ${this.idField} = $1 RETURNING ${this.idField}`, [id]);
+      return Boolean(row);
+    }
     const deleted = await BD.queryOne(`DELETE FROM ${this.tableName} WHERE ${this.idField} = $1 RETURNING ${this.idField}`, [id]);
     return Boolean(deleted);
   }
