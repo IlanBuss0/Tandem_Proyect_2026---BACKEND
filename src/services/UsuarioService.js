@@ -1,48 +1,132 @@
-import BaseCrudService from './BaseCrudService.js';
 import UsuarioRepository from '../repositories/UsuarioRepository.js';
-import AppError from '../modules/errors/AppError.js';
-import { hashValue } from '../modules/security/hash.helper.js';
 
-class UsuarioService extends BaseCrudService {
+export default class UsuarioService {
   constructor() {
-    super(UsuarioRepository, { hiddenFields: ['contrasena_hash', 'password_hash', 'password'] });
+    console.log('Estoy en: UsuarioService.constructor()');
+    this.UsuarioRepository = new UsuarioRepository();
   }
 
-  async create(body) {
-    if (body?.correo && await this.repository.findByEmail(body.correo)) throw new AppError('El email ya está registrado', 400);
-    if (body?.nombre_usuario && await this.repository.findByNombreUsuario(body.nombre_usuario)) throw new AppError('El nombre de usuario ya existe', 400);
-    const payload = { ...body };
-    if (payload.password) {
-      payload.contrasena_hash = await hashValue(payload.password);
-      delete payload.password;
-    }
-    if (payload.password_hash) {
-      payload.contrasena_hash = await hashValue(payload.password_hash);
-      delete payload.password_hash;
-    }
-    super(UsuarioRepository, { hiddenFields: ['password_hash', 'password'] });
-  }
+  getAllAsync = async () => {
+    console.log('UsuarioService.getAllAsync()');
 
-  async create(body) {
-    if (body?.email && await this.repository.findByEmail(body.email)) throw new AppError('El email ya está registrado', 400);
-    if (body?.nombre_usuario && await this.repository.findByNombreUsuario(body.nombre_usuario)) throw new AppError('El nombre de usuario ya existe', 400);
-    const payload = { ...body };
-    if (payload.password) {
-      payload.password_hash = await hashValue(payload.password);
-      delete payload.password;
-    }
-    return super.create(payload);
-  }
+    const returnArray = await this.UsuarioRepository.getAllAsync();
 
-  async update(id, body) {
-    const payload = { ...body };
-    if (payload.password) {
-      payload.contrasena_hash = await hashValue(payload.password);
-      payload.password_hash = await hashValue(payload.password);
-      delete payload.password;
+    if (returnArray == null) return null;
+
+    return returnArray;
+  };
+
+  getByIdAsync = async (id) => {
+    console.log(`UsuarioService.getByIdAsync(${id})`);
+
+    if (!id || Number.isNaN(id)) {
+      throw new Error('El id del usuario es inválido.');
     }
-    return super.update(id, payload);
-  }
+
+    const returnEntity = await this.UsuarioRepository.getByIdAsync(id);
+
+    return returnEntity;
+  };
+
+  createAsync = async (entity) => {
+    console.log(`UsuarioService.createAsync(${JSON.stringify(entity)})`);
+
+    this.validarUsuarioParaCrear(entity);
+
+    const usuarioConMismoCorreo = await this.UsuarioRepository.getByCorreoAsync(entity.correo);
+
+    if (usuarioConMismoCorreo != null) {
+      throw new Error(`Ya existe un usuario con el correo ${entity.correo}.`);
+    }
+
+    const usuarioConMismoNombreUsuario = await this.UsuarioRepository.getByNombreUsuarioAsync(entity.nombre_usuario);
+
+    if (usuarioConMismoNombreUsuario != null) {
+      throw new Error(`Ya existe un usuario con el nombre de usuario ${entity.nombre_usuario}.`);
+    }
+
+    const newId = await this.UsuarioRepository.createAsync(entity);
+
+    return newId;
+  };
+
+  updateAsync = async (entity) => {
+    console.log(`UsuarioService.updateAsync(${JSON.stringify(entity)})`);
+
+    if (!entity?.id || Number.isNaN(entity.id)) {
+      throw new Error('El id del usuario es obligatorio para actualizar.');
+    }
+
+    const previousEntity = await this.UsuarioRepository.getByIdAsync(entity.id);
+
+    if (previousEntity == null) {
+      return 0;
+    }
+
+    if (entity.correo && entity.correo !== previousEntity.correo) {
+      const usuarioConMismoCorreo = await this.UsuarioRepository.getByCorreoAsync(entity.correo);
+
+      if (usuarioConMismoCorreo != null) {
+        throw new Error(`Ya existe un usuario con el correo ${entity.correo}.`);
+      }
+    }
+
+    if (entity.nombre_usuario && entity.nombre_usuario !== previousEntity.nombre_usuario) {
+      const usuarioConMismoNombreUsuario = await this.UsuarioRepository.getByNombreUsuarioAsync(entity.nombre_usuario);
+
+      if (usuarioConMismoNombreUsuario != null) {
+        throw new Error(`Ya existe un usuario con el nombre de usuario ${entity.nombre_usuario}.`);
+      }
+    }
+
+    const rowsAffected = await this.UsuarioRepository.updateAsync(entity);
+
+    return rowsAffected;
+  };
+
+  deleteByIdAsync = async (id) => {
+    console.log(`UsuarioService.deleteByIdAsync(${id})`);
+
+    if (!id || Number.isNaN(id)) {
+      throw new Error('El id del usuario es inválido.');
+    }
+
+    const rowsAffected = await this.UsuarioRepository.deleteByIdAsync(id);
+
+    return rowsAffected;
+  };
+
+  validarUsuarioParaCrear = (entity) => {
+    if (!entity) {
+      throw new Error('El usuario es obligatorio.');
+    }
+
+    if (!entity.id_tipo_usuario) {
+      throw new Error('id_tipo_usuario es obligatorio.');
+    }
+
+    if (!entity.nombre_usuario) {
+      throw new Error('nombre_usuario es obligatorio.');
+    }
+
+    if (!entity.contrasena_hash) {
+      throw new Error('contrasena_hash es obligatorio.');
+    }
+
+    if (!entity.nombre) {
+      throw new Error('nombre es obligatorio.');
+    }
+
+    if (!entity.apellido) {
+      throw new Error('apellido es obligatorio.');
+    }
+
+    if (!entity.correo) {
+      throw new Error('correo es obligatorio.');
+    }
+
+    if (!entity.fecha_ingreso) {
+      throw new Error('fecha_ingreso es obligatorio.');
+    }
+  };
 }
-
-export default new UsuarioService();

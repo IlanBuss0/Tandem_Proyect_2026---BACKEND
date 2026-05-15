@@ -1,27 +1,102 @@
-import { Router } from 'express';
-import PertenecienteService from '../services/PertenecienteService.js';
+import PertenecienteRepository from '../repositories/PertenecienteRepository.js';
 
-const router = Router();
+export default class PertenecienteService {
+  constructor() {
+    console.log('Estoy en: PertenecienteService.constructor()');
+    this.PertenecienteRepository = new PertenecienteRepository();
+  }
 
-router.get('/', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.findAll() }); } catch (e) { next(e); } });
-router.get('/:id/tutores', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.findTutores(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.get('/:id/profesionales', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.findProfesionales(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.get('/:id/actividades', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.findActividades(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.get('/:id/rutinas', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.findRutinas(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.get('/:id/eventos', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.findEventos(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.get('/:id/emociones', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.findEmociones(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.get('/:id/objetivos', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.findObjetivos(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.get('/:id/ubicaciones', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.findUbicaciones(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.get('/:id/notificaciones', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.findNotificaciones(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.get('/:id/dashboard', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.getDashboard(Number(req.params.id)) }); } catch (e) { next(e); } });
+  getAllAsync = async () => {
+    console.log('PertenecienteService.getAllAsync()');
 
-router.get('/:id', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.findById(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.get('/', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.list() }); } catch (e) { next(e); } });
-router.get('/:id/tutores', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.listTutores(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.get('/:id/profesionales', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.listProfesionales(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.get('/:id', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.getById(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.post('/', async (req, res, next) => { try { res.status(201).json({ ok: true, data: await PertenecienteService.create(req.body) }); } catch (e) { next(e); } });
-router.put('/:id', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await PertenecienteService.update(Number(req.params.id), req.body) }); } catch (e) { next(e); } });
-router.delete('/:id', async (req, res, next) => { try { await PertenecienteService.remove(Number(req.params.id)); res.status(200).json({ ok: true, data: true }); } catch (e) { next(e); } });
+    const returnArray = await this.PertenecienteRepository.getAllAsync();
 
-export default router;
+    if (returnArray == null) return null;
+
+    return returnArray;
+  };
+
+  getByIdAsync = async (id) => {
+    console.log(`PertenecienteService.getByIdAsync(${id})`);
+
+    if (!id || Number.isNaN(id)) {
+      throw new Error('El id del perteneciente es inválido.');
+    }
+
+    const returnEntity = await this.PertenecienteRepository.getByIdAsync(id);
+
+    return returnEntity;
+  };
+
+  createAsync = async (entity) => {
+    console.log(`PertenecienteService.createAsync(${JSON.stringify(entity)})`);
+
+    this.validarPertenecienteParaCrear(entity);
+
+    const pertenecienteConMismoUsuario = await this.PertenecienteRepository.getByUsuarioIdAsync(entity.id_usuario);
+
+    if (pertenecienteConMismoUsuario != null) {
+      throw new Error(`Ya existe un perteneciente asociado al usuario con id ${entity.id_usuario}.`);
+    }
+
+    const newId = await this.PertenecienteRepository.createAsync(entity);
+
+    return newId;
+  };
+
+  updateAsync = async (entity) => {
+    console.log(`PertenecienteService.updateAsync(${JSON.stringify(entity)})`);
+
+    if (!entity?.id || Number.isNaN(entity.id)) {
+      throw new Error('El id del perteneciente es obligatorio para actualizar.');
+    }
+
+    const previousEntity = await this.PertenecienteRepository.getByIdAsync(entity.id);
+
+    if (previousEntity == null) {
+      return 0;
+    }
+
+    if (entity.id_usuario && entity.id_usuario !== previousEntity.id_usuario) {
+      const pertenecienteConMismoUsuario = await this.PertenecienteRepository.getByUsuarioIdAsync(entity.id_usuario);
+
+      if (pertenecienteConMismoUsuario != null) {
+        throw new Error(`Ya existe un perteneciente asociado al usuario con id ${entity.id_usuario}.`);
+      }
+    }
+
+    const rowsAffected = await this.PertenecienteRepository.updateAsync(entity);
+
+    return rowsAffected;
+  };
+
+  deleteByIdAsync = async (id) => {
+    console.log(`PertenecienteService.deleteByIdAsync(${id})`);
+
+    if (!id || Number.isNaN(id)) {
+      throw new Error('El id del perteneciente es inválido.');
+    }
+
+    const rowsAffected = await this.PertenecienteRepository.deleteByIdAsync(id);
+
+    return rowsAffected;
+  };
+
+  validarPertenecienteParaCrear = (entity) => {
+    if (!entity) {
+      throw new Error('El perteneciente es obligatorio.');
+    }
+
+    if (!entity.id_usuario) {
+      throw new Error('id_usuario es obligatorio.');
+    }
+
+    if (!entity.id_nivel_apoyo) {
+      throw new Error('id_nivel_apoyo es obligatorio.');
+    }
+
+    if (!entity.id_autonomia_operativa) {
+      throw new Error('id_autonomia_operativa es obligatorio.');
+    }
+  };
+}

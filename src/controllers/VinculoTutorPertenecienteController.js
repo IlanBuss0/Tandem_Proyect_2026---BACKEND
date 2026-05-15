@@ -1,15 +1,15 @@
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-import ProfesionalService from '../services/ProfesionalService.js';
-import Profesional from '../entities/Profesional.js';
+import VinculoTutorPertenecienteService from '../services/VinculoTutorPertenecienteService.js';
+import VinculoTutorPerteneciente from '../entities/VinculoTutorPerteneciente.js';
 
 const router = Router();
-const currentService = new ProfesionalService();
+const currentService = new VinculoTutorPertenecienteService();
 
 router.get('', async (req, res) => {
   try {
-    console.log('ProfesionalController.getAll');
+    console.log('VinculoTutorPertenecienteController.getAll');
 
     const returnArray = await currentService.getAllAsync();
 
@@ -28,15 +28,45 @@ router.get('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
 
-    console.log(`ProfesionalController.getById(${id})`);
+    console.log(`VinculoTutorPertenecienteController.getById(${id})`);
 
     const returnEntity = await currentService.getByIdAsync(id);
 
     if (returnEntity != null) {
       res.status(StatusCodes.OK).json(returnEntity);
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el profesional con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el vínculo con id: ${id}.`);
     }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
+router.get('/perteneciente/:idPerteneciente', async (req, res) => {
+  try {
+    const idPerteneciente = parseInt(req.params.idPerteneciente);
+
+    console.log(`VinculoTutorPertenecienteController.getByPertenecienteId(${idPerteneciente})`);
+
+    const returnArray = await currentService.getByPertenecienteIdAsync(idPerteneciente);
+
+    res.status(StatusCodes.OK).json(returnArray);
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
+router.get('/tutor/:idTutor', async (req, res) => {
+  try {
+    const idTutor = parseInt(req.params.idTutor);
+
+    console.log(`VinculoTutorPertenecienteController.getByTutorId(${idTutor})`);
+
+    const returnArray = await currentService.getByTutorIdAsync(idTutor);
+
+    res.status(StatusCodes.OK).json(returnArray);
   } catch (error) {
     console.log(error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
@@ -45,20 +75,20 @@ router.get('/:id', async (req, res) => {
 
 router.post('', async (req, res) => {
   try {
-    console.log('ProfesionalController.create');
+    console.log('VinculoTutorPertenecienteController.create');
 
-    const entity = new Profesional(req.body);
+    const entity = new VinculoTutorPerteneciente(req.body);
 
     const newId = await currentService.createAsync(entity);
 
     if (newId > 0) {
       res.status(StatusCodes.CREATED).json({
-        message: `Se creó el profesional con id: ${newId}`,
+        message: `Se creó el vínculo tutor-perteneciente con id: ${newId}`,
         id: newId,
       });
     } else {
       res.status(StatusCodes.BAD_REQUEST).json({
-        message: 'No se pudo crear el profesional.',
+        message: 'No se pudo crear el vínculo tutor-perteneciente.',
       });
     }
   } catch (error) {
@@ -70,9 +100,9 @@ router.post('', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const entity = new Profesional(req.body);
+    const entity = new VinculoTutorPerteneciente(req.body);
 
-    console.log(`ProfesionalController.update(${id})`);
+    console.log(`VinculoTutorPertenecienteController.update(${id})`);
 
     if (entity.id && parseInt(entity.id) !== id) {
       return res
@@ -86,11 +116,11 @@ router.put('/:id', async (req, res) => {
 
     if (rowsAffected !== 0) {
       res.status(StatusCodes.OK).json({
-        message: `Se actualizó el profesional con id: ${id}`,
+        message: `Se actualizó el vínculo con id: ${id}`,
         rowsAffected,
       });
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el profesional con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el vínculo con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);
@@ -102,17 +132,17 @@ router.delete('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
 
-    console.log(`ProfesionalController.delete(${id})`);
+    console.log(`VinculoTutorPertenecienteController.delete(${id})`);
 
     const rowCount = await currentService.deleteByIdAsync(id);
 
     if (rowCount !== 0) {
       res.status(StatusCodes.OK).json({
-        message: `Se eliminó el profesional con id: ${id}`,
+        message: `Se finalizó el vínculo con id: ${id}`,
         rowsAffected: rowCount,
       });
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el profesional con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el vínculo con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);

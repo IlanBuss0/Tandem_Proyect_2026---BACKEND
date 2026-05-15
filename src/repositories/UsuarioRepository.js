@@ -1,26 +1,198 @@
-import BaseCrudRepository from './BaseCrudRepository.js';
 import BD from '../db/BD.js';
 
-class UsuarioRepository extends BaseCrudRepository {
+export default class UsuarioRepository {
   constructor() {
-    super('usuarios', { softDelete: { field: 'activo' } });
+    console.log('Estoy en: UsuarioRepository.constructor()');
   }
 
-  findByEmail(correo) {
-    return BD.queryOne('SELECT * FROM usuarios WHERE correo = $1', [correo]);
-  }
+  getAllAsync = async () => {
+    console.log('UsuarioRepository.getAllAsync()');
 
-  findByNombreUsuario(nombreUsuario) {
-    return BD.queryOne('SELECT * FROM usuarios WHERE nombre_usuario = $1', [nombreUsuario]);
-  }
+    const sql = `
+      SELECT
+        id,
+        id_tipo_usuario,
+        nombre_usuario,
+        nombre,
+        apellido,
+        correo,
+        telefono,
+        fecha_nacimiento,
+        fecha_ingreso,
+        activo
+      FROM "Usuarios"
+      ORDER BY id DESC
+    `;
 
-  findByEmail(email) {
-    return BD.queryOne('SELECT * FROM usuarios WHERE email = $1', [email]);
-  }
+    return await BD.query(sql);
+  };
 
-  findByNombreUsuario(nombreUsuario) {
-    return BD.queryOne('SELECT * FROM usuarios WHERE nombre_usuario = $1', [nombreUsuario]);
-  }
+  getByIdAsync = async (id) => {
+    console.log(`UsuarioRepository.getByIdAsync(${id})`);
+
+    const sql = `
+      SELECT
+        id,
+        id_tipo_usuario,
+        nombre_usuario,
+        nombre,
+        apellido,
+        correo,
+        telefono,
+        fecha_nacimiento,
+        fecha_ingreso,
+        activo
+      FROM "Usuarios"
+      WHERE id = $1
+    `;
+
+    return await BD.queryOne(sql, [id]);
+  };
+
+  getByCorreoAsync = async (correo) => {
+    console.log(`UsuarioRepository.getByCorreoAsync(${correo})`);
+
+    const sql = `
+      SELECT
+        id,
+        id_tipo_usuario,
+        nombre_usuario,
+        nombre,
+        apellido,
+        correo,
+        telefono,
+        fecha_nacimiento,
+        fecha_ingreso,
+        activo
+      FROM "Usuarios"
+      WHERE correo = $1
+    `;
+
+    return await BD.queryOne(sql, [correo]);
+  };
+
+  getByNombreUsuarioAsync = async (nombreUsuario) => {
+    console.log(`UsuarioRepository.getByNombreUsuarioAsync(${nombreUsuario})`);
+
+    const sql = `
+      SELECT
+        id,
+        id_tipo_usuario,
+        nombre_usuario,
+        nombre,
+        apellido,
+        correo,
+        telefono,
+        fecha_nacimiento,
+        fecha_ingreso,
+        activo
+      FROM "Usuarios"
+      WHERE nombre_usuario = $1
+    `;
+
+    return await BD.queryOne(sql, [nombreUsuario]);
+  };
+
+  createAsync = async (entity) => {
+    console.log(`UsuarioRepository.createAsync(${JSON.stringify(entity)})`);
+
+    const sql = `
+      INSERT INTO "Usuarios" (
+        id_tipo_usuario,
+        nombre_usuario,
+        contrasena_hash,
+        nombre,
+        apellido,
+        correo,
+        telefono,
+        fecha_nacimiento,
+        fecha_ingreso,
+        activo
+      )
+      VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9,
+        COALESCE($10, true)
+      )
+      RETURNING id
+    `;
+
+    const values = [
+      entity?.id_tipo_usuario,
+      entity?.nombre_usuario,
+      entity?.contrasena_hash,
+      entity?.nombre,
+      entity?.apellido,
+      entity?.correo,
+      entity?.telefono ?? null,
+      entity?.fecha_nacimiento ?? null,
+      entity?.fecha_ingreso,
+      entity?.activo ?? true,
+    ];
+
+    const result = await BD.queryOne(sql, values);
+
+    return result?.id ?? 0;
+  };
+
+  updateAsync = async (entity) => {
+    console.log(`UsuarioRepository.updateAsync(${JSON.stringify(entity)})`);
+
+    const id = entity.id;
+
+    const previousEntity = await this.getByIdAsync(id);
+
+    if (previousEntity == null) return 0;
+
+    const sql = `
+      UPDATE "Usuarios"
+      SET
+        id_tipo_usuario = $2,
+        nombre_usuario = $3,
+        contrasena_hash = $4,
+        nombre = $5,
+        apellido = $6,
+        correo = $7,
+        telefono = $8,
+        fecha_nacimiento = $9,
+        fecha_ingreso = $10,
+        activo = $11
+      WHERE id = $1
+    `;
+
+    const values = [
+      id,
+      entity?.id_tipo_usuario ?? previousEntity.id_tipo_usuario,
+      entity?.nombre_usuario ?? previousEntity.nombre_usuario,
+      entity?.contrasena_hash ?? previousEntity.contrasena_hash,
+      entity?.nombre ?? previousEntity.nombre,
+      entity?.apellido ?? previousEntity.apellido,
+      entity?.correo ?? previousEntity.correo,
+      entity?.telefono ?? previousEntity.telefono,
+      entity?.fecha_nacimiento ?? previousEntity.fecha_nacimiento,
+      entity?.fecha_ingreso ?? previousEntity.fecha_ingreso,
+      entity?.activo ?? previousEntity.activo,
+    ];
+
+    return await BD.execute(sql, values);
+  };
+
+  deleteByIdAsync = async (id) => {
+    console.log(`UsuarioRepository.deleteByIdAsync(${id})`);
+
+    const sql = `
+      UPDATE "Usuarios"
+      SET activo = false
+      WHERE id = $1
+    `;
+
+    return await BD.execute(sql, [id]);
+  };
 }
-
-export default new UsuarioRepository();

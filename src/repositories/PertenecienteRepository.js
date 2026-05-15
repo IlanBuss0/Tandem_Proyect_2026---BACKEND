@@ -1,89 +1,138 @@
-import BaseCrudRepository from './BaseCrudRepository.js';
 import BD from '../db/BD.js';
 
-class PertenecienteRepository extends BaseCrudRepository {
+export default class PertenecienteRepository {
   constructor() {
-    super('pertenecientes');
+    console.log('Estoy en: PertenecienteRepository.constructor()');
   }
 
-  async safeQueryArray(sql, params = []) {
-    try {
-      return await BD.query(sql, params);
-    } catch (error) {
-      // Si una tabla/relación no existe todavía en el schema desplegado, no romper endpoint relacional.
-      if (String(error.message || '').toLowerCase().includes('does not exist')) return [];
-      throw error;
-    }
-  }
+  getAllAsync = async () => {
+    console.log('PertenecienteRepository.getAllAsync()');
 
-  findTutores(idPerteneciente) {
-    return this.safeQueryArray(
-      `SELECT t.*
-       FROM vinculos_tutor_pertenecientes vtp
-       JOIN tutores t ON t.id = vtp.id_tutor
-       WHERE vtp.id_perteneciente = $1
-       ORDER BY t.id DESC`,
-      [idPerteneciente],
-    );
-  }
+    const sql = `
+      SELECT
+        id,
+        id_usuario,
+        id_nivel_apoyo,
+        id_autonomia_operativa,
+        puede_autogestionarse,
+        observacion_general
+      FROM "Pertenecientes"
+      ORDER BY id DESC
+    `;
 
-  findProfesionales(idPerteneciente) {
-    return this.safeQueryArray(
-      `SELECT p.*
-       FROM vinculos_profesional_pertenecientes vpp
-       JOIN profesionales p ON p.id = vpp.id_profesional
-       WHERE vpp.id_perteneciente = $1
-       ORDER BY p.id DESC`,
-      [idPerteneciente],
-    );
-  }
+    return await BD.query(sql);
+  };
 
-  findActividades(idPerteneciente) {
-    return this.safeQueryArray('SELECT * FROM actividades_asignadas WHERE id_perteneciente = $1 ORDER BY id DESC', [idPerteneciente]);
-  }
+  getByIdAsync = async (id) => {
+    console.log(`PertenecienteRepository.getByIdAsync(${id})`);
 
-  findRutinas(idPerteneciente) {
-    // En el schema actual no hay tabla rutinas explícita; se usa actividades_asignadas como fuente temporal.
-    return this.safeQueryArray('SELECT * FROM actividades_asignadas WHERE id_perteneciente = $1 ORDER BY id DESC', [idPerteneciente]);
-  }
+    const sql = `
+      SELECT
+        id,
+        id_usuario,
+        id_nivel_apoyo,
+        id_autonomia_operativa,
+        puede_autogestionarse,
+        observacion_general
+      FROM "Pertenecientes"
+      WHERE id = $1
+    `;
 
-  findEventos(idPerteneciente) {
-    // En el schema actual se mapea eventos a sesiones_profesionales.
-    return this.safeQueryArray('SELECT * FROM sesiones_profesionales WHERE id_perteneciente = $1 ORDER BY fecha_sesion ASC', [idPerteneciente]);
-  }
+    return await BD.queryOne(sql, [id]);
+  };
 
-  findEmociones(idPerteneciente) {
-    // En el schema actual se mapea emociones a evaluaciones_autonomias.
-    return this.safeQueryArray('SELECT * FROM evaluaciones_autonomias WHERE id_perteneciente = $1 ORDER BY id DESC', [idPerteneciente]);
-  }
+  getByUsuarioIdAsync = async (idUsuario) => {
+    console.log(`PertenecienteRepository.getByUsuarioIdAsync(${idUsuario})`);
 
-  findObjetivos(idPerteneciente) {
-    // En el schema actual no hay tabla objetivos explícita; devolución temporal desde actividades_asignadas.
-    return this.safeQueryArray('SELECT * FROM actividades_asignadas WHERE id_perteneciente = $1 ORDER BY id DESC', [idPerteneciente]);
-  }
+    const sql = `
+      SELECT
+        id,
+        id_usuario,
+        id_nivel_apoyo,
+        id_autonomia_operativa,
+        puede_autogestionarse,
+        observacion_general
+      FROM "Pertenecientes"
+      WHERE id_usuario = $1
+    `;
 
-  findUbicaciones(idPerteneciente) {
-    return this.safeQueryArray(
-      `SELECT uh.*
-       FROM ubicaciones_historiales uh
-       JOIN dispositivos d ON d.id = uh.id_dispositivo
-       JOIN pertenecientes p ON p.id_usuario = d.id_usuario
-       WHERE p.id = $1
-       ORDER BY uh.id DESC`,
-      [idPerteneciente],
-    );
-  }
+    return await BD.queryOne(sql, [idUsuario]);
+  };
 
-  findNotificaciones(idPerteneciente) {
-    return this.safeQueryArray(
-      `SELECT n.*
-       FROM notificaciones n
-       JOIN pertenecientes p ON p.id_usuario = n.id_usuario_destino
-       WHERE p.id = $1
-       ORDER BY n.id DESC`,
-      [idPerteneciente],
-    );
-  }
+  createAsync = async (entity) => {
+    console.log(`PertenecienteRepository.createAsync(${JSON.stringify(entity)})`);
+
+    const sql = `
+      INSERT INTO "Pertenecientes" (
+        id_usuario,
+        id_nivel_apoyo,
+        id_autonomia_operativa,
+        puede_autogestionarse,
+        observacion_general
+      )
+      VALUES (
+        $1,
+        $2,
+        $3,
+        COALESCE($4, false),
+        $5
+      )
+      RETURNING id
+    `;
+
+    const values = [
+      entity?.id_usuario,
+      entity?.id_nivel_apoyo,
+      entity?.id_autonomia_operativa,
+      entity?.puede_autogestionarse ?? false,
+      entity?.observacion_general ?? null,
+    ];
+
+    const result = await BD.queryOne(sql, values);
+
+    return result?.id ?? 0;
+  };
+
+  updateAsync = async (entity) => {
+    console.log(`PertenecienteRepository.updateAsync(${JSON.stringify(entity)})`);
+
+    const id = entity.id;
+
+    const previousEntity = await this.getByIdAsync(id);
+
+    if (previousEntity == null) return 0;
+
+    const sql = `
+      UPDATE "Pertenecientes"
+      SET
+        id_usuario = $2,
+        id_nivel_apoyo = $3,
+        id_autonomia_operativa = $4,
+        puede_autogestionarse = $5,
+        observacion_general = $6
+      WHERE id = $1
+    `;
+
+    const values = [
+      id,
+      entity?.id_usuario ?? previousEntity.id_usuario,
+      entity?.id_nivel_apoyo ?? previousEntity.id_nivel_apoyo,
+      entity?.id_autonomia_operativa ?? previousEntity.id_autonomia_operativa,
+      entity?.puede_autogestionarse ?? previousEntity.puede_autogestionarse,
+      entity?.observacion_general ?? previousEntity.observacion_general,
+    ];
+
+    return await BD.execute(sql, values);
+  };
+
+  deleteByIdAsync = async (id) => {
+    console.log(`PertenecienteRepository.deleteByIdAsync(${id})`);
+
+    const sql = `
+      DELETE FROM "Pertenecientes"
+      WHERE id = $1
+    `;
+
+    return await BD.execute(sql, [id]);
+  };
 }
-
-export default new PertenecienteRepository();

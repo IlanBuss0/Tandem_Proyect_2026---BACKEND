@@ -1,11 +1,123 @@
 import { Router } from 'express';
+import { StatusCodes } from 'http-status-codes';
+
 import UsuarioService from '../services/UsuarioService.js';
+import Usuario from '../entities/Usuario.js';
 
 const router = Router();
-router.get('/', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await UsuarioService.list() }); } catch (e) { next(e); } });
-router.get('/:id', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await UsuarioService.getById(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.post('/', async (req, res, next) => { try { res.status(201).json({ ok: true, data: await UsuarioService.create(req.body) }); } catch (e) { next(e); } });
-router.put('/:id', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await UsuarioService.update(Number(req.params.id), req.body) }); } catch (e) { next(e); } });
-router.delete('/:id', async (req, res, next) => { try { await UsuarioService.remove(Number(req.params.id)); res.status(204).send(); } catch (e) { next(e); } });
+const currentService = new UsuarioService();
+
+router.get('', async (req, res) => {
+  try {
+    console.log('UsuarioController.getAll');
+
+    const returnArray = await currentService.getAllAsync();
+
+    if (returnArray != null) {
+      res.status(StatusCodes.OK).json(returnArray);
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    console.log(`UsuarioController.getById(${id})`);
+
+    const returnEntity = await currentService.getByIdAsync(id);
+
+    if (returnEntity != null) {
+      res.status(StatusCodes.OK).json(returnEntity);
+    } else {
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el usuario con id: ${id}.`);
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
+router.post('', async (req, res) => {
+  try {
+    console.log('UsuarioController.create');
+
+    const entity = new Usuario(req.body);
+
+    const newId = await currentService.createAsync(entity);
+
+    if (newId > 0) {
+      res.status(StatusCodes.CREATED).json({
+        message: `Se creó el usuario con id: ${newId}`,
+        id: newId,
+      });
+    } else {
+      res.status(StatusCodes.BAD_REQUEST).json({
+        message: 'No se pudo crear el usuario.',
+      });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const entity = new Usuario(req.body);
+
+    console.log(`UsuarioController.update(${id})`);
+
+    if (entity.id && parseInt(entity.id) !== id) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .send(`El id de la URL (${id}) no coincide con el id del body (${entity.id}).`);
+    }
+
+    entity.id = id;
+
+    const rowsAffected = await currentService.updateAsync(entity);
+
+    if (rowsAffected !== 0) {
+      res.status(StatusCodes.OK).json({
+        message: `Se actualizó el usuario con id: ${id}`,
+        rowsAffected,
+      });
+    } else {
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el usuario con id: ${id}.`);
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    console.log(`UsuarioController.delete(${id})`);
+
+    const rowCount = await currentService.deleteByIdAsync(id);
+
+    if (rowCount !== 0) {
+      res.status(StatusCodes.OK).json({
+        message: `Se eliminó/desactivó el usuario con id: ${id}`,
+        rowsAffected: rowCount,
+      });
+    } else {
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el usuario con id: ${id}.`);
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
 
 export default router;
