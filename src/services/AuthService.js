@@ -1,10 +1,14 @@
 import AppError from '../modules/errors/AppError.js';
 import AuthRepository from '../repositories/AuthRepository.js';
 import UsuarioService from './UsuarioService.js';
+import { compareValue } from '../modules/security/hash.helper.js';
+import { signJwt } from '../modules/security/jwt.helper.js';
 
 class AuthService {
   async register(data) {
-    return UsuarioService.create(data);
+    const user = await UsuarioService.create(data);
+    const token = signJwt({ id: user.id, correo: user.correo, nombre_usuario: user.nombre_usuario });
+    return { user, token };
   }
 
   async login({ identifier, password }) {
@@ -12,15 +16,20 @@ class AuthService {
     const user = await AuthRepository.findByEmailOrUsername(identifier);
     if (!user) throw new AppError('Credenciales inválidas', 401);
 
-    const valid = user.password_hash ? user.password_hash === password : user.password === password;
+    const valid = await compareValue(password, user.contrasena_hash || user.password_hash || user.password);
     if (!valid) throw new AppError('Credenciales inválidas', 401);
+    delete user.contrasena_hash;
     delete user.password_hash;
     delete user.password;
-    return { user, token: null, message: 'JWT pendiente de implementación' };
+    const token = signJwt({ id: user.id, correo: user.correo, nombre_usuario: user.nombre_usuario });
+    return { user, token };
   }
 
-  async me() {
-    throw new AppError('Auth me requiere JWT, pendiente de implementación', 501);
+  async me(req) {
+    if (!req.user?.id) throw new AppError('No autenticado', 401);
+    const user = await AuthRepository.findSafeById(req.user.id);
+    if (!user) throw new AppError('Usuario no encontrado', 404);
+    return user;
   }
 }
 
