@@ -7,6 +7,8 @@ class PermisoService {
   getByPerteneciente(id) { return PermisoRepository.findByPerteneciente(id); }
   getByProfesional(id) { return PermisoRepository.findByProfesional(id); }
 
+  createPerteneciente(body) { return PermisoRepository.createPerteneciente(body); }
+  createProfesional(body) { return PermisoRepository.createProfesional(body); }
   createPerteneciente(body) { return PermisoRepository.create({ ...body, tipo_permiso: 'perteneciente' }); }
   createProfesional(body) { return PermisoRepository.create({ ...body, tipo_permiso: 'profesional' }); }
 
@@ -17,6 +19,8 @@ class PermisoService {
   }
 
   async remove(id) {
+    const ok = await PermisoRepository.remove(id);
+    if (!ok) throw new AppError('Permiso no encontrado', 404);
     const count = await PermisoRepository.remove(id);
     if (!count) throw new AppError('Permiso no encontrado', 404);
   }
