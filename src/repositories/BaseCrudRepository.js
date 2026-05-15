@@ -35,6 +35,7 @@ export default class BaseCrudRepository {
 
   async remove(id) {
     if (this.softDelete?.field === 'activo') {
+      const row = await BD.queryOne(`UPDATE ${this.tableName} SET activo = false WHERE ${this.idField} = $1 RETURNING ${this.idField}`, [id]);
       const row = await BD.queryOne(`UPDATE ${this.tableName} SET activo = 0 WHERE ${this.idField} = $1 RETURNING ${this.idField}`, [id]);
       return Boolean(row);
     }
@@ -44,6 +45,10 @@ export default class BaseCrudRepository {
     }
     if (this.softDelete?.field === 'fecha_baja') {
       const row = await BD.queryOne(`UPDATE ${this.tableName} SET fecha_baja = NOW() WHERE ${this.idField} = $1 RETURNING ${this.idField}`, [id]);
+      return Boolean(row);
+    }
+    if (this.softDelete?.field === 'fecha_resolucion') {
+      const row = await BD.queryOne(`UPDATE ${this.tableName} SET fecha_resolucion = NOW() WHERE ${this.idField} = $1 RETURNING ${this.idField}`, [id]);
       return Boolean(row);
     }
     const deleted = await BD.queryOne(`DELETE FROM ${this.tableName} WHERE ${this.idField} = $1 RETURNING ${this.idField}`, [id]);
