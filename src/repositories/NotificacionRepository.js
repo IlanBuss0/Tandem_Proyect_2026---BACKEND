@@ -1,0 +1,49 @@
+import BD from '../db/BD.js';
+
+export default class NotificacionRepository {
+  constructor() {
+    console.log('Estoy en: NotificacionRepository.constructor()');
+  }
+
+  getAllAsync = async () => {
+    console.log('NotificacionRepository.getAllAsync()');
+    const sql = `SELECT id, id_usuario_destino, id_usuario_actor, id_tipo_notificacion, titulo, cuerpo, leida, fecha_creacion, fecha_lectura FROM "Notificaciones" ORDER BY id DESC`;
+    return await BD.query(sql);
+  };
+
+  getByIdAsync = async (id) => {
+    console.log(`NotificacionRepository.getByIdAsync(${id})`);
+    const sql = `SELECT id, id_usuario_destino, id_usuario_actor, id_tipo_notificacion, titulo, cuerpo, leida, fecha_creacion, fecha_lectura FROM "Notificaciones" WHERE id = $1`;
+    return await BD.queryOne(sql, [id]);
+  };
+
+  getByUsuarioDestinoIdAsync = async (idUsuarioDestino) => {
+    console.log(`NotificacionRepository.getByUsuarioDestinoIdAsync(${idUsuarioDestino})`);
+    const sql = `SELECT id, id_usuario_destino, id_usuario_actor, id_tipo_notificacion, titulo, cuerpo, leida, fecha_creacion, fecha_lectura FROM "Notificaciones" WHERE id_usuario_destino = $1 ORDER BY id DESC`;
+    return await BD.query(sql, [idUsuarioDestino]);
+  };
+
+  createAsync = async (entity) => {
+    console.log(`NotificacionRepository.createAsync(${JSON.stringify(entity)})`);
+    const sql = `INSERT INTO "Notificaciones" (id_usuario_destino, id_usuario_actor, id_tipo_notificacion, titulo, cuerpo, leida, fecha_creacion, fecha_lectura) VALUES ($1, $2, $3, $4, $5, COALESCE($6, false), $7, $8) RETURNING id`;
+    const values = [entity?.id_usuario_destino, entity?.id_usuario_actor ?? null, entity?.id_tipo_notificacion, entity?.titulo, entity?.cuerpo ?? null, entity?.leida ?? false, entity?.fecha_creacion, entity?.fecha_lectura ?? null];
+    const result = await BD.queryOne(sql, values);
+    return result?.id ?? 0;
+  };
+
+  updateAsync = async (entity) => {
+    console.log(`NotificacionRepository.updateAsync(${JSON.stringify(entity)})`);
+    const id = entity.id;
+    const previousEntity = await this.getByIdAsync(id);
+    if (previousEntity == null) return 0;
+    const sql = `UPDATE "Notificaciones" SET id_usuario_destino = $2, id_usuario_actor = $3, id_tipo_notificacion = $4, titulo = $5, cuerpo = $6, leida = $7, fecha_creacion = $8, fecha_lectura = $9 WHERE id = $1`;
+    const values = [id, entity?.id_usuario_destino ?? previousEntity.id_usuario_destino, entity?.id_usuario_actor ?? previousEntity.id_usuario_actor, entity?.id_tipo_notificacion ?? previousEntity.id_tipo_notificacion, entity?.titulo ?? previousEntity.titulo, entity?.cuerpo ?? previousEntity.cuerpo, entity?.leida ?? previousEntity.leida, entity?.fecha_creacion ?? previousEntity.fecha_creacion, entity?.fecha_lectura ?? previousEntity.fecha_lectura];
+    return await BD.execute(sql, values);
+  };
+
+  deleteByIdAsync = async (id) => {
+    console.log(`NotificacionRepository.deleteByIdAsync(${id})`);
+    const sql = `DELETE FROM "Notificaciones" WHERE id = $1`;
+    return await BD.execute(sql, [id]);
+  };
+}

@@ -1,6 +1,16 @@
 class EventoZonaSegura {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
+  constructor({
+    id = null,
+    id_zona_segura,
+    id_dispositivo,
+    id_tipo_evento_zona_segura,
+    fecha_evento,
+  }) {
+    this.id = id;
+    this.id_zona_segura = id_zona_segura;
+    this.id_dispositivo = id_dispositivo;
+    this.id_tipo_evento_zona_segura = id_tipo_evento_zona_segura;
+    this.fecha_evento = fecha_evento;
   }
 }
 

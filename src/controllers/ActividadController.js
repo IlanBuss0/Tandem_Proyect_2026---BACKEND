@@ -1,16 +1,123 @@
 import { Router } from 'express';
+import { StatusCodes } from 'http-status-codes';
+
 import ActividadService from '../services/ActividadService.js';
+import Actividad from '../entities/Actividad.js';
 
 const router = Router();
-router.get('/', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await ActividadService.list() }); } catch (e) { next(e); } });
-router.get('/base', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await ActividadService.listBase() }); } catch (e) { next(e); } });
-router.get('/personalizadas', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await ActividadService.listPersonalizadas() }); } catch (e) { next(e); } });
-router.get('/perteneciente/:idPerteneciente', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await ActividadService.listByPerteneciente(Number(req.params.idPerteneciente)) }); } catch (e) { next(e); } });
-router.get('/categoria/:categoria', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await ActividadService.listByCategoria(req.params.categoria) }); } catch (e) { next(e); } });
-router.get('/tipo/:tipo', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await ActividadService.listByTipo(req.params.tipo) }); } catch (e) { next(e); } });
-router.get('/:id', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await ActividadService.getById(Number(req.params.id)) }); } catch (e) { next(e); } });
-router.post('/', async (req, res, next) => { try { res.status(201).json({ ok: true, data: await ActividadService.create(req.body) }); } catch (e) { next(e); } });
-router.put('/:id', async (req, res, next) => { try { res.status(200).json({ ok: true, data: await ActividadService.update(Number(req.params.id), req.body) }); } catch (e) { next(e); } });
-router.delete('/:id', async (req, res, next) => { try { await ActividadService.remove(Number(req.params.id)); res.status(204).send(); } catch (e) { next(e); } });
+const currentService = new ActividadService();
+
+router.get('', async (req, res) => {
+  try {
+    console.log('ActividadController.getAll');
+
+    const returnArray = await currentService.getAllAsync();
+
+    if (returnArray != null) {
+      res.status(StatusCodes.OK).json(returnArray);
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    console.log(`ActividadController.getById(${id})`);
+
+    const returnEntity = await currentService.getByIdAsync(id);
+
+    if (returnEntity != null) {
+      res.status(StatusCodes.OK).json(returnEntity);
+    } else {
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontró la actividad con id: ${id}.`);
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
+router.post('', async (req, res) => {
+  try {
+    console.log('ActividadController.create');
+
+    const entity = new Actividad(req.body);
+
+    const newId = await currentService.createAsync(entity);
+
+    if (newId > 0) {
+      res.status(StatusCodes.CREATED).json({
+        message: `Se creó la actividad con id: ${newId}`,
+        id: newId,
+      });
+    } else {
+      res.status(StatusCodes.BAD_REQUEST).json({
+        message: 'No se pudo crear la actividad.',
+      });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const entity = new Actividad(req.body);
+
+    console.log(`ActividadController.update(${id})`);
+
+    if (entity.id && parseInt(entity.id) !== id) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .send(`El id de la URL (${id}) no coincide con el id del body (${entity.id}).`);
+    }
+
+    entity.id = id;
+
+    const rowsAffected = await currentService.updateAsync(entity);
+
+    if (rowsAffected !== 0) {
+      res.status(StatusCodes.OK).json({
+        message: `Se actualizó la actividad con id: ${id}`,
+        rowsAffected,
+      });
+    } else {
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontró la actividad con id: ${id}.`);
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    console.log(`ActividadController.delete(${id})`);
+
+    const rowCount = await currentService.deleteByIdAsync(id);
+
+    if (rowCount !== 0) {
+      res.status(StatusCodes.OK).json({
+        message: `Se desactivó la actividad con id: ${id}`,
+        rowsAffected: rowCount,
+      });
+    } else {
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontró la actividad con id: ${id}.`);
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
 
 export default router;

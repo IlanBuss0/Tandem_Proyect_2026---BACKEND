@@ -1,19 +1,43 @@
-import BaseCrudRepository from './BaseCrudRepository.js';
 import BD from '../db/BD.js';
 
-class ChatRepository extends BaseCrudRepository {
-  constructor() { super('chats', { softDelete: { field: 'activo' } }); }
-  findMensajes(idChat) { return BD.query('SELECT * FROM mensajes WHERE id_chat = $1 ORDER BY id ASC', [idChat]); }
-  createMensaje(idChat, body) { const e = Object.entries({ ...body, id_chat: idChat }).filter(([, v]) => v !== undefined); const f = e.map(([k]) => k); const vals = e.map(([, v]) => v); return BD.queryOne(`INSERT INTO mensajes (${f.join(', ')}) VALUES (${f.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, vals); }
-  updateMensaje(id, body) { const e = Object.entries(body).filter(([, v]) => v !== undefined); const sets = e.map(([k], i) => `${k} = $${i + 1}`); const vals = e.map(([, v]) => v); if (!vals.length) return BD.queryOne('SELECT * FROM mensajes WHERE id = $1', [id]); return BD.queryOne(`UPDATE mensajes SET ${sets.join(', ')} WHERE id = $${vals.length + 1} RETURNING *`, [...vals, id]); }
-  async removeMensaje(id) { const deleted = await BD.queryOne('DELETE FROM mensajes WHERE id = $1 RETURNING id', [id]); return Boolean(deleted); }
-  findConversacionesByUsuario(idUsuario) { return BD.query('SELECT c.* FROM chats c JOIN participantes_chats pc ON pc.id_chat = c.id WHERE pc.id_usuario = $1 ORDER BY c.id DESC', [idUsuario]); }
-class ChatRepository extends BaseCrudRepository {
-  constructor() { super('conversaciones'); }
-  findMensajes(idConversacion) { return BD.query('SELECT * FROM mensajes WHERE id_conversacion = $1 ORDER BY id ASC', [idConversacion]); }
-  createMensaje(idConversacion, body) { const e=Object.entries({...body,id_conversacion:idConversacion}).filter(([,v])=>v!==undefined); const f=e.map(([k])=>k); const vals=e.map(([,v])=>v); return BD.queryOne(`INSERT INTO mensajes (${f.join(', ')}) VALUES (${f.map((_,i)=>`$${i+1}`).join(', ')}) RETURNING *`, vals); }
-  updateMensaje(id, body) { const e=Object.entries(body).filter(([,v])=>v!==undefined); const sets=e.map(([k],i)=>`${k} = $${i+1}`); const vals=e.map(([,v])=>v); return BD.queryOne(`UPDATE mensajes SET ${sets.join(', ')} WHERE id = $${vals.length+1} RETURNING *`, [...vals,id]); }
-  removeMensaje(id) { return BD.execute('DELETE FROM mensajes WHERE id = $1', [id]); }
-  findConversacionesByUsuario(idUsuario) { return BD.query('SELECT * FROM conversaciones WHERE id_usuario_1 = $1 OR id_usuario_2 = $1 ORDER BY id DESC', [idUsuario]); }
+export default class ChatRepository {
+  constructor() {
+    console.log('Estoy en: ChatRepository.constructor()');
+  }
+
+  getAllAsync = async () => {
+    console.log('ChatRepository.getAllAsync()');
+    const sql = `SELECT id, id_tipo_chat, nombre, fecha_creacion, activo FROM "Chats" ORDER BY id DESC`;
+    return await BD.query(sql);
+  };
+
+  getByIdAsync = async (id) => {
+    console.log(`ChatRepository.getByIdAsync(${id})`);
+    const sql = `SELECT id, id_tipo_chat, nombre, fecha_creacion, activo FROM "Chats" WHERE id = $1`;
+    return await BD.queryOne(sql, [id]);
+  };
+
+  createAsync = async (entity) => {
+    console.log(`ChatRepository.createAsync(${JSON.stringify(entity)})`);
+    const sql = `INSERT INTO "Chats" (id_tipo_chat, nombre, fecha_creacion, activo) VALUES ($1, $2, $3, COALESCE($4, true)) RETURNING id`;
+    const values = [entity?.id_tipo_chat, entity?.nombre ?? null, entity?.fecha_creacion, entity?.activo ?? true];
+    const result = await BD.queryOne(sql, values);
+    return result?.id ?? 0;
+  };
+
+  updateAsync = async (entity) => {
+    console.log(`ChatRepository.updateAsync(${JSON.stringify(entity)})`);
+    const id = entity.id;
+    const previousEntity = await this.getByIdAsync(id);
+    if (previousEntity == null) return 0;
+    const sql = `UPDATE "Chats" SET id_tipo_chat = $2, nombre = $3, fecha_creacion = $4, activo = $5 WHERE id = $1`;
+    const values = [id, entity?.id_tipo_chat ?? previousEntity.id_tipo_chat, entity?.nombre ?? previousEntity.nombre, entity?.fecha_creacion ?? previousEntity.fecha_creacion, entity?.activo ?? previousEntity.activo];
+    return await BD.execute(sql, values);
+  };
+
+  deleteByIdAsync = async (id) => {
+    console.log(`ChatRepository.deleteByIdAsync(${id})`);
+    const sql = `UPDATE "Chats" SET activo = false WHERE id = $1`;
+    return await BD.execute(sql, [id]);
+  };
 }
-export default new ChatRepository();

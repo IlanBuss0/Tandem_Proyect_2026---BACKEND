@@ -1,6 +1,16 @@
 class ConfiguracionAccesibilidad {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
+  constructor({
+    id = null,
+    id_usuario,
+    clave,
+    valor,
+    fecha_modificacion,
+  }) {
+    this.id = id;
+    this.id_usuario = id_usuario;
+    this.clave = clave;
+    this.valor = valor;
+    this.fecha_modificacion = fecha_modificacion;
   }
 }
 

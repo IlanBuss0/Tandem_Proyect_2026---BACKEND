@@ -1,0 +1,164 @@
+import BD from '../db/BD.js';
+
+export default class ActividadPersonalizadaRepository {
+  constructor() {
+    console.log('Estoy en: ActividadPersonalizadaRepository.constructor()');
+  }
+
+  getAllAsync = async () => {
+    console.log('ActividadPersonalizadaRepository.getAllAsync()');
+
+    const sql = `
+      SELECT
+        id,
+        id_actividad_base,
+        id_tipo_actividad,
+        id_punto_otorgado,
+        id_usuario_creador,
+        titulo,
+        descripcion,
+        fecha_creacion,
+        activa
+      FROM "ActividadesPersonalizadas"
+      ORDER BY id DESC
+    `;
+
+    return await BD.query(sql);
+  };
+
+  getByIdAsync = async (id) => {
+    console.log(`ActividadPersonalizadaRepository.getByIdAsync(${id})`);
+
+    const sql = `
+      SELECT
+        id,
+        id_actividad_base,
+        id_tipo_actividad,
+        id_punto_otorgado,
+        id_usuario_creador,
+        titulo,
+        descripcion,
+        fecha_creacion,
+        activa
+      FROM "ActividadesPersonalizadas"
+      WHERE id = $1
+    `;
+
+    return await BD.queryOne(sql, [id]);
+  };
+
+  getByUsuarioCreadorAsync = async (idUsuarioCreador) => {
+    console.log(`ActividadPersonalizadaRepository.getByUsuarioCreadorAsync(${idUsuarioCreador})`);
+
+    const sql = `
+      SELECT
+        id,
+        id_actividad_base,
+        id_tipo_actividad,
+        id_punto_otorgado,
+        id_usuario_creador,
+        titulo,
+        descripcion,
+        fecha_creacion,
+        activa
+      FROM "ActividadesPersonalizadas"
+      WHERE id_usuario_creador = $1
+      ORDER BY id DESC
+    `;
+
+    return await BD.query(sql, [idUsuarioCreador]);
+  };
+
+  createAsync = async (entity) => {
+    console.log(`ActividadPersonalizadaRepository.createAsync(${JSON.stringify(entity)})`);
+
+    const sql = `
+      INSERT INTO "ActividadesPersonalizadas" (
+        id_actividad_base,
+        id_tipo_actividad,
+        id_punto_otorgado,
+        id_usuario_creador,
+        titulo,
+        descripcion,
+        fecha_creacion,
+        activa
+      )
+      VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        COALESCE($8, true)
+      )
+      RETURNING id
+    `;
+
+    const values = [
+      entity?.id_actividad_base ?? null,
+      entity?.id_tipo_actividad,
+      entity?.id_punto_otorgado,
+      entity?.id_usuario_creador,
+      entity?.titulo,
+      entity?.descripcion ?? null,
+      entity?.fecha_creacion,
+      entity?.activa ?? true,
+    ];
+
+    const result = await BD.queryOne(sql, values);
+
+    return result?.id ?? 0;
+  };
+
+  updateAsync = async (entity) => {
+    console.log(`ActividadPersonalizadaRepository.updateAsync(${JSON.stringify(entity)})`);
+
+    const id = entity.id;
+
+    const previousEntity = await this.getByIdAsync(id);
+
+    if (previousEntity == null) return 0;
+
+    const sql = `
+      UPDATE "ActividadesPersonalizadas"
+      SET
+        id_actividad_base = $2,
+        id_tipo_actividad = $3,
+        id_punto_otorgado = $4,
+        id_usuario_creador = $5,
+        titulo = $6,
+        descripcion = $7,
+        fecha_creacion = $8,
+        activa = $9
+      WHERE id = $1
+    `;
+
+    const values = [
+      id,
+      entity?.id_actividad_base ?? previousEntity.id_actividad_base,
+      entity?.id_tipo_actividad ?? previousEntity.id_tipo_actividad,
+      entity?.id_punto_otorgado ?? previousEntity.id_punto_otorgado,
+      entity?.id_usuario_creador ?? previousEntity.id_usuario_creador,
+      entity?.titulo ?? previousEntity.titulo,
+      entity?.descripcion ?? previousEntity.descripcion,
+      entity?.fecha_creacion ?? previousEntity.fecha_creacion,
+      entity?.activa ?? previousEntity.activa,
+    ];
+
+    return await BD.execute(sql, values);
+  };
+
+  deleteByIdAsync = async (id) => {
+    console.log(`ActividadPersonalizadaRepository.deleteByIdAsync(${id})`);
+
+    const sql = `
+      UPDATE "ActividadesPersonalizadas"
+      SET activa = false
+      WHERE id = $1
+    `;
+
+    return await BD.execute(sql, [id]);
+  };
+}
