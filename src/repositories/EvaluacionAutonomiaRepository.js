@@ -7,26 +7,26 @@ export default class EvaluacionAutonomiaRepository {
 
   getAllAsync = async () => {
     console.log('EvaluacionAutonomiaRepository.getAllAsync()');
-    const sql = `SELECT id, id_perteneciente, id_profesional, id_nivel_apoyo_anterior, id_nivel_apoyo_nuevo, id_autonomia_operativa_anterior, id_autonomia_operativa_nueva, puede_autogestionarse_nuevo, observacion, fecha_evaluacion FROM "EvaluacionesAutonomias" ORDER BY id DESC`;
+    const sql = `SELECT id, id_perteneciente, id_profesional, id_nivel_apoyo_anterior, id_nivel_apoyo_nuevo, id_autonomia_operativa_anterior, id_autonomia_operativa_nueva, puede_autogestionarse_nuevo, observacion, fecha_evaluacion FROM evaluaciones_autonomias ORDER BY id DESC`;
     return await BD.query(sql);
   };
 
   getByIdAsync = async (id) => {
     console.log(`EvaluacionAutonomiaRepository.getByIdAsync(${id})`);
-    const sql = `SELECT id, id_perteneciente, id_profesional, id_nivel_apoyo_anterior, id_nivel_apoyo_nuevo, id_autonomia_operativa_anterior, id_autonomia_operativa_nueva, puede_autogestionarse_nuevo, observacion, fecha_evaluacion FROM "EvaluacionesAutonomias" WHERE id = $1`;
+    const sql = `SELECT id, id_perteneciente, id_profesional, id_nivel_apoyo_anterior, id_nivel_apoyo_nuevo, id_autonomia_operativa_anterior, id_autonomia_operativa_nueva, puede_autogestionarse_nuevo, observacion, fecha_evaluacion FROM evaluaciones_autonomias WHERE id = $1`;
     return await BD.queryOne(sql, [id]);
   };
 
   getByPertenecienteIdAsync = async (idPerteneciente) => {
     console.log(`EvaluacionAutonomiaRepository.getByPertenecienteIdAsync(${idPerteneciente})`);
-    const sql = `SELECT id, id_perteneciente, id_profesional, id_nivel_apoyo_anterior, id_nivel_apoyo_nuevo, id_autonomia_operativa_anterior, id_autonomia_operativa_nueva, puede_autogestionarse_nuevo, observacion, fecha_evaluacion FROM "EvaluacionesAutonomias" WHERE id_perteneciente = $1 ORDER BY id DESC`;
+    const sql = `SELECT id, id_perteneciente, id_profesional, id_nivel_apoyo_anterior, id_nivel_apoyo_nuevo, id_autonomia_operativa_anterior, id_autonomia_operativa_nueva, puede_autogestionarse_nuevo, observacion, fecha_evaluacion FROM evaluaciones_autonomias WHERE id_perteneciente = $1 ORDER BY id DESC`;
     return await BD.query(sql, [idPerteneciente]);
   };
 
   createAsync = async (entity) => {
     console.log(`EvaluacionAutonomiaRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `
-      INSERT INTO "EvaluacionesAutonomias" (id_perteneciente, id_profesional, id_nivel_apoyo_anterior, id_nivel_apoyo_nuevo, id_autonomia_operativa_anterior, id_autonomia_operativa_nueva, puede_autogestionarse_nuevo, observacion, fecha_evaluacion)
+      INSERT INTO evaluaciones_autonomias (id_perteneciente, id_profesional, id_nivel_apoyo_anterior, id_nivel_apoyo_nuevo, id_autonomia_operativa_anterior, id_autonomia_operativa_nueva, puede_autogestionarse_nuevo, observacion, fecha_evaluacion)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING id
     `;
@@ -51,7 +51,7 @@ export default class EvaluacionAutonomiaRepository {
     const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
     const sql = `
-      UPDATE "EvaluacionesAutonomias"
+      UPDATE evaluaciones_autonomias
       SET id_perteneciente = $2, id_profesional = $3, id_nivel_apoyo_anterior = $4, id_nivel_apoyo_nuevo = $5, id_autonomia_operativa_anterior = $6, id_autonomia_operativa_nueva = $7, puede_autogestionarse_nuevo = $8, observacion = $9, fecha_evaluacion = $10
       WHERE id = $1
     `;
@@ -72,7 +72,7 @@ export default class EvaluacionAutonomiaRepository {
 
   deleteByIdAsync = async (id) => {
     console.log(`EvaluacionAutonomiaRepository.deleteByIdAsync(${id})`);
-    const sql = `DELETE FROM "EvaluacionesAutonomias" WHERE id = $1`;
+    const sql = `DELETE FROM evaluaciones_autonomias WHERE id = $1`;
     return await BD.execute(sql, [id]);
   };
 }

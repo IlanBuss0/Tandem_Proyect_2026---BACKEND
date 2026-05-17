@@ -17,7 +17,7 @@ export default class CalificacionActividadRepository {
         puntaje_usuario,
         id_dificultad_actividad,
         fecha_calificacion
-      FROM "CalificacionesActividades"
+      FROM calificaciones_actividades
       ORDER BY id DESC
     `;
 
@@ -36,7 +36,7 @@ export default class CalificacionActividadRepository {
         puntaje_usuario,
         id_dificultad_actividad,
         fecha_calificacion
-      FROM "CalificacionesActividades"
+      FROM calificaciones_actividades
       WHERE id = $1
     `;
 
@@ -55,7 +55,7 @@ export default class CalificacionActividadRepository {
         puntaje_usuario,
         id_dificultad_actividad,
         fecha_calificacion
-      FROM "CalificacionesActividades"
+      FROM calificaciones_actividades
       WHERE id_perteneciente = $1
       ORDER BY id DESC
     `;
@@ -67,7 +67,7 @@ export default class CalificacionActividadRepository {
     console.log(`CalificacionActividadRepository.createAsync(${JSON.stringify(entity)})`);
 
     const sql = `
-      INSERT INTO "CalificacionesActividades" (
+      INSERT INTO calificaciones_actividades (
         id_perteneciente,
         id_actividad,
         id_actividad_personalizada,
@@ -110,7 +110,7 @@ export default class CalificacionActividadRepository {
     if (previousEntity == null) return 0;
 
     const sql = `
-      UPDATE "CalificacionesActividades"
+      UPDATE calificaciones_actividades
       SET
         id_perteneciente = $2,
         id_actividad = $3,
@@ -138,7 +138,7 @@ export default class CalificacionActividadRepository {
     console.log(`CalificacionActividadRepository.deleteByIdAsync(${id})`);
 
     const sql = `
-      DELETE FROM "CalificacionesActividades"
+      DELETE FROM calificaciones_actividades
       WHERE id = $1
     `;
 

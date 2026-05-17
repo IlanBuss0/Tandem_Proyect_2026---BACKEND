@@ -15,7 +15,7 @@ export default class FavoritoActividadRepository {
         id_actividad,
         id_actividad_personalizada,
         fecha_marcado
-      FROM "FavoritosActividades"
+      FROM favoritos_actividades
       ORDER BY id DESC
     `;
 
@@ -32,7 +32,7 @@ export default class FavoritoActividadRepository {
         id_actividad,
         id_actividad_personalizada,
         fecha_marcado
-      FROM "FavoritosActividades"
+      FROM favoritos_actividades
       WHERE id = $1
     `;
 
@@ -49,7 +49,7 @@ export default class FavoritoActividadRepository {
         id_actividad,
         id_actividad_personalizada,
         fecha_marcado
-      FROM "FavoritosActividades"
+      FROM favoritos_actividades
       WHERE id_perteneciente = $1
       ORDER BY id DESC
     `;
@@ -61,7 +61,7 @@ export default class FavoritoActividadRepository {
     console.log(`FavoritoActividadRepository.createAsync(${JSON.stringify(entity)})`);
 
     const sql = `
-      INSERT INTO "FavoritosActividades" (
+      INSERT INTO favoritos_actividades (
         id_perteneciente,
         id_actividad,
         id_actividad_personalizada,
@@ -98,7 +98,7 @@ export default class FavoritoActividadRepository {
     if (previousEntity == null) return 0;
 
     const sql = `
-      UPDATE "FavoritosActividades"
+      UPDATE favoritos_actividades
       SET
         id_perteneciente = $2,
         id_actividad = $3,
@@ -122,7 +122,7 @@ export default class FavoritoActividadRepository {
     console.log(`FavoritoActividadRepository.deleteByIdAsync(${id})`);
 
     const sql = `
-      DELETE FROM "FavoritosActividades"
+      DELETE FROM favoritos_actividades
       WHERE id = $1
     `;
 

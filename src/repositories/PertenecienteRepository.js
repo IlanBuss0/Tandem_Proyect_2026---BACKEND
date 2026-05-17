@@ -16,7 +16,7 @@ export default class PertenecienteRepository {
         id_autonomia_operativa,
         puede_autogestionarse,
         observacion_general
-      FROM "Pertenecientes"
+      FROM pertenecientes
       ORDER BY id DESC
     `;
 
@@ -34,7 +34,7 @@ export default class PertenecienteRepository {
         id_autonomia_operativa,
         puede_autogestionarse,
         observacion_general
-      FROM "Pertenecientes"
+      FROM pertenecientes
       WHERE id = $1
     `;
 
@@ -52,7 +52,7 @@ export default class PertenecienteRepository {
         id_autonomia_operativa,
         puede_autogestionarse,
         observacion_general
-      FROM "Pertenecientes"
+      FROM pertenecientes
       WHERE id_usuario = $1
     `;
 
@@ -63,7 +63,7 @@ export default class PertenecienteRepository {
     console.log(`PertenecienteRepository.createAsync(${JSON.stringify(entity)})`);
 
     const sql = `
-      INSERT INTO "Pertenecientes" (
+      INSERT INTO pertenecientes (
         id_usuario,
         id_nivel_apoyo,
         id_autonomia_operativa,
@@ -103,7 +103,7 @@ export default class PertenecienteRepository {
     if (previousEntity == null) return 0;
 
     const sql = `
-      UPDATE "Pertenecientes"
+      UPDATE pertenecientes
       SET
         id_usuario = $2,
         id_nivel_apoyo = $3,
@@ -129,7 +129,7 @@ export default class PertenecienteRepository {
     console.log(`PertenecienteRepository.deleteByIdAsync(${id})`);
 
     const sql = `
-      DELETE FROM "Pertenecientes"
+      DELETE FROM pertenecientes
       WHERE id = $1
     `;
 

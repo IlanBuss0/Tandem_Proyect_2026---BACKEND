@@ -6,4 +6,4 @@ class ProfesionalRepository extends BaseCrudRepository {
   }
 }
 
-export default new ProfesionalRepository();
+export default ProfesionalRepository;

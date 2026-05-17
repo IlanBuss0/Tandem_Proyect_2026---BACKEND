@@ -17,7 +17,7 @@ export default class ProfesionalRepository {
         matricula,
         institucion,
         id_estado_validacion
-      FROM "Profesionales"
+      FROM profesionales
       ORDER BY id DESC
     `;
 
@@ -36,7 +36,7 @@ export default class ProfesionalRepository {
         matricula,
         institucion,
         id_estado_validacion
-      FROM "Profesionales"
+      FROM profesionales
       WHERE id = $1
     `;
 
@@ -55,7 +55,7 @@ export default class ProfesionalRepository {
         matricula,
         institucion,
         id_estado_validacion
-      FROM "Profesionales"
+      FROM profesionales
       WHERE id_usuario = $1
     `;
 
@@ -74,7 +74,7 @@ export default class ProfesionalRepository {
         matricula,
         institucion,
         id_estado_validacion
-      FROM "Profesionales"
+      FROM profesionales
       WHERE matricula = $1
     `;
 
@@ -85,7 +85,7 @@ export default class ProfesionalRepository {
     console.log(`ProfesionalRepository.createAsync(${JSON.stringify(entity)})`);
 
     const sql = `
-      INSERT INTO "Profesionales" (
+      INSERT INTO profesionales (
         id_usuario,
         profesion,
         especialidad,
@@ -128,7 +128,7 @@ export default class ProfesionalRepository {
     if (previousEntity == null) return 0;
 
     const sql = `
-      UPDATE "Profesionales"
+      UPDATE profesionales
       SET
         id_usuario = $2,
         profesion = $3,
@@ -156,7 +156,7 @@ export default class ProfesionalRepository {
     console.log(`ProfesionalRepository.deleteByIdAsync(${id})`);
 
     const sql = `
-      DELETE FROM "Profesionales"
+      DELETE FROM profesionales
       WHERE id = $1
     `;
 

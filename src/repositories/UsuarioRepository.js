@@ -20,7 +20,7 @@ export default class UsuarioRepository {
         fecha_nacimiento,
         fecha_ingreso,
         activo
-      FROM "Usuarios"
+      FROM usuarios
       ORDER BY id DESC
     `;
 
@@ -42,7 +42,7 @@ export default class UsuarioRepository {
         fecha_nacimiento,
         fecha_ingreso,
         activo
-      FROM "Usuarios"
+      FROM usuarios
       WHERE id = $1
     `;
 
@@ -64,7 +64,7 @@ export default class UsuarioRepository {
         fecha_nacimiento,
         fecha_ingreso,
         activo
-      FROM "Usuarios"
+      FROM usuarios
       WHERE correo = $1
     `;
 
@@ -86,7 +86,7 @@ export default class UsuarioRepository {
         fecha_nacimiento,
         fecha_ingreso,
         activo
-      FROM "Usuarios"
+      FROM usuarios
       WHERE nombre_usuario = $1
     `;
 
@@ -97,7 +97,7 @@ export default class UsuarioRepository {
     console.log(`UsuarioRepository.createAsync(${JSON.stringify(entity)})`);
 
     const sql = `
-      INSERT INTO "Usuarios" (
+      INSERT INTO usuarios (
         id_tipo_usuario,
         nombre_usuario,
         contrasena_hash,
@@ -152,7 +152,7 @@ export default class UsuarioRepository {
     if (previousEntity == null) return 0;
 
     const sql = `
-      UPDATE "Usuarios"
+      UPDATE usuarios
       SET
         id_tipo_usuario = $2,
         nombre_usuario = $3,
@@ -188,7 +188,7 @@ export default class UsuarioRepository {
     console.log(`UsuarioRepository.deleteByIdAsync(${id})`);
 
     const sql = `
-      UPDATE "Usuarios"
+      UPDATE usuarios
       SET activo = false
       WHERE id = $1
     `;

@@ -7,32 +7,32 @@ export default class SesionProfesionalRepository {
 
   getAllAsync = async () => {
     console.log('SesionProfesionalRepository.getAllAsync()');
-    const sql = `SELECT id, id_profesional, id_perteneciente, fecha_sesion, nota_sesion, recomendacion FROM "SesionesProfesionales" ORDER BY id DESC`;
+    const sql = `SELECT id, id_profesional, id_perteneciente, fecha_sesion, nota_sesion, recomendacion FROM sesiones_profesionales ORDER BY id DESC`;
     return await BD.query(sql);
   };
 
   getByIdAsync = async (id) => {
     console.log(`SesionProfesionalRepository.getByIdAsync(${id})`);
-    const sql = `SELECT id, id_profesional, id_perteneciente, fecha_sesion, nota_sesion, recomendacion FROM "SesionesProfesionales" WHERE id = $1`;
+    const sql = `SELECT id, id_profesional, id_perteneciente, fecha_sesion, nota_sesion, recomendacion FROM sesiones_profesionales WHERE id = $1`;
     return await BD.queryOne(sql, [id]);
   };
 
   getByPertenecienteIdAsync = async (idPerteneciente) => {
     console.log(`SesionProfesionalRepository.getByPertenecienteIdAsync(${idPerteneciente})`);
-    const sql = `SELECT id, id_profesional, id_perteneciente, fecha_sesion, nota_sesion, recomendacion FROM "SesionesProfesionales" WHERE id_perteneciente = $1 ORDER BY id DESC`;
+    const sql = `SELECT id, id_profesional, id_perteneciente, fecha_sesion, nota_sesion, recomendacion FROM sesiones_profesionales WHERE id_perteneciente = $1 ORDER BY id DESC`;
     return await BD.query(sql, [idPerteneciente]);
   };
 
   getByProfesionalIdAsync = async (idProfesional) => {
     console.log(`SesionProfesionalRepository.getByProfesionalIdAsync(${idProfesional})`);
-    const sql = `SELECT id, id_profesional, id_perteneciente, fecha_sesion, nota_sesion, recomendacion FROM "SesionesProfesionales" WHERE id_profesional = $1 ORDER BY id DESC`;
+    const sql = `SELECT id, id_profesional, id_perteneciente, fecha_sesion, nota_sesion, recomendacion FROM sesiones_profesionales WHERE id_profesional = $1 ORDER BY id DESC`;
     return await BD.query(sql, [idProfesional]);
   };
 
   createAsync = async (entity) => {
     console.log(`SesionProfesionalRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `
-      INSERT INTO "SesionesProfesionales" (id_profesional, id_perteneciente, fecha_sesion, nota_sesion, recomendacion)
+      INSERT INTO sesiones_profesionales (id_profesional, id_perteneciente, fecha_sesion, nota_sesion, recomendacion)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id
     `;
@@ -53,7 +53,7 @@ export default class SesionProfesionalRepository {
     const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
     const sql = `
-      UPDATE "SesionesProfesionales"
+      UPDATE sesiones_profesionales
       SET id_profesional = $2, id_perteneciente = $3, fecha_sesion = $4, nota_sesion = $5, recomendacion = $6
       WHERE id = $1
     `;
@@ -70,7 +70,7 @@ export default class SesionProfesionalRepository {
 
   deleteByIdAsync = async (id) => {
     console.log(`SesionProfesionalRepository.deleteByIdAsync(${id})`);
-    const sql = `DELETE FROM "SesionesProfesionales" WHERE id = $1`;
+    const sql = `DELETE FROM sesiones_profesionales WHERE id = $1`;
     return await BD.execute(sql, [id]);
   };
 }

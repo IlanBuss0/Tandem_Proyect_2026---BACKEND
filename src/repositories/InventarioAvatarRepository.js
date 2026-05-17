@@ -7,32 +7,32 @@ export default class InventarioAvatarRepository {
 
   getAllAsync = async () => {
     console.log('InventarioAvatarRepository.getAllAsync()');
-    const sql = `SELECT id, id_avatar, id_item_avatar, equipado, fecha_obtencion FROM "InventariosAvatares" ORDER BY id DESC`;
+    const sql = `SELECT id, id_avatar, id_item_avatar, equipado, fecha_obtencion FROM inventarios_avatares ORDER BY id DESC`;
     return await BD.query(sql);
   };
 
   getByIdAsync = async (id) => {
     console.log(`InventarioAvatarRepository.getByIdAsync(${id})`);
-    const sql = `SELECT id, id_avatar, id_item_avatar, equipado, fecha_obtencion FROM "InventariosAvatares" WHERE id = $1`;
+    const sql = `SELECT id, id_avatar, id_item_avatar, equipado, fecha_obtencion FROM inventarios_avatares WHERE id = $1`;
     return await BD.queryOne(sql, [id]);
   };
 
   getByAvatarIdAsync = async (idAvatar) => {
     console.log(`InventarioAvatarRepository.getByAvatarIdAsync(${idAvatar})`);
-    const sql = `SELECT id, id_avatar, id_item_avatar, equipado, fecha_obtencion FROM "InventariosAvatares" WHERE id_avatar = $1 ORDER BY id DESC`;
+    const sql = `SELECT id, id_avatar, id_item_avatar, equipado, fecha_obtencion FROM inventarios_avatares WHERE id_avatar = $1 ORDER BY id DESC`;
     return await BD.query(sql, [idAvatar]);
   };
 
   getByAvatarAndItemAsync = async (idAvatar, idItemAvatar) => {
     console.log(`InventarioAvatarRepository.getByAvatarAndItemAsync(${idAvatar}, ${idItemAvatar})`);
-    const sql = `SELECT id, id_avatar, id_item_avatar, equipado, fecha_obtencion FROM "InventariosAvatares" WHERE id_avatar = $1 AND id_item_avatar = $2`;
+    const sql = `SELECT id, id_avatar, id_item_avatar, equipado, fecha_obtencion FROM inventarios_avatares WHERE id_avatar = $1 AND id_item_avatar = $2`;
     return await BD.queryOne(sql, [idAvatar, idItemAvatar]);
   };
 
   createAsync = async (entity) => {
     console.log(`InventarioAvatarRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `
-      INSERT INTO "InventariosAvatares" (id_avatar, id_item_avatar, equipado, fecha_obtencion)
+      INSERT INTO inventarios_avatares (id_avatar, id_item_avatar, equipado, fecha_obtencion)
       VALUES ($1, $2, COALESCE($3, false), $4)
       RETURNING id
     `;
@@ -52,7 +52,7 @@ export default class InventarioAvatarRepository {
     const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
     const sql = `
-      UPDATE "InventariosAvatares"
+      UPDATE inventarios_avatares
       SET id_avatar = $2, id_item_avatar = $3, equipado = $4, fecha_obtencion = $5
       WHERE id = $1
     `;
@@ -68,7 +68,7 @@ export default class InventarioAvatarRepository {
 
   deleteByIdAsync = async (id) => {
     console.log(`InventarioAvatarRepository.deleteByIdAsync(${id})`);
-    const sql = `DELETE FROM "InventariosAvatares" WHERE id = $1`;
+    const sql = `DELETE FROM inventarios_avatares WHERE id = $1`;
     return await BD.execute(sql, [id]);
   };
 }

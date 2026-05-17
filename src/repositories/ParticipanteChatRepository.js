@@ -7,31 +7,31 @@ export default class ParticipanteChatRepository {
 
   getAllAsync = async () => {
     console.log('ParticipanteChatRepository.getAllAsync()');
-    const sql = `SELECT id, id_chat, id_usuario, fecha_ingreso, fecha_salida FROM "ParticipantesChats" ORDER BY id DESC`;
+    const sql = `SELECT id, id_chat, id_usuario, fecha_ingreso, fecha_salida FROM participantes_chats ORDER BY id DESC`;
     return await BD.query(sql);
   };
 
   getByIdAsync = async (id) => {
     console.log(`ParticipanteChatRepository.getByIdAsync(${id})`);
-    const sql = `SELECT id, id_chat, id_usuario, fecha_ingreso, fecha_salida FROM "ParticipantesChats" WHERE id = $1`;
+    const sql = `SELECT id, id_chat, id_usuario, fecha_ingreso, fecha_salida FROM participantes_chats WHERE id = $1`;
     return await BD.queryOne(sql, [id]);
   };
 
   getByChatIdAsync = async (idChat) => {
     console.log(`ParticipanteChatRepository.getByChatIdAsync(${idChat})`);
-    const sql = `SELECT id, id_chat, id_usuario, fecha_ingreso, fecha_salida FROM "ParticipantesChats" WHERE id_chat = $1 ORDER BY id DESC`;
+    const sql = `SELECT id, id_chat, id_usuario, fecha_ingreso, fecha_salida FROM participantes_chats WHERE id_chat = $1 ORDER BY id DESC`;
     return await BD.query(sql, [idChat]);
   };
 
   getByChatAndUsuarioAsync = async (idChat, idUsuario) => {
     console.log(`ParticipanteChatRepository.getByChatAndUsuarioAsync(${idChat}, ${idUsuario})`);
-    const sql = `SELECT id, id_chat, id_usuario, fecha_ingreso, fecha_salida FROM "ParticipantesChats" WHERE id_chat = $1 AND id_usuario = $2`;
+    const sql = `SELECT id, id_chat, id_usuario, fecha_ingreso, fecha_salida FROM participantes_chats WHERE id_chat = $1 AND id_usuario = $2`;
     return await BD.queryOne(sql, [idChat, idUsuario]);
   };
 
   createAsync = async (entity) => {
     console.log(`ParticipanteChatRepository.createAsync(${JSON.stringify(entity)})`);
-    const sql = `INSERT INTO "ParticipantesChats" (id_chat, id_usuario, fecha_ingreso, fecha_salida) VALUES ($1, $2, $3, $4) RETURNING id`;
+    const sql = `INSERT INTO participantes_chats (id_chat, id_usuario, fecha_ingreso, fecha_salida) VALUES ($1, $2, $3, $4) RETURNING id`;
     const values = [entity?.id_chat, entity?.id_usuario, entity?.fecha_ingreso, entity?.fecha_salida ?? null];
     const result = await BD.queryOne(sql, values);
     return result?.id ?? 0;
@@ -42,14 +42,14 @@ export default class ParticipanteChatRepository {
     const id = entity.id;
     const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
-    const sql = `UPDATE "ParticipantesChats" SET id_chat = $2, id_usuario = $3, fecha_ingreso = $4, fecha_salida = $5 WHERE id = $1`;
+    const sql = `UPDATE participantes_chats SET id_chat = $2, id_usuario = $3, fecha_ingreso = $4, fecha_salida = $5 WHERE id = $1`;
     const values = [id, entity?.id_chat ?? previousEntity.id_chat, entity?.id_usuario ?? previousEntity.id_usuario, entity?.fecha_ingreso ?? previousEntity.fecha_ingreso, entity?.fecha_salida ?? previousEntity.fecha_salida];
     return await BD.execute(sql, values);
   };
 
   deleteByIdAsync = async (id) => {
     console.log(`ParticipanteChatRepository.deleteByIdAsync(${id})`);
-    const sql = `DELETE FROM "ParticipantesChats" WHERE id = $1`;
+    const sql = `DELETE FROM participantes_chats WHERE id = $1`;
     return await BD.execute(sql, [id]);
   };
 }

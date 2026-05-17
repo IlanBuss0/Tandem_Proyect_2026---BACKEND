@@ -18,7 +18,7 @@ export default class VinculoTutorPertenecienteRepository {
         fecha_alta,
         fecha_fin,
         id_usuario_creador
-      FROM "VinculosTutorPertenecientes"
+      FROM vinculos_tutor_pertenecientes
       ORDER BY id DESC
     `;
 
@@ -38,7 +38,7 @@ export default class VinculoTutorPertenecienteRepository {
         fecha_alta,
         fecha_fin,
         id_usuario_creador
-      FROM "VinculosTutorPertenecientes"
+      FROM vinculos_tutor_pertenecientes
       WHERE id = $1
     `;
 
@@ -58,7 +58,7 @@ export default class VinculoTutorPertenecienteRepository {
         fecha_alta,
         fecha_fin,
         id_usuario_creador
-      FROM "VinculosTutorPertenecientes"
+      FROM vinculos_tutor_pertenecientes
       WHERE id_perteneciente = $1
       ORDER BY es_tutor_principal DESC, id DESC
     `;
@@ -79,7 +79,7 @@ export default class VinculoTutorPertenecienteRepository {
         fecha_alta,
         fecha_fin,
         id_usuario_creador
-      FROM "VinculosTutorPertenecientes"
+      FROM vinculos_tutor_pertenecientes
       WHERE id_tutor = $1
       ORDER BY id DESC
     `;
@@ -100,7 +100,7 @@ export default class VinculoTutorPertenecienteRepository {
         fecha_alta,
         fecha_fin,
         id_usuario_creador
-      FROM "VinculosTutorPertenecientes"
+      FROM vinculos_tutor_pertenecientes
       WHERE id_tutor = $1
         AND id_perteneciente = $2
     `;
@@ -121,7 +121,7 @@ export default class VinculoTutorPertenecienteRepository {
         fecha_alta,
         fecha_fin,
         id_usuario_creador
-      FROM "VinculosTutorPertenecientes"
+      FROM vinculos_tutor_pertenecientes
       WHERE id_perteneciente = $1
         AND es_tutor_principal = true
         AND fecha_fin IS NULL
@@ -134,7 +134,7 @@ export default class VinculoTutorPertenecienteRepository {
     console.log(`VinculoTutorPertenecienteRepository.createAsync(${JSON.stringify(entity)})`);
 
     const sql = `
-      INSERT INTO "VinculosTutorPertenecientes" (
+      INSERT INTO vinculos_tutor_pertenecientes (
         id_tutor,
         id_perteneciente,
         es_tutor_principal,
@@ -180,7 +180,7 @@ export default class VinculoTutorPertenecienteRepository {
     if (previousEntity == null) return 0;
 
     const sql = `
-      UPDATE "VinculosTutorPertenecientes"
+      UPDATE vinculos_tutor_pertenecientes
       SET
         id_tutor = $2,
         id_perteneciente = $3,
@@ -210,7 +210,7 @@ export default class VinculoTutorPertenecienteRepository {
     console.log(`VinculoTutorPertenecienteRepository.deleteByIdAsync(${id})`);
 
     const sql = `
-      UPDATE "VinculosTutorPertenecientes"
+      UPDATE vinculos_tutor_pertenecientes
       SET fecha_fin = CURRENT_DATE
       WHERE id = $1
         AND fecha_fin IS NULL

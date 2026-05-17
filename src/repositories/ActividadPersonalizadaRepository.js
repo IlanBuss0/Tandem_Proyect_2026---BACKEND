@@ -19,7 +19,7 @@ export default class ActividadPersonalizadaRepository {
         descripcion,
         fecha_creacion,
         activa
-      FROM "ActividadesPersonalizadas"
+      FROM actividades_personalizadas
       ORDER BY id DESC
     `;
 
@@ -40,7 +40,7 @@ export default class ActividadPersonalizadaRepository {
         descripcion,
         fecha_creacion,
         activa
-      FROM "ActividadesPersonalizadas"
+      FROM actividades_personalizadas
       WHERE id = $1
     `;
 
@@ -61,7 +61,7 @@ export default class ActividadPersonalizadaRepository {
         descripcion,
         fecha_creacion,
         activa
-      FROM "ActividadesPersonalizadas"
+      FROM actividades_personalizadas
       WHERE id_usuario_creador = $1
       ORDER BY id DESC
     `;
@@ -73,7 +73,7 @@ export default class ActividadPersonalizadaRepository {
     console.log(`ActividadPersonalizadaRepository.createAsync(${JSON.stringify(entity)})`);
 
     const sql = `
-      INSERT INTO "ActividadesPersonalizadas" (
+      INSERT INTO actividades_personalizadas (
         id_actividad_base,
         id_tipo_actividad,
         id_punto_otorgado,
@@ -122,7 +122,7 @@ export default class ActividadPersonalizadaRepository {
     if (previousEntity == null) return 0;
 
     const sql = `
-      UPDATE "ActividadesPersonalizadas"
+      UPDATE actividades_personalizadas
       SET
         id_actividad_base = $2,
         id_tipo_actividad = $3,
@@ -154,7 +154,7 @@ export default class ActividadPersonalizadaRepository {
     console.log(`ActividadPersonalizadaRepository.deleteByIdAsync(${id})`);
 
     const sql = `
-      UPDATE "ActividadesPersonalizadas"
+      UPDATE actividades_personalizadas
       SET activa = false
       WHERE id = $1
     `;

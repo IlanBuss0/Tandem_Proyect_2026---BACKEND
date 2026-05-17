@@ -7,20 +7,20 @@ export default class ItemAvatarRepository {
 
   getAllAsync = async () => {
     console.log('ItemAvatarRepository.getAllAsync()');
-    const sql = `SELECT id, id_tipo_item_avatar, nombre, codigo_item_externo, precio_punto, requiere_cantidad_actividad, requiere_id_dificultad_actividad, activo FROM "ItemsAvatares" ORDER BY id DESC`;
+    const sql = `SELECT id, id_tipo_item_avatar, nombre, codigo_item_externo, precio_punto, requiere_cantidad_actividad, requiere_id_dificultad_actividad, activo FROM items_avatares ORDER BY id DESC`;
     return await BD.query(sql);
   };
 
   getByIdAsync = async (id) => {
     console.log(`ItemAvatarRepository.getByIdAsync(${id})`);
-    const sql = `SELECT id, id_tipo_item_avatar, nombre, codigo_item_externo, precio_punto, requiere_cantidad_actividad, requiere_id_dificultad_actividad, activo FROM "ItemsAvatares" WHERE id = $1`;
+    const sql = `SELECT id, id_tipo_item_avatar, nombre, codigo_item_externo, precio_punto, requiere_cantidad_actividad, requiere_id_dificultad_actividad, activo FROM items_avatares WHERE id = $1`;
     return await BD.queryOne(sql, [id]);
   };
 
   createAsync = async (entity) => {
     console.log(`ItemAvatarRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `
-      INSERT INTO "ItemsAvatares" (id_tipo_item_avatar, nombre, codigo_item_externo, precio_punto, requiere_cantidad_actividad, requiere_id_dificultad_actividad, activo)
+      INSERT INTO items_avatares (id_tipo_item_avatar, nombre, codigo_item_externo, precio_punto, requiere_cantidad_actividad, requiere_id_dificultad_actividad, activo)
       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, true))
       RETURNING id
     `;
@@ -43,7 +43,7 @@ export default class ItemAvatarRepository {
     const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
     const sql = `
-      UPDATE "ItemsAvatares"
+      UPDATE items_avatares
       SET id_tipo_item_avatar = $2, nombre = $3, codigo_item_externo = $4, precio_punto = $5, requiere_cantidad_actividad = $6, requiere_id_dificultad_actividad = $7, activo = $8
       WHERE id = $1
     `;
@@ -62,7 +62,7 @@ export default class ItemAvatarRepository {
 
   deleteByIdAsync = async (id) => {
     console.log(`ItemAvatarRepository.deleteByIdAsync(${id})`);
-    const sql = `UPDATE "ItemsAvatares" SET activo = false WHERE id = $1`;
+    const sql = `UPDATE items_avatares SET activo = false WHERE id = $1`;
     return await BD.execute(sql, [id]);
   };
 }

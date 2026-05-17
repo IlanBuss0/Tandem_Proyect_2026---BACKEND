@@ -7,26 +7,26 @@ export default class CompraPuntoRepository {
 
   getAllAsync = async () => {
     console.log('CompraPuntoRepository.getAllAsync()');
-    const sql = `SELECT id, id_usuario, id_perteneciente, id_paquete_punto, id_estado_pago, comprobante_url, pagado, fecha_compra FROM "ComprasPuntos" ORDER BY id DESC`;
+    const sql = `SELECT id, id_usuario, id_perteneciente, id_paquete_punto, id_estado_pago, comprobante_url, pagado, fecha_compra FROM compras_puntos ORDER BY id DESC`;
     return await BD.query(sql);
   };
 
   getByIdAsync = async (id) => {
     console.log(`CompraPuntoRepository.getByIdAsync(${id})`);
-    const sql = `SELECT id, id_usuario, id_perteneciente, id_paquete_punto, id_estado_pago, comprobante_url, pagado, fecha_compra FROM "ComprasPuntos" WHERE id = $1`;
+    const sql = `SELECT id, id_usuario, id_perteneciente, id_paquete_punto, id_estado_pago, comprobante_url, pagado, fecha_compra FROM compras_puntos WHERE id = $1`;
     return await BD.queryOne(sql, [id]);
   };
 
   getByPertenecienteIdAsync = async (idPerteneciente) => {
     console.log(`CompraPuntoRepository.getByPertenecienteIdAsync(${idPerteneciente})`);
-    const sql = `SELECT id, id_usuario, id_perteneciente, id_paquete_punto, id_estado_pago, comprobante_url, pagado, fecha_compra FROM "ComprasPuntos" WHERE id_perteneciente = $1 ORDER BY id DESC`;
+    const sql = `SELECT id, id_usuario, id_perteneciente, id_paquete_punto, id_estado_pago, comprobante_url, pagado, fecha_compra FROM compras_puntos WHERE id_perteneciente = $1 ORDER BY id DESC`;
     return await BD.query(sql, [idPerteneciente]);
   };
 
   createAsync = async (entity) => {
     console.log(`CompraPuntoRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `
-      INSERT INTO "ComprasPuntos" (id_usuario, id_perteneciente, id_paquete_punto, id_estado_pago, comprobante_url, pagado, fecha_compra)
+      INSERT INTO compras_puntos (id_usuario, id_perteneciente, id_paquete_punto, id_estado_pago, comprobante_url, pagado, fecha_compra)
       VALUES ($1, $2, $3, $4, $5, COALESCE($6, false), $7)
       RETURNING id
     `;
@@ -49,7 +49,7 @@ export default class CompraPuntoRepository {
     const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
     const sql = `
-      UPDATE "ComprasPuntos"
+      UPDATE compras_puntos
       SET id_usuario = $2, id_perteneciente = $3, id_paquete_punto = $4, id_estado_pago = $5, comprobante_url = $6, pagado = $7, fecha_compra = $8
       WHERE id = $1
     `;
@@ -68,7 +68,7 @@ export default class CompraPuntoRepository {
 
   deleteByIdAsync = async (id) => {
     console.log(`CompraPuntoRepository.deleteByIdAsync(${id})`);
-    const sql = `DELETE FROM "ComprasPuntos" WHERE id = $1`;
+    const sql = `DELETE FROM compras_puntos WHERE id = $1`;
     return await BD.execute(sql, [id]);
   };
 }

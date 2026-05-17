@@ -7,26 +7,26 @@ export default class ZonaSeguraRepository {
 
   getAllAsync = async () => {
     console.log('ZonaSeguraRepository.getAllAsync()');
-    const sql = `SELECT id, id_perteneciente, id_tutor_creador, nombre, latitud, longitud, radio_metro, notificar_entrada, notificar_salida, activa FROM "ZonasSeguras" ORDER BY id DESC`;
+    const sql = `SELECT id, id_perteneciente, id_tutor_creador, nombre, latitud, longitud, radio_metro, notificar_entrada, notificar_salida, activa FROM zonas_seguras ORDER BY id DESC`;
     return await BD.query(sql);
   };
 
   getByIdAsync = async (id) => {
     console.log(`ZonaSeguraRepository.getByIdAsync(${id})`);
-    const sql = `SELECT id, id_perteneciente, id_tutor_creador, nombre, latitud, longitud, radio_metro, notificar_entrada, notificar_salida, activa FROM "ZonasSeguras" WHERE id = $1`;
+    const sql = `SELECT id, id_perteneciente, id_tutor_creador, nombre, latitud, longitud, radio_metro, notificar_entrada, notificar_salida, activa FROM zonas_seguras WHERE id = $1`;
     return await BD.queryOne(sql, [id]);
   };
 
   getByPertenecienteIdAsync = async (idPerteneciente) => {
     console.log(`ZonaSeguraRepository.getByPertenecienteIdAsync(${idPerteneciente})`);
-    const sql = `SELECT id, id_perteneciente, id_tutor_creador, nombre, latitud, longitud, radio_metro, notificar_entrada, notificar_salida, activa FROM "ZonasSeguras" WHERE id_perteneciente = $1 ORDER BY id DESC`;
+    const sql = `SELECT id, id_perteneciente, id_tutor_creador, nombre, latitud, longitud, radio_metro, notificar_entrada, notificar_salida, activa FROM zonas_seguras WHERE id_perteneciente = $1 ORDER BY id DESC`;
     return await BD.query(sql, [idPerteneciente]);
   };
 
   createAsync = async (entity) => {
     console.log(`ZonaSeguraRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `
-      INSERT INTO "ZonasSeguras" (id_perteneciente, id_tutor_creador, nombre, latitud, longitud, radio_metro, notificar_entrada, notificar_salida, activa)
+      INSERT INTO zonas_seguras (id_perteneciente, id_tutor_creador, nombre, latitud, longitud, radio_metro, notificar_entrada, notificar_salida, activa)
       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, true), COALESCE($8, false), COALESCE($9, true))
       RETURNING id
     `;
@@ -51,7 +51,7 @@ export default class ZonaSeguraRepository {
     const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
     const sql = `
-      UPDATE "ZonasSeguras"
+      UPDATE zonas_seguras
       SET id_perteneciente = $2, id_tutor_creador = $3, nombre = $4, latitud = $5, longitud = $6, radio_metro = $7, notificar_entrada = $8, notificar_salida = $9, activa = $10
       WHERE id = $1
     `;
@@ -72,7 +72,7 @@ export default class ZonaSeguraRepository {
 
   deleteByIdAsync = async (id) => {
     console.log(`ZonaSeguraRepository.deleteByIdAsync(${id})`);
-    const sql = `UPDATE "ZonasSeguras" SET activa = false WHERE id = $1`;
+    const sql = `UPDATE zonas_seguras SET activa = false WHERE id = $1`;
     return await BD.execute(sql, [id]);
   };
 }

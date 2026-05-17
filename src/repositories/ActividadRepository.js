@@ -17,7 +17,7 @@ export default class ActividadRepository {
         descripcion,
         es_integrada,
         activa
-      FROM "Actividades"
+      FROM actividades
       ORDER BY id DESC
     `;
 
@@ -36,7 +36,7 @@ export default class ActividadRepository {
         descripcion,
         es_integrada,
         activa
-      FROM "Actividades"
+      FROM actividades
       WHERE id = $1
     `;
 
@@ -47,7 +47,7 @@ export default class ActividadRepository {
     console.log(`ActividadRepository.createAsync(${JSON.stringify(entity)})`);
 
     const sql = `
-      INSERT INTO "Actividades" (
+      INSERT INTO actividades (
         id_tipo_actividad,
         id_punto_otorgado,
         titulo,
@@ -90,7 +90,7 @@ export default class ActividadRepository {
     if (previousEntity == null) return 0;
 
     const sql = `
-      UPDATE "Actividades"
+      UPDATE actividades
       SET
         id_tipo_actividad = $2,
         id_punto_otorgado = $3,
@@ -118,7 +118,7 @@ export default class ActividadRepository {
     console.log(`ActividadRepository.deleteByIdAsync(${id})`);
 
     const sql = `
-      UPDATE "Actividades"
+      UPDATE actividades
       SET activa = false
       WHERE id = $1
     `;

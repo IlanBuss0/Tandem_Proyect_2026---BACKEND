@@ -18,7 +18,7 @@ export default class ActividadAsignadaRepository {
         id_estado_actividad,
         fecha_asignacion,
         fecha_completada
-      FROM "ActividadesAsignadas"
+      FROM actividades_asignadas
       ORDER BY id DESC
     `;
 
@@ -38,7 +38,7 @@ export default class ActividadAsignadaRepository {
         id_estado_actividad,
         fecha_asignacion,
         fecha_completada
-      FROM "ActividadesAsignadas"
+      FROM actividades_asignadas
       WHERE id = $1
     `;
 
@@ -58,7 +58,7 @@ export default class ActividadAsignadaRepository {
         id_estado_actividad,
         fecha_asignacion,
         fecha_completada
-      FROM "ActividadesAsignadas"
+      FROM actividades_asignadas
       WHERE id_perteneciente = $1
       ORDER BY id DESC
     `;
@@ -70,7 +70,7 @@ export default class ActividadAsignadaRepository {
     console.log(`ActividadAsignadaRepository.createAsync(${JSON.stringify(entity)})`);
 
     const sql = `
-      INSERT INTO "ActividadesAsignadas" (
+      INSERT INTO actividades_asignadas (
         id_actividad,
         id_actividad_personalizada,
         id_perteneciente,
@@ -116,7 +116,7 @@ export default class ActividadAsignadaRepository {
     if (previousEntity == null) return 0;
 
     const sql = `
-      UPDATE "ActividadesAsignadas"
+      UPDATE actividades_asignadas
       SET
         id_actividad = $2,
         id_actividad_personalizada = $3,
@@ -146,7 +146,7 @@ export default class ActividadAsignadaRepository {
     console.log(`ActividadAsignadaRepository.deleteByIdAsync(${id})`);
 
     const sql = `
-      DELETE FROM "ActividadesAsignadas"
+      DELETE FROM actividades_asignadas
       WHERE id = $1
     `;
 
