@@ -33,6 +33,8 @@ import ConfiguracionUsuarioController from './controllers/ConfiguracionUsuarioCo
 import ConfiguracionAccesibilidadController from './controllers/ConfiguracionAccesibilidadController.js';
 import ReporteUsuarioController from './controllers/ReporteUsuarioController.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
+import { envConfig } from './configs/env.config.js';
+import BD from './db/BD.js';
 
 const app = express();
 
@@ -81,3 +83,19 @@ app.use('/api/reportes-usuarios', ReporteUsuarioController);
 app.use(errorMiddleware);
 
 export default app;
+
+async function startServer() {
+  try {
+    await BD.testConnection();
+    console.log('Conexión a base de datos OK');
+
+    app.listen(envConfig.port, () => {
+      console.log(`Servidor escuchando en puerto ${envConfig.port}`);
+    });
+  } catch (error) {
+    console.log('Error al iniciar servidor:', error.message);
+    process.exit(1);
+  }
+}
+
+startServer();
