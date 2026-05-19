@@ -20,7 +20,7 @@ export default class VinculoTutorPertenecienteService {
     console.log(`VinculoTutorPertenecienteService.getByIdAsync(${id})`);
 
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del vínculo es inválido.');
+      throw new Error('El id del vinculo es invalido.');
     }
 
     const returnEntity = await this.VinculoTutorPertenecienteRepository.getByIdAsync(id);
@@ -32,7 +32,7 @@ export default class VinculoTutorPertenecienteService {
     console.log(`VinculoTutorPertenecienteService.getByPertenecienteIdAsync(${idPerteneciente})`);
 
     if (!idPerteneciente || Number.isNaN(idPerteneciente)) {
-      throw new Error('El id del perteneciente es inválido.');
+      throw new Error('El id del perteneciente es invalido.');
     }
 
     return await this.VinculoTutorPertenecienteRepository.getByPertenecienteIdAsync(idPerteneciente);
@@ -42,7 +42,7 @@ export default class VinculoTutorPertenecienteService {
     console.log(`VinculoTutorPertenecienteService.getByTutorIdAsync(${idTutor})`);
 
     if (!idTutor || Number.isNaN(idTutor)) {
-      throw new Error('El id del tutor es inválido.');
+      throw new Error('El id del tutor es invalido.');
     }
 
     return await this.VinculoTutorPertenecienteRepository.getByTutorIdAsync(idTutor);
@@ -59,7 +59,7 @@ export default class VinculoTutorPertenecienteService {
     );
 
     if (vinculoExistente != null) {
-      throw new Error(`Ya existe un vínculo entre el tutor ${entity.id_tutor} y el perteneciente ${entity.id_perteneciente}.`);
+      throw new Error(`Ya existe un vinculo entre el tutor ${entity.id_tutor} y el perteneciente ${entity.id_perteneciente}.`);
     }
 
     if (entity.es_tutor_principal === true) {
@@ -81,7 +81,7 @@ export default class VinculoTutorPertenecienteService {
     console.log(`VinculoTutorPertenecienteService.updateAsync(${JSON.stringify(entity)})`);
 
     if (!entity?.id || Number.isNaN(entity.id)) {
-      throw new Error('El id del vínculo es obligatorio para actualizar.');
+      throw new Error('El id del vinculo es obligatorio para actualizar.');
     }
 
     const previousEntity = await this.VinculoTutorPertenecienteRepository.getByIdAsync(entity.id);
@@ -112,7 +112,7 @@ export default class VinculoTutorPertenecienteService {
     console.log(`VinculoTutorPertenecienteService.deleteByIdAsync(${id})`);
 
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del vínculo es inválido.');
+      throw new Error('El id del vinculo es invalido.');
     }
 
     const rowsAffected = await this.VinculoTutorPertenecienteRepository.deleteByIdAsync(id);
@@ -122,7 +122,7 @@ export default class VinculoTutorPertenecienteService {
 
   validarVinculoParaCrear = (entity) => {
     if (!entity) {
-      throw new Error('El vínculo es obligatorio.');
+      throw new Error('El vinculo es obligatorio.');
     }
 
     if (!entity.id_tutor) {

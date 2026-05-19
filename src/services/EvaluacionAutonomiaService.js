@@ -16,7 +16,7 @@ export default class EvaluacionAutonomiaService {
   getByIdAsync = async (id) => {
     console.log(`EvaluacionAutonomiaService.getByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id de la evaluación de autonomía es inválido.');
+      throw new Error('El id de la evaluacion de autonomia es invalido.');
     }
     const returnEntity = await this.EvaluacionAutonomiaRepository.getByIdAsync(id);
     return returnEntity;
@@ -32,7 +32,7 @@ export default class EvaluacionAutonomiaService {
   updateAsync = async (entity) => {
     console.log(`EvaluacionAutonomiaService.updateAsync(${JSON.stringify(entity)})`);
     if (!entity?.id || Number.isNaN(entity.id)) {
-      throw new Error('El id de la evaluación es obligatorio para actualizar.');
+      throw new Error('El id de la evaluacion es obligatorio para actualizar.');
     }
     const previousEntity = await this.EvaluacionAutonomiaRepository.getByIdAsync(entity.id);
     if (previousEntity == null) return 0;
@@ -43,7 +43,7 @@ export default class EvaluacionAutonomiaService {
   deleteByIdAsync = async (id) => {
     console.log(`EvaluacionAutonomiaService.deleteByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id de la evaluación es inválido.');
+      throw new Error('El id de la evaluacion es invalido.');
     }
     const rowsAffected = await this.EvaluacionAutonomiaRepository.deleteByIdAsync(id);
     return rowsAffected;
@@ -51,7 +51,7 @@ export default class EvaluacionAutonomiaService {
 
   validarEvaluacionParaCrear = (entity) => {
     if (!entity) {
-      throw new Error('La evaluación de autonomía es obligatoria.');
+      throw new Error('La evaluacion de autonomia es obligatoria.');
     }
     if (!entity.id_perteneciente) {
       throw new Error('id_perteneciente es obligatorio.');

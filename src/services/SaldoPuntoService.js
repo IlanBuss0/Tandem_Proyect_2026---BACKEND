@@ -16,7 +16,7 @@ export default class SaldoPuntoService {
   getByIdAsync = async (id) => {
     console.log(`SaldoPuntoService.getByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del saldo de puntos es inválido.');
+      throw new Error('El id del saldo de puntos es invalido.');
     }
     const returnEntity = await this.SaldoPuntoRepository.getByIdAsync(id);
     return returnEntity;
@@ -50,7 +50,7 @@ export default class SaldoPuntoService {
   deleteByIdAsync = async (id) => {
     console.log(`SaldoPuntoService.deleteByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del saldo de puntos es inválido.');
+      throw new Error('El id del saldo de puntos es invalido.');
     }
     const rowsAffected = await this.SaldoPuntoRepository.deleteByIdAsync(id);
     return rowsAffected;

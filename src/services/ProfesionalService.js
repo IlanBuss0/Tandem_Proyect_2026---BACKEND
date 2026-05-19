@@ -20,7 +20,7 @@ export default class ProfesionalService {
     console.log(`ProfesionalService.getByIdAsync(${id})`);
 
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del profesional es inválido.');
+      throw new Error('El id del profesional es invalido.');
     }
 
     const returnEntity = await this.ProfesionalRepository.getByIdAsync(id);
@@ -42,7 +42,7 @@ export default class ProfesionalService {
     const profesionalConMismaMatricula = await this.ProfesionalRepository.getByMatriculaAsync(entity.matricula);
 
     if (profesionalConMismaMatricula != null) {
-      throw new Error(`Ya existe un profesional con la matrícula ${entity.matricula}.`);
+      throw new Error(`Ya existe un profesional con la matricula ${entity.matricula}.`);
     }
 
     const newId = await this.ProfesionalRepository.createAsync(entity);
@@ -75,7 +75,7 @@ export default class ProfesionalService {
       const profesionalConMismaMatricula = await this.ProfesionalRepository.getByMatriculaAsync(entity.matricula);
 
       if (profesionalConMismaMatricula != null) {
-        throw new Error(`Ya existe un profesional con la matrícula ${entity.matricula}.`);
+        throw new Error(`Ya existe un profesional con la matricula ${entity.matricula}.`);
       }
     }
 
@@ -88,7 +88,7 @@ export default class ProfesionalService {
     console.log(`ProfesionalService.deleteByIdAsync(${id})`);
 
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del profesional es inválido.');
+      throw new Error('El id del profesional es invalido.');
     }
 
     const rowsAffected = await this.ProfesionalRepository.deleteByIdAsync(id);

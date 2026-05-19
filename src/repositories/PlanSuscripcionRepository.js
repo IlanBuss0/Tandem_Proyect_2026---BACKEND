@@ -5,26 +5,39 @@ export default class PlanSuscripcionRepository {
     console.log('Estoy en: PlanSuscripcionRepository.constructor()');
   }
 
-  getAllAsync = async () => await BD.query(`SELECT * FROM planes_suscripciones ORDER BY id DESC`);
+  getAllAsync = async () => {
+    console.log('PlanSuscripcionRepository.getAllAsync()');
+    const sql = `SELECT id, nombre_plan, descripcion, precio_mensual, precio_anual, activo FROM planes_suscripciones ORDER BY id DESC`;
+    return await BD.query(sql);
+  };
 
-  getByIdAsync = async (id) => await BD.queryOne(`SELECT * FROM planes_suscripciones WHERE id = $1`, [id]);
+  getByIdAsync = async (id) => {
+    console.log(`PlanSuscripcionRepository.getByIdAsync(${id})`);
+    const sql = `SELECT id, nombre_plan, descripcion, precio_mensual, precio_anual, activo FROM planes_suscripciones WHERE id = $1`;
+    return await BD.queryOne(sql, [id]);
+  };
 
   createAsync = async (entity) => {
-    const sql = `INSERT INTO planes_suscripciones SELECT * FROM json_populate_record(NULL::planes_suscripciones, $1) RETURNING id`;
-    const result = await BD.queryOne(sql, [entity]);
+    console.log(`PlanSuscripcionRepository.createAsync(${JSON.stringify(entity)})`);
+    const sql = `INSERT INTO planes_suscripciones (nombre_plan, descripcion, precio_mensual, precio_anual, activo) VALUES ($1, $2, $3, $4, $5) RETURNING id`;
+    const values = [entity?.nombre_plan ?? null, entity?.descripcion ?? null, entity?.precio_mensual ?? null, entity?.precio_anual ?? null, entity?.activo ?? null];
+    const result = await BD.queryOne(sql, values);
     return result?.id ?? 0;
   };
 
   updateAsync = async (entity) => {
-    const previousEntity = await this.getByIdAsync(entity.id);
+    console.log(`PlanSuscripcionRepository.updateAsync(${JSON.stringify(entity)})`);
+    const id = entity.id;
+    const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
-    const sql = `UPDATE planes_suscripciones SET ({fields}) = ({values}) WHERE id = $1`;
-    const keys = Object.keys(entity).filter((k) => k !== 'id');
-    if (keys.length === 0) return 0;
-    const setFields = keys.join(', ');
-    const placeholders = keys.map((_, i) => `$${i + 2}`).join(', ');
-    return await BD.execute(sql.replace('{fields}', setFields).replace('{values}', placeholders), [entity.id, ...keys.map((k) => entity[k])]);
+    const sql = `UPDATE planes_suscripciones SET nombre_plan = $2, descripcion = $3, precio_mensual = $4, precio_anual = $5, activo = $6 WHERE id = $1`;
+    const values = [id, entity?.nombre_plan ?? previousEntity.nombre_plan, entity?.descripcion ?? previousEntity.descripcion, entity?.precio_mensual ?? previousEntity.precio_mensual, entity?.precio_anual ?? previousEntity.precio_anual, entity?.activo ?? previousEntity.activo];
+    return await BD.execute(sql, values);
   };
 
-  deleteByIdAsync = async (id) => await BD.execute(`DELETE FROM planes_suscripciones WHERE id = $1`, [id]);
+  deleteByIdAsync = async (id) => {
+    console.log(`PlanSuscripcionRepository.deleteByIdAsync(${id})`);
+    const sql = `DELETE FROM planes_suscripciones WHERE id = $1`;
+    return await BD.execute(sql, [id]);
+  };
 }

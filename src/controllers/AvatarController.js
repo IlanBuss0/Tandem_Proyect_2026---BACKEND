@@ -30,7 +30,7 @@ router.get('/:id', async (req, res) => {
     if (returnEntity != null) {
       res.status(StatusCodes.OK).json(returnEntity);
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el avatar con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro el avatar con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);
@@ -45,7 +45,7 @@ router.post('', async (req, res) => {
     const newId = await currentService.createAsync(entity);
     if (newId > 0) {
       res.status(StatusCodes.CREATED).json({
-        message: `Se creó el avatar con id: ${newId}`,
+        message: `Se creo el avatar con id: ${newId}`,
         id: newId,
       });
     } else {
@@ -72,11 +72,11 @@ router.put('/:id', async (req, res) => {
     const rowsAffected = await currentService.updateAsync(entity);
     if (rowsAffected !== 0) {
       res.status(StatusCodes.OK).json({
-        message: `Se actualizó el avatar con id: ${id}`,
+        message: `Se actualizo el avatar con id: ${id}`,
         rowsAffected,
       });
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el avatar con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro el avatar con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);
@@ -91,11 +91,11 @@ router.delete('/:id', async (req, res) => {
     const rowCount = await currentService.deleteByIdAsync(id);
     if (rowCount !== 0) {
       res.status(StatusCodes.OK).json({
-        message: `Se eliminó el avatar con id: ${id}`,
+        message: `Se elimino el avatar con id: ${id}`,
         rowsAffected: rowCount,
       });
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el avatar con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro el avatar con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);

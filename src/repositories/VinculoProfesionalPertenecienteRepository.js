@@ -5,26 +5,39 @@ export default class VinculoProfesionalPertenecienteRepository {
     console.log('Estoy en: VinculoProfesionalPertenecienteRepository.constructor()');
   }
 
-  getAllAsync = async () => await BD.query(`SELECT * FROM vinculos_profesional_pertenecientes ORDER BY id DESC`);
+  getAllAsync = async () => {
+    console.log('VinculoProfesionalPertenecienteRepository.getAllAsync()');
+    const sql = `SELECT id, id_profesional, id_perteneciente, id_estado_vinculo, requiere_aprobacion_tutor, fue_aprobado_por_tutor, id_tutor_aprobador, fecha_solicitud, fecha_resolucion FROM vinculos_profesional_pertenecientes ORDER BY id DESC`;
+    return await BD.query(sql);
+  };
 
-  getByIdAsync = async (id) => await BD.queryOne(`SELECT * FROM vinculos_profesional_pertenecientes WHERE id = $1`, [id]);
+  getByIdAsync = async (id) => {
+    console.log(`VinculoProfesionalPertenecienteRepository.getByIdAsync(${id})`);
+    const sql = `SELECT id, id_profesional, id_perteneciente, id_estado_vinculo, requiere_aprobacion_tutor, fue_aprobado_por_tutor, id_tutor_aprobador, fecha_solicitud, fecha_resolucion FROM vinculos_profesional_pertenecientes WHERE id = $1`;
+    return await BD.queryOne(sql, [id]);
+  };
 
   createAsync = async (entity) => {
-    const sql = `INSERT INTO vinculos_profesional_pertenecientes SELECT * FROM json_populate_record(NULL::vinculos_profesional_pertenecientes, $1) RETURNING id`;
-    const result = await BD.queryOne(sql, [entity]);
+    console.log(`VinculoProfesionalPertenecienteRepository.createAsync(${JSON.stringify(entity)})`);
+    const sql = `INSERT INTO vinculos_profesional_pertenecientes (id_profesional, id_perteneciente, id_estado_vinculo, requiere_aprobacion_tutor, fue_aprobado_por_tutor, id_tutor_aprobador, fecha_solicitud, fecha_resolucion) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`;
+    const values = [entity?.id_profesional ?? null, entity?.id_perteneciente ?? null, entity?.id_estado_vinculo ?? null, entity?.requiere_aprobacion_tutor ?? null, entity?.fue_aprobado_por_tutor ?? null, entity?.id_tutor_aprobador ?? null, entity?.fecha_solicitud ?? null, entity?.fecha_resolucion ?? null];
+    const result = await BD.queryOne(sql, values);
     return result?.id ?? 0;
   };
 
   updateAsync = async (entity) => {
-    const previousEntity = await this.getByIdAsync(entity.id);
+    console.log(`VinculoProfesionalPertenecienteRepository.updateAsync(${JSON.stringify(entity)})`);
+    const id = entity.id;
+    const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
-    const sql = `UPDATE vinculos_profesional_pertenecientes SET ({fields}) = ({values}) WHERE id = $1`;
-    const keys = Object.keys(entity).filter((k) => k !== 'id');
-    if (keys.length === 0) return 0;
-    const setFields = keys.join(', ');
-    const placeholders = keys.map((_, i) => `$${i + 2}`).join(', ');
-    return await BD.execute(sql.replace('{fields}', setFields).replace('{values}', placeholders), [entity.id, ...keys.map((k) => entity[k])]);
+    const sql = `UPDATE vinculos_profesional_pertenecientes SET id_profesional = $2, id_perteneciente = $3, id_estado_vinculo = $4, requiere_aprobacion_tutor = $5, fue_aprobado_por_tutor = $6, id_tutor_aprobador = $7, fecha_solicitud = $8, fecha_resolucion = $9 WHERE id = $1`;
+    const values = [id, entity?.id_profesional ?? previousEntity.id_profesional, entity?.id_perteneciente ?? previousEntity.id_perteneciente, entity?.id_estado_vinculo ?? previousEntity.id_estado_vinculo, entity?.requiere_aprobacion_tutor ?? previousEntity.requiere_aprobacion_tutor, entity?.fue_aprobado_por_tutor ?? previousEntity.fue_aprobado_por_tutor, entity?.id_tutor_aprobador ?? previousEntity.id_tutor_aprobador, entity?.fecha_solicitud ?? previousEntity.fecha_solicitud, entity?.fecha_resolucion ?? previousEntity.fecha_resolucion];
+    return await BD.execute(sql, values);
   };
 
-  deleteByIdAsync = async (id) => await BD.execute(`DELETE FROM vinculos_profesional_pertenecientes WHERE id = $1`, [id]);
+  deleteByIdAsync = async (id) => {
+    console.log(`VinculoProfesionalPertenecienteRepository.deleteByIdAsync(${id})`);
+    const sql = `DELETE FROM vinculos_profesional_pertenecientes WHERE id = $1`;
+    return await BD.execute(sql, [id]);
+  };
 }

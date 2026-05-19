@@ -16,7 +16,7 @@ export default class MovimientoPuntoService {
   getByIdAsync = async (id) => {
     console.log(`MovimientoPuntoService.getByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del movimiento de puntos es inválido.');
+      throw new Error('El id del movimiento de puntos es invalido.');
     }
     const returnEntity = await this.MovimientoPuntoRepository.getByIdAsync(id);
     return returnEntity;
@@ -43,7 +43,7 @@ export default class MovimientoPuntoService {
   deleteByIdAsync = async (id) => {
     console.log(`MovimientoPuntoService.deleteByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del movimiento de puntos es inválido.');
+      throw new Error('El id del movimiento de puntos es invalido.');
     }
     const rowsAffected = await this.MovimientoPuntoRepository.deleteByIdAsync(id);
     return rowsAffected;

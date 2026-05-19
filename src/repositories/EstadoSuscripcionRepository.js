@@ -5,26 +5,39 @@ export default class EstadoSuscripcionRepository {
     console.log('Estoy en: EstadoSuscripcionRepository.constructor()');
   }
 
-  getAllAsync = async () => await BD.query(`SELECT * FROM estados_suscripciones ORDER BY id DESC`);
+  getAllAsync = async () => {
+    console.log('EstadoSuscripcionRepository.getAllAsync()');
+    const sql = `SELECT id, nombre, orden FROM estados_suscripciones ORDER BY id DESC`;
+    return await BD.query(sql);
+  };
 
-  getByIdAsync = async (id) => await BD.queryOne(`SELECT * FROM estados_suscripciones WHERE id = $1`, [id]);
+  getByIdAsync = async (id) => {
+    console.log(`EstadoSuscripcionRepository.getByIdAsync(${id})`);
+    const sql = `SELECT id, nombre, orden FROM estados_suscripciones WHERE id = $1`;
+    return await BD.queryOne(sql, [id]);
+  };
 
   createAsync = async (entity) => {
-    const sql = `INSERT INTO estados_suscripciones SELECT * FROM json_populate_record(NULL::estados_suscripciones, $1) RETURNING id`;
-    const result = await BD.queryOne(sql, [entity]);
+    console.log(`EstadoSuscripcionRepository.createAsync(${JSON.stringify(entity)})`);
+    const sql = `INSERT INTO estados_suscripciones (nombre, orden) VALUES ($1, $2) RETURNING id`;
+    const values = [entity?.nombre ?? null, entity?.orden ?? null];
+    const result = await BD.queryOne(sql, values);
     return result?.id ?? 0;
   };
 
   updateAsync = async (entity) => {
-    const previousEntity = await this.getByIdAsync(entity.id);
+    console.log(`EstadoSuscripcionRepository.updateAsync(${JSON.stringify(entity)})`);
+    const id = entity.id;
+    const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
-    const sql = `UPDATE estados_suscripciones SET ({fields}) = ({values}) WHERE id = $1`;
-    const keys = Object.keys(entity).filter((k) => k !== 'id');
-    if (keys.length === 0) return 0;
-    const setFields = keys.join(', ');
-    const placeholders = keys.map((_, i) => `$${i + 2}`).join(', ');
-    return await BD.execute(sql.replace('{fields}', setFields).replace('{values}', placeholders), [entity.id, ...keys.map((k) => entity[k])]);
+    const sql = `UPDATE estados_suscripciones SET nombre = $2, orden = $3 WHERE id = $1`;
+    const values = [id, entity?.nombre ?? previousEntity.nombre, entity?.orden ?? previousEntity.orden];
+    return await BD.execute(sql, values);
   };
 
-  deleteByIdAsync = async (id) => await BD.execute(`DELETE FROM estados_suscripciones WHERE id = $1`, [id]);
+  deleteByIdAsync = async (id) => {
+    console.log(`EstadoSuscripcionRepository.deleteByIdAsync(${id})`);
+    const sql = `DELETE FROM estados_suscripciones WHERE id = $1`;
+    return await BD.execute(sql, [id]);
+  };
 }

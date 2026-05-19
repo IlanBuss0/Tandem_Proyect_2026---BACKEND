@@ -35,7 +35,7 @@ router.get('/:id', async (req, res) => {
     if (returnEntity != null) {
       res.status(StatusCodes.OK).json(returnEntity);
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el vínculo con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro el vinculo con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);
@@ -83,12 +83,12 @@ router.post('', async (req, res) => {
 
     if (newId > 0) {
       res.status(StatusCodes.CREATED).json({
-        message: `Se creó el vínculo tutor-perteneciente con id: ${newId}`,
+        message: `Se creo el vinculo tutor-perteneciente con id: ${newId}`,
         id: newId,
       });
     } else {
       res.status(StatusCodes.BAD_REQUEST).json({
-        message: 'No se pudo crear el vínculo tutor-perteneciente.',
+        message: 'No se pudo crear el vinculo tutor-perteneciente.',
       });
     }
   } catch (error) {
@@ -116,11 +116,11 @@ router.put('/:id', async (req, res) => {
 
     if (rowsAffected !== 0) {
       res.status(StatusCodes.OK).json({
-        message: `Se actualizó el vínculo con id: ${id}`,
+        message: `Se actualizo el vinculo con id: ${id}`,
         rowsAffected,
       });
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el vínculo con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro el vinculo con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);
@@ -138,11 +138,11 @@ router.delete('/:id', async (req, res) => {
 
     if (rowCount !== 0) {
       res.status(StatusCodes.OK).json({
-        message: `Se finalizó el vínculo con id: ${id}`,
+        message: `Se finalizo el vinculo con id: ${id}`,
         rowsAffected: rowCount,
       });
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el vínculo con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro el vinculo con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);

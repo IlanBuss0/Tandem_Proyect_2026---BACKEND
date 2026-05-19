@@ -5,26 +5,39 @@ export default class MensajeArchivoRepository {
     console.log('Estoy en: MensajeArchivoRepository.constructor()');
   }
 
-  getAllAsync = async () => await BD.query(`SELECT * FROM mensajes_archivos ORDER BY id DESC`);
+  getAllAsync = async () => {
+    console.log('MensajeArchivoRepository.getAllAsync()');
+    const sql = `SELECT id, id_mensaje, id_archivo FROM mensajes_archivos ORDER BY id DESC`;
+    return await BD.query(sql);
+  };
 
-  getByIdAsync = async (id) => await BD.queryOne(`SELECT * FROM mensajes_archivos WHERE id = $1`, [id]);
+  getByIdAsync = async (id) => {
+    console.log(`MensajeArchivoRepository.getByIdAsync(${id})`);
+    const sql = `SELECT id, id_mensaje, id_archivo FROM mensajes_archivos WHERE id = $1`;
+    return await BD.queryOne(sql, [id]);
+  };
 
   createAsync = async (entity) => {
-    const sql = `INSERT INTO mensajes_archivos SELECT * FROM json_populate_record(NULL::mensajes_archivos, $1) RETURNING id`;
-    const result = await BD.queryOne(sql, [entity]);
+    console.log(`MensajeArchivoRepository.createAsync(${JSON.stringify(entity)})`);
+    const sql = `INSERT INTO mensajes_archivos (id_mensaje, id_archivo) VALUES ($1, $2) RETURNING id`;
+    const values = [entity?.id_mensaje ?? null, entity?.id_archivo ?? null];
+    const result = await BD.queryOne(sql, values);
     return result?.id ?? 0;
   };
 
   updateAsync = async (entity) => {
-    const previousEntity = await this.getByIdAsync(entity.id);
+    console.log(`MensajeArchivoRepository.updateAsync(${JSON.stringify(entity)})`);
+    const id = entity.id;
+    const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
-    const sql = `UPDATE mensajes_archivos SET ({fields}) = ({values}) WHERE id = $1`;
-    const keys = Object.keys(entity).filter((k) => k !== 'id');
-    if (keys.length === 0) return 0;
-    const setFields = keys.join(', ');
-    const placeholders = keys.map((_, i) => `$${i + 2}`).join(', ');
-    return await BD.execute(sql.replace('{fields}', setFields).replace('{values}', placeholders), [entity.id, ...keys.map((k) => entity[k])]);
+    const sql = `UPDATE mensajes_archivos SET id_mensaje = $2, id_archivo = $3 WHERE id = $1`;
+    const values = [id, entity?.id_mensaje ?? previousEntity.id_mensaje, entity?.id_archivo ?? previousEntity.id_archivo];
+    return await BD.execute(sql, values);
   };
 
-  deleteByIdAsync = async (id) => await BD.execute(`DELETE FROM mensajes_archivos WHERE id = $1`, [id]);
+  deleteByIdAsync = async (id) => {
+    console.log(`MensajeArchivoRepository.deleteByIdAsync(${id})`);
+    const sql = `DELETE FROM mensajes_archivos WHERE id = $1`;
+    return await BD.execute(sql, [id]);
+  };
 }

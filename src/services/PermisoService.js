@@ -2,27 +2,50 @@ import AppError from '../modules/errors/AppError.js';
 import PermisoRepository from '../repositories/PermisoRepository.js';
 
 class PermisoService {
-  listPertenecientes() { return PermisoRepository.findAllPertenecientes(); }
-  listProfesionales() { return PermisoRepository.findAllProfesionales(); }
-  getByPerteneciente(id) { return PermisoRepository.findByPerteneciente(id); }
-  getByProfesional(id) { return PermisoRepository.findByProfesional(id); }
+  listPertenecientes() {
+    return PermisoRepository.findAllPertenecientes();
+  }
 
-  createPerteneciente(body) { return PermisoRepository.createPerteneciente(body); }
-  createProfesional(body) { return PermisoRepository.createProfesional(body); }
-  createPerteneciente(body) { return PermisoRepository.create({ ...body, tipo_permiso: 'perteneciente' }); }
-  createProfesional(body) { return PermisoRepository.create({ ...body, tipo_permiso: 'profesional' }); }
+  listProfesionales() {
+    return PermisoRepository.findAllProfesionales();
+  }
 
-  async update(id, body) {
-    const row = await PermisoRepository.update(id, body);
+  getByPerteneciente(id) {
+    return PermisoRepository.findByPerteneciente(id);
+  }
+
+  getByProfesional(id) {
+    return PermisoRepository.findByProfesional(id);
+  }
+
+  createPerteneciente(body) {
+    return PermisoRepository.createPerteneciente(body);
+  }
+
+  createProfesional(body) {
+    return PermisoRepository.createProfesional(body);
+  }
+
+  async updatePerteneciente(id, body) {
+    const row = await PermisoRepository.updatePerteneciente(id, body);
     if (!row) throw new AppError('Permiso no encontrado', 404);
     return row;
   }
 
-  async remove(id) {
-    const ok = await PermisoRepository.remove(id);
+  async updateProfesional(id, body) {
+    const row = await PermisoRepository.updateProfesional(id, body);
+    if (!row) throw new AppError('Permiso no encontrado', 404);
+    return row;
+  }
+
+  async removePerteneciente(id) {
+    const ok = await PermisoRepository.removePerteneciente(id);
     if (!ok) throw new AppError('Permiso no encontrado', 404);
-    const count = await PermisoRepository.remove(id);
-    if (!count) throw new AppError('Permiso no encontrado', 404);
+  }
+
+  async removeProfesional(id) {
+    const ok = await PermisoRepository.removeProfesional(id);
+    if (!ok) throw new AppError('Permiso no encontrado', 404);
   }
 }
 

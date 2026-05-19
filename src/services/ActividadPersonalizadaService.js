@@ -16,7 +16,7 @@ export default class ActividadPersonalizadaService {
   getByIdAsync = async (id) => {
     console.log(`ActividadPersonalizadaService.getByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id de la actividad personalizada es inválido.');
+      throw new Error('El id de la actividad personalizada es invalido.');
     }
     const returnEntity = await this.ActividadPersonalizadaRepository.getByIdAsync(id);
     return returnEntity;
@@ -43,7 +43,7 @@ export default class ActividadPersonalizadaService {
   deleteByIdAsync = async (id) => {
     console.log(`ActividadPersonalizadaService.deleteByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id de la actividad personalizada es inválido.');
+      throw new Error('El id de la actividad personalizada es invalido.');
     }
     const rowsAffected = await this.ActividadPersonalizadaRepository.deleteByIdAsync(id);
     return rowsAffected;

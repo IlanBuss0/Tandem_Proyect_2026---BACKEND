@@ -16,7 +16,7 @@ export default class CompraPuntoService {
   getByIdAsync = async (id) => {
     console.log(`CompraPuntoService.getByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id de la compra de puntos es inválido.');
+      throw new Error('El id de la compra de puntos es invalido.');
     }
     const returnEntity = await this.CompraPuntoRepository.getByIdAsync(id);
     return returnEntity;
@@ -43,7 +43,7 @@ export default class CompraPuntoService {
   deleteByIdAsync = async (id) => {
     console.log(`CompraPuntoService.deleteByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id de la compra de puntos es inválido.');
+      throw new Error('El id de la compra de puntos es invalido.');
     }
     const rowsAffected = await this.CompraPuntoRepository.deleteByIdAsync(id);
     return rowsAffected;

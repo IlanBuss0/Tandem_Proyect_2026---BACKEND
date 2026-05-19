@@ -16,7 +16,7 @@ router.get('/db', async (req, res, next) => {
 
     res.status(200).json({
       ok: true,
-      message: 'Conexión a Supabase/PostgreSQL funcionando',
+      message: 'Conexion a Supabase/PostgreSQL funcionando',
       data: connection,
     });
   } catch (error) {

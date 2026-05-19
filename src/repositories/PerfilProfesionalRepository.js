@@ -5,26 +5,39 @@ export default class PerfilProfesionalRepository {
     console.log('Estoy en: PerfilProfesionalRepository.constructor()');
   }
 
-  getAllAsync = async () => await BD.query(`SELECT * FROM perfiles_profesionales ORDER BY id DESC`);
+  getAllAsync = async () => {
+    console.log('PerfilProfesionalRepository.getAllAsync()');
+    const sql = `SELECT id, id_profesional, descripcion, experiencia, precio_sesion, informacion_precio, visible_en_tienda FROM perfiles_profesionales ORDER BY id DESC`;
+    return await BD.query(sql);
+  };
 
-  getByIdAsync = async (id) => await BD.queryOne(`SELECT * FROM perfiles_profesionales WHERE id = $1`, [id]);
+  getByIdAsync = async (id) => {
+    console.log(`PerfilProfesionalRepository.getByIdAsync(${id})`);
+    const sql = `SELECT id, id_profesional, descripcion, experiencia, precio_sesion, informacion_precio, visible_en_tienda FROM perfiles_profesionales WHERE id = $1`;
+    return await BD.queryOne(sql, [id]);
+  };
 
   createAsync = async (entity) => {
-    const sql = `INSERT INTO perfiles_profesionales SELECT * FROM json_populate_record(NULL::perfiles_profesionales, $1) RETURNING id`;
-    const result = await BD.queryOne(sql, [entity]);
+    console.log(`PerfilProfesionalRepository.createAsync(${JSON.stringify(entity)})`);
+    const sql = `INSERT INTO perfiles_profesionales (id_profesional, descripcion, experiencia, precio_sesion, informacion_precio, visible_en_tienda) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`;
+    const values = [entity?.id_profesional ?? null, entity?.descripcion ?? null, entity?.experiencia ?? null, entity?.precio_sesion ?? null, entity?.informacion_precio ?? null, entity?.visible_en_tienda ?? null];
+    const result = await BD.queryOne(sql, values);
     return result?.id ?? 0;
   };
 
   updateAsync = async (entity) => {
-    const previousEntity = await this.getByIdAsync(entity.id);
+    console.log(`PerfilProfesionalRepository.updateAsync(${JSON.stringify(entity)})`);
+    const id = entity.id;
+    const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
-    const sql = `UPDATE perfiles_profesionales SET ({fields}) = ({values}) WHERE id = $1`;
-    const keys = Object.keys(entity).filter((k) => k !== 'id');
-    if (keys.length === 0) return 0;
-    const setFields = keys.join(', ');
-    const placeholders = keys.map((_, i) => `$${i + 2}`).join(', ');
-    return await BD.execute(sql.replace('{fields}', setFields).replace('{values}', placeholders), [entity.id, ...keys.map((k) => entity[k])]);
+    const sql = `UPDATE perfiles_profesionales SET id_profesional = $2, descripcion = $3, experiencia = $4, precio_sesion = $5, informacion_precio = $6, visible_en_tienda = $7 WHERE id = $1`;
+    const values = [id, entity?.id_profesional ?? previousEntity.id_profesional, entity?.descripcion ?? previousEntity.descripcion, entity?.experiencia ?? previousEntity.experiencia, entity?.precio_sesion ?? previousEntity.precio_sesion, entity?.informacion_precio ?? previousEntity.informacion_precio, entity?.visible_en_tienda ?? previousEntity.visible_en_tienda];
+    return await BD.execute(sql, values);
   };
 
-  deleteByIdAsync = async (id) => await BD.execute(`DELETE FROM perfiles_profesionales WHERE id = $1`, [id]);
+  deleteByIdAsync = async (id) => {
+    console.log(`PerfilProfesionalRepository.deleteByIdAsync(${id})`);
+    const sql = `DELETE FROM perfiles_profesionales WHERE id = $1`;
+    return await BD.execute(sql, [id]);
+  };
 }

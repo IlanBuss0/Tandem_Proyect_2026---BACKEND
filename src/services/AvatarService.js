@@ -16,7 +16,7 @@ export default class AvatarService {
   getByIdAsync = async (id) => {
     console.log(`AvatarService.getByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del avatar es inválido.');
+      throw new Error('El id del avatar es invalido.');
     }
     const returnEntity = await this.AvatarRepository.getByIdAsync(id);
     return returnEntity;
@@ -59,7 +59,7 @@ export default class AvatarService {
   deleteByIdAsync = async (id) => {
     console.log(`AvatarService.deleteByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del avatar es inválido.');
+      throw new Error('El id del avatar es invalido.');
     }
     const rowsAffected = await this.AvatarRepository.deleteByIdAsync(id);
     return rowsAffected;

@@ -30,7 +30,7 @@ router.get('/:id', async (req, res) => {
     if (returnEntity != null) {
       res.status(StatusCodes.OK).json(returnEntity);
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró la calificación con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro la calificacion con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);
@@ -45,12 +45,12 @@ router.post('', async (req, res) => {
     const newId = await currentService.createAsync(entity);
     if (newId > 0) {
       res.status(StatusCodes.CREATED).json({
-        message: `Se creó la calificación con id: ${newId}`,
+        message: `Se creo la calificacion con id: ${newId}`,
         id: newId,
       });
     } else {
       res.status(StatusCodes.BAD_REQUEST).json({
-        message: 'No se pudo crear la calificación.',
+        message: 'No se pudo crear la calificacion.',
       });
     }
   } catch (error) {
@@ -72,11 +72,11 @@ router.put('/:id', async (req, res) => {
     const rowsAffected = await currentService.updateAsync(entity);
     if (rowsAffected !== 0) {
       res.status(StatusCodes.OK).json({
-        message: `Se actualizó la calificación con id: ${id}`,
+        message: `Se actualizo la calificacion con id: ${id}`,
         rowsAffected,
       });
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró la calificación con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro la calificacion con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);
@@ -91,11 +91,11 @@ router.delete('/:id', async (req, res) => {
     const rowCount = await currentService.deleteByIdAsync(id);
     if (rowCount !== 0) {
       res.status(StatusCodes.OK).json({
-        message: `Se eliminó la calificación con id: ${id}`,
+        message: `Se elimino la calificacion con id: ${id}`,
         rowsAffected: rowCount,
       });
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró la calificación con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro la calificacion con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);

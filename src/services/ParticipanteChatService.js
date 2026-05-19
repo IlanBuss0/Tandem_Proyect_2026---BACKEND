@@ -7,7 +7,7 @@ export default class ParticipanteChatService {
   }
 
   getAllAsync = async () => { console.log('ParticipanteChatService.getAllAsync()'); const r = await this.ParticipanteChatRepository.getAllAsync(); if (r == null) return null; return r; };
-  getByIdAsync = async (id) => { console.log(`ParticipanteChatService.getByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del participante es inválido.'); } return await this.ParticipanteChatRepository.getByIdAsync(id); };
+  getByIdAsync = async (id) => { console.log(`ParticipanteChatService.getByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del participante es invalido.'); } return await this.ParticipanteChatRepository.getByIdAsync(id); };
 
   createAsync = async (entity) => {
     console.log(`ParticipanteChatService.createAsync(${JSON.stringify(entity)})`);
@@ -18,7 +18,7 @@ export default class ParticipanteChatService {
   };
 
   updateAsync = async (entity) => { console.log(`ParticipanteChatService.updateAsync(${JSON.stringify(entity)})`); if (!entity?.id || Number.isNaN(entity.id)) { throw new Error('El id del participante es obligatorio para actualizar.'); } const prev = await this.ParticipanteChatRepository.getByIdAsync(entity.id); if (prev == null) return 0; return await this.ParticipanteChatRepository.updateAsync(entity); };
-  deleteByIdAsync = async (id) => { console.log(`ParticipanteChatService.deleteByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del participante es inválido.'); } return await this.ParticipanteChatRepository.deleteByIdAsync(id); };
+  deleteByIdAsync = async (id) => { console.log(`ParticipanteChatService.deleteByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del participante es invalido.'); } return await this.ParticipanteChatRepository.deleteByIdAsync(id); };
 
   validarParticipanteParaCrear = (entity) => {
     if (!entity) throw new Error('El participante es obligatorio.');

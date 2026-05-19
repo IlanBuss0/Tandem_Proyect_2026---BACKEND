@@ -2,12 +2,38 @@ import TipoNotificacionRepository from '../repositories/TipoNotificacionReposito
 
 export default class TipoNotificacionService {
   constructor() {
+    console.log('Estoy en: TipoNotificacionService.constructor()');
     this.TipoNotificacionRepository = new TipoNotificacionRepository();
   }
 
-  getAllAsync = async () => await this.TipoNotificacionRepository.getAllAsync();
-  getByIdAsync = async (id) => await this.TipoNotificacionRepository.getByIdAsync(id);
-  createAsync = async (entity) => await this.TipoNotificacionRepository.createAsync(entity);
-  updateAsync = async (entity) => await this.TipoNotificacionRepository.updateAsync(entity);
-  deleteByIdAsync = async (id) => await this.TipoNotificacionRepository.deleteByIdAsync(id);
+  getAllAsync = async () => {
+    console.log('TipoNotificacionService.getAllAsync()');
+    const returnArray = await this.TipoNotificacionRepository.getAllAsync();
+    if (returnArray == null) return null;
+    return returnArray;
+  };
+
+  getByIdAsync = async (id) => {
+    console.log(`TipoNotificacionService.getByIdAsync(${id})`);
+    const returnEntity = await this.TipoNotificacionRepository.getByIdAsync(id);
+    return returnEntity;
+  };
+
+  createAsync = async (entity) => {
+    console.log(`TipoNotificacionService.createAsync(${JSON.stringify(entity)})`);
+    const newId = await this.TipoNotificacionRepository.createAsync(entity);
+    return newId;
+  };
+
+  updateAsync = async (entity) => {
+    console.log(`TipoNotificacionService.updateAsync(${JSON.stringify(entity)})`);
+    const rowsAffected = await this.TipoNotificacionRepository.updateAsync(entity);
+    return rowsAffected;
+  };
+
+  deleteByIdAsync = async (id) => {
+    console.log(`TipoNotificacionService.deleteByIdAsync(${id})`);
+    const rowsAffected = await this.TipoNotificacionRepository.deleteByIdAsync(id);
+    return rowsAffected;
+  };
 }

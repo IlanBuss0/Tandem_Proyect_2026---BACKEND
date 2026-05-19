@@ -35,7 +35,7 @@ router.get('/:id', async (req, res) => {
     if (returnEntity != null) {
       res.status(StatusCodes.OK).json(returnEntity);
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró la actividad personalizada con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro la actividad personalizada con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);
@@ -53,7 +53,7 @@ router.post('', async (req, res) => {
 
     if (newId > 0) {
       res.status(StatusCodes.CREATED).json({
-        message: `Se creó la actividad personalizada con id: ${newId}`,
+        message: `Se creo la actividad personalizada con id: ${newId}`,
         id: newId,
       });
     } else {
@@ -86,11 +86,11 @@ router.put('/:id', async (req, res) => {
 
     if (rowsAffected !== 0) {
       res.status(StatusCodes.OK).json({
-        message: `Se actualizó la actividad personalizada con id: ${id}`,
+        message: `Se actualizo la actividad personalizada con id: ${id}`,
         rowsAffected,
       });
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró la actividad personalizada con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro la actividad personalizada con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);
@@ -108,11 +108,11 @@ router.delete('/:id', async (req, res) => {
 
     if (rowCount !== 0) {
       res.status(StatusCodes.OK).json({
-        message: `Se desactivó la actividad personalizada con id: ${id}`,
+        message: `Se desactivo la actividad personalizada con id: ${id}`,
         rowsAffected: rowCount,
       });
     } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró la actividad personalizada con id: ${id}.`);
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro la actividad personalizada con id: ${id}.`);
     }
   } catch (error) {
     console.log(error);

@@ -8,7 +8,7 @@ export default class ContactoService {
 
   getAllAsync = async () => { console.log('ContactoService.getAllAsync()'); const r = await this.ContactoRepository.getAllAsync(); if (r == null) return null; return r; };
 
-  getByIdAsync = async (id) => { console.log(`ContactoService.getByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del contacto es inválido.'); } return await this.ContactoRepository.getByIdAsync(id); };
+  getByIdAsync = async (id) => { console.log(`ContactoService.getByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del contacto es invalido.'); } return await this.ContactoRepository.getByIdAsync(id); };
 
   createAsync = async (entity) => {
     console.log(`ContactoService.createAsync(${JSON.stringify(entity)})`);
@@ -20,7 +20,7 @@ export default class ContactoService {
 
   updateAsync = async (entity) => { console.log(`ContactoService.updateAsync(${JSON.stringify(entity)})`); if (!entity?.id || Number.isNaN(entity.id)) { throw new Error('El id del contacto es obligatorio para actualizar.'); } const prev = await this.ContactoRepository.getByIdAsync(entity.id); if (prev == null) return 0; return await this.ContactoRepository.updateAsync(entity); };
 
-  deleteByIdAsync = async (id) => { console.log(`ContactoService.deleteByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del contacto es inválido.'); } return await this.ContactoRepository.deleteByIdAsync(id); };
+  deleteByIdAsync = async (id) => { console.log(`ContactoService.deleteByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del contacto es invalido.'); } return await this.ContactoRepository.deleteByIdAsync(id); };
 
   validarContactoParaCrear = (entity) => {
     if (!entity) throw new Error('El contacto es obligatorio.');

@@ -16,7 +16,7 @@ export default class ActividadService {
   getByIdAsync = async (id) => {
     console.log(`ActividadService.getByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id de la actividad es inválido.');
+      throw new Error('El id de la actividad es invalido.');
     }
     const returnEntity = await this.ActividadRepository.getByIdAsync(id);
     return returnEntity;
@@ -43,7 +43,7 @@ export default class ActividadService {
   deleteByIdAsync = async (id) => {
     console.log(`ActividadService.deleteByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id de la actividad es inválido.');
+      throw new Error('El id de la actividad es invalido.');
     }
     const rowsAffected = await this.ActividadRepository.deleteByIdAsync(id);
     return rowsAffected;

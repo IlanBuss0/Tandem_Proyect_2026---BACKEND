@@ -1,25 +1,17 @@
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
-
-import ProfesionalService from '../services/ProfesionalService.js';
-import Profesional from '../entities/Profesional.js';
+import TutorService from '../services/TutorService.js';
+import Tutor from '../entities/Tutor.js';
 
 const router = Router();
-const currentService = new ProfesionalService();
+const currentService = new TutorService();
 
 router.get('', async (req, res) => {
   try {
-    console.log('ProfesionalController.getAll');
-
     const returnArray = await currentService.getAllAsync();
-
-    if (returnArray != null) {
-      res.status(StatusCodes.OK).json(returnArray);
-    } else {
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
-    }
+    if (returnArray != null) res.status(StatusCodes.OK).json(returnArray);
+    else res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
   } catch (error) {
-    console.log(error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
   }
 });
@@ -27,42 +19,21 @@ router.get('', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-
-    console.log(`ProfesionalController.getById(${id})`);
-
     const returnEntity = await currentService.getByIdAsync(id);
-
-    if (returnEntity != null) {
-      res.status(StatusCodes.OK).json(returnEntity);
-    } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el profesional con id: ${id}.`);
-    }
+    if (returnEntity != null) res.status(StatusCodes.OK).json(returnEntity);
+    else res.status(StatusCodes.NOT_FOUND).send(`No se encontro el tutor con id: ${id}.`);
   } catch (error) {
-    console.log(error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
   }
 });
 
 router.post('', async (req, res) => {
   try {
-    console.log('ProfesionalController.create');
-
-    const entity = new Profesional(req.body);
-
+    const entity = new Tutor(req.body);
     const newId = await currentService.createAsync(entity);
-
-    if (newId > 0) {
-      res.status(StatusCodes.CREATED).json({
-        message: `Se creó el profesional con id: ${newId}`,
-        id: newId,
-      });
-    } else {
-      res.status(StatusCodes.BAD_REQUEST).json({
-        message: 'No se pudo crear el profesional.',
-      });
-    }
+    if (newId > 0) res.status(StatusCodes.CREATED).json({ message: `Se creo el tutor con id: ${newId}`, id: newId });
+    else res.status(StatusCodes.BAD_REQUEST).json({ message: 'No se pudo crear el tutor.' });
   } catch (error) {
-    console.log(error);
     res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
@@ -70,30 +41,15 @@ router.post('', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const entity = new Profesional(req.body);
-
-    console.log(`ProfesionalController.update(${id})`);
-
+    const entity = new Tutor(req.body);
     if (entity.id && parseInt(entity.id) !== id) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .send(`El id de la URL (${id}) no coincide con el id del body (${entity.id}).`);
+      return res.status(StatusCodes.BAD_REQUEST).send(`El id de la URL (${id}) no coincide con el id del body (${entity.id}).`);
     }
-
     entity.id = id;
-
     const rowsAffected = await currentService.updateAsync(entity);
-
-    if (rowsAffected !== 0) {
-      res.status(StatusCodes.OK).json({
-        message: `Se actualizó el profesional con id: ${id}`,
-        rowsAffected,
-      });
-    } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el profesional con id: ${id}.`);
-    }
+    if (rowsAffected !== 0) res.status(StatusCodes.OK).json({ message: `Se actualizo el tutor con id: ${id}`, rowsAffected });
+    else res.status(StatusCodes.NOT_FOUND).send(`No se encontro el tutor con id: ${id}.`);
   } catch (error) {
-    console.log(error);
     res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
@@ -101,21 +57,10 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-
-    console.log(`ProfesionalController.delete(${id})`);
-
     const rowCount = await currentService.deleteByIdAsync(id);
-
-    if (rowCount !== 0) {
-      res.status(StatusCodes.OK).json({
-        message: `Se eliminó el profesional con id: ${id}`,
-        rowsAffected: rowCount,
-      });
-    } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontró el profesional con id: ${id}.`);
-    }
+    if (rowCount !== 0) res.status(StatusCodes.OK).json({ message: `Se elimino el tutor con id: ${id}`, rowsAffected: rowCount });
+    else res.status(StatusCodes.NOT_FOUND).send(`No se encontro el tutor con id: ${id}.`);
   } catch (error) {
-    console.log(error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
   }
 });

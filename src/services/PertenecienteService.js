@@ -1,51 +1,68 @@
-import BaseCrudService from './BaseCrudService.js';
 import PertenecienteRepository from '../repositories/PertenecienteRepository.js';
-import AppError from '../modules/errors/AppError.js';
-import VinculoService from './VinculoService.js';
 
-class PertenecienteService extends BaseCrudService {
+export default class PertenecienteService {
   constructor() {
-    super(PertenecienteRepository, { hiddenFields: [] });
+    console.log('Estoy en: PertenecienteService.constructor()');
+    this.PertenecienteRepository = new PertenecienteRepository();
   }
 
-  async findAll() { return this.list(); }
-  async findById(id) { return this.getById(id); }
+  getAllAsync = async () => {
+    console.log('PertenecienteService.getAllAsync()');
+    const returnArray = await this.PertenecienteRepository.getAllAsync();
+    if (returnArray == null) return null;
+    return returnArray;
+  };
 
-  async create(data) {
-    if (!data?.id_usuario || !data?.id_nivel_apoyo || !data?.id_autonomia_operativa) {
-      throw new AppError('id_usuario, id_nivel_apoyo e id_autonomia_operativa son obligatorios', 400);
+  getByIdAsync = async (id) => {
+    console.log(`PertenecienteService.getByIdAsync(${id})`);
+    if (!id || Number.isNaN(id)) {
+      throw new Error('El id del perteneciente es invalido.');
     }
-    return super.create(data);
-  }
+    const returnEntity = await this.PertenecienteRepository.getByIdAsync(id);
+    return returnEntity;
+  };
 
-  findTutores(idPerteneciente) { return this.repository.findTutores(idPerteneciente); }
-  findProfesionales(idPerteneciente) { return this.repository.findProfesionales(idPerteneciente); }
-  findActividades(idPerteneciente) { return this.repository.findActividades(idPerteneciente); }
-  findRutinas(idPerteneciente) { return this.repository.findRutinas(idPerteneciente); }
-  findEventos(idPerteneciente) { return this.repository.findEventos(idPerteneciente); }
-  findEmociones(idPerteneciente) { return this.repository.findEmociones(idPerteneciente); }
-  findObjetivos(idPerteneciente) { return this.repository.findObjetivos(idPerteneciente); }
-  findUbicaciones(idPerteneciente) { return this.repository.findUbicaciones(idPerteneciente); }
-  findNotificaciones(idPerteneciente) { return this.repository.findNotificaciones(idPerteneciente); }
+  createAsync = async (entity) => {
+    console.log(`PertenecienteService.createAsync(${JSON.stringify(entity)})`);
+    this.validarPertenecienteParaCrear(entity);
+    const pertenecienteConMismoUsuario = await this.PertenecienteRepository.getByUsuarioIdAsync(entity.id_usuario);
+    if (pertenecienteConMismoUsuario != null) {
+      throw new Error(`Ya existe un perteneciente asociado al usuario con id ${entity.id_usuario}.`);
+    }
+    const newId = await this.PertenecienteRepository.createAsync(entity);
+    return newId;
+  };
 
-  async getDashboard(idPerteneciente) {
-    const perteneciente = await this.getById(idPerteneciente);
-    const [tutores, profesionales, actividades, rutinas, eventos, emociones, objetivos, ubicaciones, notificaciones] = await Promise.all([
-      this.findTutores(idPerteneciente),
-      this.findProfesionales(idPerteneciente),
-      this.findActividades(idPerteneciente),
-      this.findRutinas(idPerteneciente),
-      this.findEventos(idPerteneciente),
-      this.findEmociones(idPerteneciente),
-      this.findObjetivos(idPerteneciente),
-      this.findUbicaciones(idPerteneciente),
-      this.findNotificaciones(idPerteneciente),
-    ]);
+  updateAsync = async (entity) => {
+    console.log(`PertenecienteService.updateAsync(${JSON.stringify(entity)})`);
+    if (!entity?.id || Number.isNaN(entity.id)) {
+      throw new Error('El id del perteneciente es obligatorio para actualizar.');
+    }
+    const previousEntity = await this.PertenecienteRepository.getByIdAsync(entity.id);
+    if (previousEntity == null) return 0;
+    if (entity.id_usuario && entity.id_usuario !== previousEntity.id_usuario) {
+      const pertenecienteConMismoUsuario = await this.PertenecienteRepository.getByUsuarioIdAsync(entity.id_usuario);
+      if (pertenecienteConMismoUsuario != null) {
+        throw new Error(`Ya existe un perteneciente asociado al usuario con id ${entity.id_usuario}.`);
+      }
+    }
+    const rowsAffected = await this.PertenecienteRepository.updateAsync(entity);
+    return rowsAffected;
+  };
 
-    return { perteneciente, tutores, profesionales, actividades, rutinas, eventos, emociones, objetivos, ubicaciones, notificaciones };
-  }
-  listTutores(idPerteneciente) { return VinculoService.getTutoresByPerteneciente(idPerteneciente); }
-  listProfesionales(idPerteneciente) { return VinculoService.getProfesionalesByPerteneciente(idPerteneciente); }
+  deleteByIdAsync = async (id) => {
+    console.log(`PertenecienteService.deleteByIdAsync(${id})`);
+    if (!id || Number.isNaN(id)) {
+      throw new Error('El id del perteneciente es invalido.');
+    }
+    const rowsAffected = await this.PertenecienteRepository.deleteByIdAsync(id);
+    return rowsAffected;
+  };
+
+  validarPertenecienteParaCrear = (entity) => {
+    if (!entity) throw new Error('El perteneciente es obligatorio.');
+    if (!entity.id_usuario) throw new Error('id_usuario es obligatorio.');
+    if (!entity.id_nivel_apoyo) throw new Error('id_nivel_apoyo es obligatorio.');
+    if (!entity.id_autonomia_operativa) throw new Error('id_autonomia_operativa es obligatorio.');
+  };
 }
-
-export default new PertenecienteService();

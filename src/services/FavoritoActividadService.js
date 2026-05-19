@@ -16,7 +16,7 @@ export default class FavoritoActividadService {
   getByIdAsync = async (id) => {
     console.log(`FavoritoActividadService.getByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del favorito es inválido.');
+      throw new Error('El id del favorito es invalido.');
     }
     const returnEntity = await this.FavoritoActividadRepository.getByIdAsync(id);
     return returnEntity;
@@ -43,7 +43,7 @@ export default class FavoritoActividadService {
   deleteByIdAsync = async (id) => {
     console.log(`FavoritoActividadService.deleteByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del favorito es inválido.');
+      throw new Error('El id del favorito es invalido.');
     }
     const rowsAffected = await this.FavoritoActividadRepository.deleteByIdAsync(id);
     return rowsAffected;

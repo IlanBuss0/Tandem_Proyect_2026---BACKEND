@@ -16,7 +16,7 @@ export default class InventarioAvatarService {
   getByIdAsync = async (id) => {
     console.log(`InventarioAvatarService.getByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del inventario es inválido.');
+      throw new Error('El id del inventario es invalido.');
     }
     const returnEntity = await this.InventarioAvatarRepository.getByIdAsync(id);
     return returnEntity;
@@ -49,7 +49,7 @@ export default class InventarioAvatarService {
   deleteByIdAsync = async (id) => {
     console.log(`InventarioAvatarService.deleteByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del inventario es inválido.');
+      throw new Error('El id del inventario es invalido.');
     }
     const rowsAffected = await this.InventarioAvatarRepository.deleteByIdAsync(id);
     return rowsAffected;

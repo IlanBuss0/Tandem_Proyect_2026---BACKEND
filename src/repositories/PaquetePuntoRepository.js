@@ -5,26 +5,39 @@ export default class PaquetePuntoRepository {
     console.log('Estoy en: PaquetePuntoRepository.constructor()');
   }
 
-  getAllAsync = async () => await BD.query(`SELECT * FROM paquetes_puntos ORDER BY id DESC`);
+  getAllAsync = async () => {
+    console.log('PaquetePuntoRepository.getAllAsync()');
+    const sql = `SELECT id, nombre, cantidad_punto, precio, activo FROM paquetes_puntos ORDER BY id DESC`;
+    return await BD.query(sql);
+  };
 
-  getByIdAsync = async (id) => await BD.queryOne(`SELECT * FROM paquetes_puntos WHERE id = $1`, [id]);
+  getByIdAsync = async (id) => {
+    console.log(`PaquetePuntoRepository.getByIdAsync(${id})`);
+    const sql = `SELECT id, nombre, cantidad_punto, precio, activo FROM paquetes_puntos WHERE id = $1`;
+    return await BD.queryOne(sql, [id]);
+  };
 
   createAsync = async (entity) => {
-    const sql = `INSERT INTO paquetes_puntos SELECT * FROM json_populate_record(NULL::paquetes_puntos, $1) RETURNING id`;
-    const result = await BD.queryOne(sql, [entity]);
+    console.log(`PaquetePuntoRepository.createAsync(${JSON.stringify(entity)})`);
+    const sql = `INSERT INTO paquetes_puntos (nombre, cantidad_punto, precio, activo) VALUES ($1, $2, $3, $4) RETURNING id`;
+    const values = [entity?.nombre ?? null, entity?.cantidad_punto ?? null, entity?.precio ?? null, entity?.activo ?? null];
+    const result = await BD.queryOne(sql, values);
     return result?.id ?? 0;
   };
 
   updateAsync = async (entity) => {
-    const previousEntity = await this.getByIdAsync(entity.id);
+    console.log(`PaquetePuntoRepository.updateAsync(${JSON.stringify(entity)})`);
+    const id = entity.id;
+    const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
-    const sql = `UPDATE paquetes_puntos SET ({fields}) = ({values}) WHERE id = $1`;
-    const keys = Object.keys(entity).filter((k) => k !== 'id');
-    if (keys.length === 0) return 0;
-    const setFields = keys.join(', ');
-    const placeholders = keys.map((_, i) => `$${i + 2}`).join(', ');
-    return await BD.execute(sql.replace('{fields}', setFields).replace('{values}', placeholders), [entity.id, ...keys.map((k) => entity[k])]);
+    const sql = `UPDATE paquetes_puntos SET nombre = $2, cantidad_punto = $3, precio = $4, activo = $5 WHERE id = $1`;
+    const values = [id, entity?.nombre ?? previousEntity.nombre, entity?.cantidad_punto ?? previousEntity.cantidad_punto, entity?.precio ?? previousEntity.precio, entity?.activo ?? previousEntity.activo];
+    return await BD.execute(sql, values);
   };
 
-  deleteByIdAsync = async (id) => await BD.execute(`DELETE FROM paquetes_puntos WHERE id = $1`, [id]);
+  deleteByIdAsync = async (id) => {
+    console.log(`PaquetePuntoRepository.deleteByIdAsync(${id})`);
+    const sql = `DELETE FROM paquetes_puntos WHERE id = $1`;
+    return await BD.execute(sql, [id]);
+  };
 }

@@ -16,7 +16,7 @@ export default class EventoZonaSeguraService {
   getByIdAsync = async (id) => {
     console.log(`EventoZonaSeguraService.getByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del evento de zona segura es inválido.');
+      throw new Error('El id del evento de zona segura es invalido.');
     }
     const returnEntity = await this.EventoZonaSeguraRepository.getByIdAsync(id);
     return returnEntity;
@@ -43,7 +43,7 @@ export default class EventoZonaSeguraService {
   deleteByIdAsync = async (id) => {
     console.log(`EventoZonaSeguraService.deleteByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del evento de zona segura es inválido.');
+      throw new Error('El id del evento de zona segura es invalido.');
     }
     const rowsAffected = await this.EventoZonaSeguraRepository.deleteByIdAsync(id);
     return rowsAffected;

@@ -5,26 +5,39 @@ export default class PermisoArchivoRepository {
     console.log('Estoy en: PermisoArchivoRepository.constructor()');
   }
 
-  getAllAsync = async () => await BD.query(`SELECT * FROM permisos_archivos ORDER BY id DESC`);
+  getAllAsync = async () => {
+    console.log('PermisoArchivoRepository.getAllAsync()');
+    const sql = `SELECT id, id_archivo, id_alcance_archivo, id_tipo_permiso_archivo, id_usuario, id_chat FROM permisos_archivos ORDER BY id DESC`;
+    return await BD.query(sql);
+  };
 
-  getByIdAsync = async (id) => await BD.queryOne(`SELECT * FROM permisos_archivos WHERE id = $1`, [id]);
+  getByIdAsync = async (id) => {
+    console.log(`PermisoArchivoRepository.getByIdAsync(${id})`);
+    const sql = `SELECT id, id_archivo, id_alcance_archivo, id_tipo_permiso_archivo, id_usuario, id_chat FROM permisos_archivos WHERE id = $1`;
+    return await BD.queryOne(sql, [id]);
+  };
 
   createAsync = async (entity) => {
-    const sql = `INSERT INTO permisos_archivos SELECT * FROM json_populate_record(NULL::permisos_archivos, $1) RETURNING id`;
-    const result = await BD.queryOne(sql, [entity]);
+    console.log(`PermisoArchivoRepository.createAsync(${JSON.stringify(entity)})`);
+    const sql = `INSERT INTO permisos_archivos (id_archivo, id_alcance_archivo, id_tipo_permiso_archivo, id_usuario, id_chat) VALUES ($1, $2, $3, $4, $5) RETURNING id`;
+    const values = [entity?.id_archivo ?? null, entity?.id_alcance_archivo ?? null, entity?.id_tipo_permiso_archivo ?? null, entity?.id_usuario ?? null, entity?.id_chat ?? null];
+    const result = await BD.queryOne(sql, values);
     return result?.id ?? 0;
   };
 
   updateAsync = async (entity) => {
-    const previousEntity = await this.getByIdAsync(entity.id);
+    console.log(`PermisoArchivoRepository.updateAsync(${JSON.stringify(entity)})`);
+    const id = entity.id;
+    const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
-    const sql = `UPDATE permisos_archivos SET ({fields}) = ({values}) WHERE id = $1`;
-    const keys = Object.keys(entity).filter((k) => k !== 'id');
-    if (keys.length === 0) return 0;
-    const setFields = keys.join(', ');
-    const placeholders = keys.map((_, i) => `$${i + 2}`).join(', ');
-    return await BD.execute(sql.replace('{fields}', setFields).replace('{values}', placeholders), [entity.id, ...keys.map((k) => entity[k])]);
+    const sql = `UPDATE permisos_archivos SET id_archivo = $2, id_alcance_archivo = $3, id_tipo_permiso_archivo = $4, id_usuario = $5, id_chat = $6 WHERE id = $1`;
+    const values = [id, entity?.id_archivo ?? previousEntity.id_archivo, entity?.id_alcance_archivo ?? previousEntity.id_alcance_archivo, entity?.id_tipo_permiso_archivo ?? previousEntity.id_tipo_permiso_archivo, entity?.id_usuario ?? previousEntity.id_usuario, entity?.id_chat ?? previousEntity.id_chat];
+    return await BD.execute(sql, values);
   };
 
-  deleteByIdAsync = async (id) => await BD.execute(`DELETE FROM permisos_archivos WHERE id = $1`, [id]);
+  deleteByIdAsync = async (id) => {
+    console.log(`PermisoArchivoRepository.deleteByIdAsync(${id})`);
+    const sql = `DELETE FROM permisos_archivos WHERE id = $1`;
+    return await BD.execute(sql, [id]);
+  };
 }

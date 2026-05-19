@@ -1,102 +1,68 @@
-import PertenecienteRepository from '../repositories/PertenecienteRepository.js';
+import { Router } from 'express';
+import { StatusCodes } from 'http-status-codes';
+import PertenecienteService from '../services/PertenecienteService.js';
+import Perteneciente from '../entities/Perteneciente.js';
 
-export default class PertenecienteService {
-  constructor() {
-    console.log('Estoy en: PertenecienteService.constructor()');
-    this.PertenecienteRepository = new PertenecienteRepository();
+const router = Router();
+const currentService = new PertenecienteService();
+
+router.get('', async (req, res) => {
+  try {
+    const returnArray = await currentService.getAllAsync();
+    if (returnArray != null) res.status(StatusCodes.OK).json(returnArray);
+    else res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
   }
+});
 
-  getAllAsync = async () => {
-    console.log('PertenecienteService.getAllAsync()');
+router.get('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const returnEntity = await currentService.getByIdAsync(id);
+    if (returnEntity != null) res.status(StatusCodes.OK).json(returnEntity);
+    else res.status(StatusCodes.NOT_FOUND).send(`No se encontro el perteneciente con id: ${id}.`);
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
 
-    const returnArray = await this.PertenecienteRepository.getAllAsync();
+router.post('', async (req, res) => {
+  try {
+    const entity = new Perteneciente(req.body);
+    const newId = await currentService.createAsync(entity);
+    if (newId > 0) res.status(StatusCodes.CREATED).json({ message: `Se creo el perteneciente con id: ${newId}`, id: newId });
+    else res.status(StatusCodes.BAD_REQUEST).json({ message: 'No se pudo crear el perteneciente.' });
+  } catch (error) {
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
 
-    if (returnArray == null) return null;
-
-    return returnArray;
-  };
-
-  getByIdAsync = async (id) => {
-    console.log(`PertenecienteService.getByIdAsync(${id})`);
-
-    if (!id || Number.isNaN(id)) {
-      throw new Error('El id del perteneciente es inválido.');
+router.put('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const entity = new Perteneciente(req.body);
+    if (entity.id && parseInt(entity.id) !== id) {
+      return res.status(StatusCodes.BAD_REQUEST).send(`El id de la URL (${id}) no coincide con el id del body (${entity.id}).`);
     }
+    entity.id = id;
+    const rowsAffected = await currentService.updateAsync(entity);
+    if (rowsAffected !== 0) res.status(StatusCodes.OK).json({ message: `Se actualizo el perteneciente con id: ${id}`, rowsAffected });
+    else res.status(StatusCodes.NOT_FOUND).send(`No se encontro el perteneciente con id: ${id}.`);
+  } catch (error) {
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
 
-    const returnEntity = await this.PertenecienteRepository.getByIdAsync(id);
+router.delete('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const rowCount = await currentService.deleteByIdAsync(id);
+    if (rowCount !== 0) res.status(StatusCodes.OK).json({ message: `Se elimino el perteneciente con id: ${id}`, rowsAffected: rowCount });
+    else res.status(StatusCodes.NOT_FOUND).send(`No se encontro el perteneciente con id: ${id}.`);
+  } catch (error) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
 
-    return returnEntity;
-  };
-
-  createAsync = async (entity) => {
-    console.log(`PertenecienteService.createAsync(${JSON.stringify(entity)})`);
-
-    this.validarPertenecienteParaCrear(entity);
-
-    const pertenecienteConMismoUsuario = await this.PertenecienteRepository.getByUsuarioIdAsync(entity.id_usuario);
-
-    if (pertenecienteConMismoUsuario != null) {
-      throw new Error(`Ya existe un perteneciente asociado al usuario con id ${entity.id_usuario}.`);
-    }
-
-    const newId = await this.PertenecienteRepository.createAsync(entity);
-
-    return newId;
-  };
-
-  updateAsync = async (entity) => {
-    console.log(`PertenecienteService.updateAsync(${JSON.stringify(entity)})`);
-
-    if (!entity?.id || Number.isNaN(entity.id)) {
-      throw new Error('El id del perteneciente es obligatorio para actualizar.');
-    }
-
-    const previousEntity = await this.PertenecienteRepository.getByIdAsync(entity.id);
-
-    if (previousEntity == null) {
-      return 0;
-    }
-
-    if (entity.id_usuario && entity.id_usuario !== previousEntity.id_usuario) {
-      const pertenecienteConMismoUsuario = await this.PertenecienteRepository.getByUsuarioIdAsync(entity.id_usuario);
-
-      if (pertenecienteConMismoUsuario != null) {
-        throw new Error(`Ya existe un perteneciente asociado al usuario con id ${entity.id_usuario}.`);
-      }
-    }
-
-    const rowsAffected = await this.PertenecienteRepository.updateAsync(entity);
-
-    return rowsAffected;
-  };
-
-  deleteByIdAsync = async (id) => {
-    console.log(`PertenecienteService.deleteByIdAsync(${id})`);
-
-    if (!id || Number.isNaN(id)) {
-      throw new Error('El id del perteneciente es inválido.');
-    }
-
-    const rowsAffected = await this.PertenecienteRepository.deleteByIdAsync(id);
-
-    return rowsAffected;
-  };
-
-  validarPertenecienteParaCrear = (entity) => {
-    if (!entity) {
-      throw new Error('El perteneciente es obligatorio.');
-    }
-
-    if (!entity.id_usuario) {
-      throw new Error('id_usuario es obligatorio.');
-    }
-
-    if (!entity.id_nivel_apoyo) {
-      throw new Error('id_nivel_apoyo es obligatorio.');
-    }
-
-    if (!entity.id_autonomia_operativa) {
-      throw new Error('id_autonomia_operativa es obligatorio.');
-    }
-  };
-}
+export default router;

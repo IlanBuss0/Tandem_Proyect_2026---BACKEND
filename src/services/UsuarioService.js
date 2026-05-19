@@ -20,7 +20,7 @@ export default class UsuarioService {
     console.log(`UsuarioService.getByIdAsync(${id})`);
 
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del usuario es inválido.');
+      throw new Error('El id del usuario es invalido.');
     }
 
     const returnEntity = await this.UsuarioRepository.getByIdAsync(id);
@@ -88,7 +88,7 @@ export default class UsuarioService {
     console.log(`UsuarioService.deleteByIdAsync(${id})`);
 
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del usuario es inválido.');
+      throw new Error('El id del usuario es invalido.');
     }
 
     const rowsAffected = await this.UsuarioRepository.deleteByIdAsync(id);

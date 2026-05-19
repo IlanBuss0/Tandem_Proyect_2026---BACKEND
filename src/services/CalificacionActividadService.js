@@ -16,7 +16,7 @@ export default class CalificacionActividadService {
   getByIdAsync = async (id) => {
     console.log(`CalificacionActividadService.getByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id de la calificación es inválido.');
+      throw new Error('El id de la calificacion es invalido.');
     }
     const returnEntity = await this.CalificacionActividadRepository.getByIdAsync(id);
     return returnEntity;
@@ -32,7 +32,7 @@ export default class CalificacionActividadService {
   updateAsync = async (entity) => {
     console.log(`CalificacionActividadService.updateAsync(${JSON.stringify(entity)})`);
     if (!entity?.id || Number.isNaN(entity.id)) {
-      throw new Error('El id de la calificación es obligatorio para actualizar.');
+      throw new Error('El id de la calificacion es obligatorio para actualizar.');
     }
     const previousEntity = await this.CalificacionActividadRepository.getByIdAsync(entity.id);
     if (previousEntity == null) return 0;
@@ -43,7 +43,7 @@ export default class CalificacionActividadService {
   deleteByIdAsync = async (id) => {
     console.log(`CalificacionActividadService.deleteByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id de la calificación es inválido.');
+      throw new Error('El id de la calificacion es invalido.');
     }
     const rowsAffected = await this.CalificacionActividadRepository.deleteByIdAsync(id);
     return rowsAffected;
@@ -51,7 +51,7 @@ export default class CalificacionActividadService {
 
   validarCalificacionParaCrear = (entity) => {
     if (!entity) {
-      throw new Error('La calificación es obligatoria.');
+      throw new Error('La calificacion es obligatoria.');
     }
     if (!entity.id_perteneciente) {
       throw new Error('id_perteneciente es obligatorio.');

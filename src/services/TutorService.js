@@ -1,120 +1,66 @@
-import ProfesionalRepository from '../repositories/ProfesionalRepository.js';
+import TutorRepository from '../repositories/TutorRepository.js';
 
-export default class ProfesionalService {
+export default class TutorService {
   constructor() {
-    console.log('Estoy en: ProfesionalService.constructor()');
-    this.ProfesionalRepository = new ProfesionalRepository();
+    console.log('Estoy en: TutorService.constructor()');
+    this.TutorRepository = new TutorRepository();
   }
 
   getAllAsync = async () => {
-    console.log('ProfesionalService.getAllAsync()');
-
-    const returnArray = await this.ProfesionalRepository.getAllAsync();
-
+    console.log('TutorService.getAllAsync()');
+    const returnArray = await this.TutorRepository.getAllAsync();
     if (returnArray == null) return null;
-
     return returnArray;
   };
 
   getByIdAsync = async (id) => {
-    console.log(`ProfesionalService.getByIdAsync(${id})`);
-
+    console.log(`TutorService.getByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del profesional es inválido.');
+      throw new Error('El id del tutor es invalido.');
     }
-
-    const returnEntity = await this.ProfesionalRepository.getByIdAsync(id);
-
+    const returnEntity = await this.TutorRepository.getByIdAsync(id);
     return returnEntity;
   };
 
   createAsync = async (entity) => {
-    console.log(`ProfesionalService.createAsync(${JSON.stringify(entity)})`);
-
-    this.validarProfesionalParaCrear(entity);
-
-    const profesionalConMismoUsuario = await this.ProfesionalRepository.getByUsuarioIdAsync(entity.id_usuario);
-
-    if (profesionalConMismoUsuario != null) {
-      throw new Error(`Ya existe un profesional asociado al usuario con id ${entity.id_usuario}.`);
+    console.log(`TutorService.createAsync(${JSON.stringify(entity)})`);
+    this.validarTutorParaCrear(entity);
+    const tutorConMismoUsuario = await this.TutorRepository.getByUsuarioIdAsync(entity.id_usuario);
+    if (tutorConMismoUsuario != null) {
+      throw new Error(`Ya existe un tutor asociado al usuario con id ${entity.id_usuario}.`);
     }
-
-    const profesionalConMismaMatricula = await this.ProfesionalRepository.getByMatriculaAsync(entity.matricula);
-
-    if (profesionalConMismaMatricula != null) {
-      throw new Error(`Ya existe un profesional con la matrícula ${entity.matricula}.`);
-    }
-
-    const newId = await this.ProfesionalRepository.createAsync(entity);
-
+    const newId = await this.TutorRepository.createAsync(entity);
     return newId;
   };
 
   updateAsync = async (entity) => {
-    console.log(`ProfesionalService.updateAsync(${JSON.stringify(entity)})`);
-
+    console.log(`TutorService.updateAsync(${JSON.stringify(entity)})`);
     if (!entity?.id || Number.isNaN(entity.id)) {
-      throw new Error('El id del profesional es obligatorio para actualizar.');
+      throw new Error('El id del tutor es obligatorio para actualizar.');
     }
-
-    const previousEntity = await this.ProfesionalRepository.getByIdAsync(entity.id);
-
-    if (previousEntity == null) {
-      return 0;
-    }
-
+    const previousEntity = await this.TutorRepository.getByIdAsync(entity.id);
+    if (previousEntity == null) return 0;
     if (entity.id_usuario && entity.id_usuario !== previousEntity.id_usuario) {
-      const profesionalConMismoUsuario = await this.ProfesionalRepository.getByUsuarioIdAsync(entity.id_usuario);
-
-      if (profesionalConMismoUsuario != null) {
-        throw new Error(`Ya existe un profesional asociado al usuario con id ${entity.id_usuario}.`);
+      const tutorConMismoUsuario = await this.TutorRepository.getByUsuarioIdAsync(entity.id_usuario);
+      if (tutorConMismoUsuario != null) {
+        throw new Error(`Ya existe un tutor asociado al usuario con id ${entity.id_usuario}.`);
       }
     }
-
-    if (entity.matricula && entity.matricula !== previousEntity.matricula) {
-      const profesionalConMismaMatricula = await this.ProfesionalRepository.getByMatriculaAsync(entity.matricula);
-
-      if (profesionalConMismaMatricula != null) {
-        throw new Error(`Ya existe un profesional con la matrícula ${entity.matricula}.`);
-      }
-    }
-
-    const rowsAffected = await this.ProfesionalRepository.updateAsync(entity);
-
+    const rowsAffected = await this.TutorRepository.updateAsync(entity);
     return rowsAffected;
   };
 
   deleteByIdAsync = async (id) => {
-    console.log(`ProfesionalService.deleteByIdAsync(${id})`);
-
+    console.log(`TutorService.deleteByIdAsync(${id})`);
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del profesional es inválido.');
+      throw new Error('El id del tutor es invalido.');
     }
-
-    const rowsAffected = await this.ProfesionalRepository.deleteByIdAsync(id);
-
+    const rowsAffected = await this.TutorRepository.deleteByIdAsync(id);
     return rowsAffected;
   };
 
-  validarProfesionalParaCrear = (entity) => {
-    if (!entity) {
-      throw new Error('El profesional es obligatorio.');
-    }
-
-    if (!entity.id_usuario) {
-      throw new Error('id_usuario es obligatorio.');
-    }
-
-    if (!entity.profesion) {
-      throw new Error('profesion es obligatorio.');
-    }
-
-    if (!entity.matricula) {
-      throw new Error('matricula es obligatorio.');
-    }
-
-    if (!entity.id_estado_validacion) {
-      throw new Error('id_estado_validacion es obligatorio.');
-    }
+  validarTutorParaCrear = (entity) => {
+    if (!entity) throw new Error('El tutor es obligatorio.');
+    if (!entity.id_usuario) throw new Error('id_usuario es obligatorio.');
   };
 }
