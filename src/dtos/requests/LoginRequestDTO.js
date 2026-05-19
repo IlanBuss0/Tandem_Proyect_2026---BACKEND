@@ -1,6 +1,7 @@
 export default class LoginRequestDTO {
-  constructor({ email, password }) {
-    this.email = email;
-    this.password = password;
+  constructor({ correo, nombre_usuario, contrasena }) {
+    this.correo = correo;
+    this.nombre_usuario = nombre_usuario;
+    this.contrasena = contrasena;
   }
 }

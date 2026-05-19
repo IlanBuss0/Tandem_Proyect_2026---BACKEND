@@ -1,70 +1,229 @@
 import BD from '../db/BD.js';
 
 class PermisoRepository {
-  findAllPertenecientes() {
-    return BD.query('SELECT * FROM permisos_otorgados_pertenecientes ORDER BY id DESC');
-  }
+  findAllPertenecientes = async () => {
+    console.log('PermisoRepository.findAllPertenecientes()');
 
-  findAllProfesionales() {
-    return BD.query('SELECT * FROM permisos_otorgados_profesionales ORDER BY id DESC');
-  }
+    const sql = `
+      SELECT
+        id,
+        id_perteneciente,
+        id_permiso_perteneciente,
+        habilitado,
+        id_usuario_modificador,
+        fecha_modificacion
+      FROM permisos_otorgados_pertenecientes
+      ORDER BY id DESC
+    `;
 
-  findByPerteneciente(idPerteneciente) {
-    return BD.query('SELECT * FROM permisos_otorgados_pertenecientes WHERE id_perteneciente = $1 ORDER BY id DESC', [idPerteneciente]);
-  }
+    return await BD.query(sql);
+  };
 
-  findByProfesional(idProfesional) {
-    return BD.query(
-      `SELECT pop.*
-       FROM permisos_otorgados_profesionales pop
-       JOIN vinculos_profesional_pertenecientes vpp ON vpp.id = pop.id_vinculo_profesional_perteneciente
-       WHERE vpp.id_profesional = $1
-       ORDER BY pop.id DESC`,
-      [idProfesional],
-    );
-  }
+  findAllProfesionales = async () => {
+    console.log('PermisoRepository.findAllProfesionales()');
 
-  createPerteneciente(data) {
-    const entries = Object.entries(data).filter(([, value]) => value !== undefined);
-    const fields = entries.map(([key]) => key);
-    const values = entries.map(([, value]) => value);
-    const placeholders = fields.map((_, i) => `$${i + 1}`);
-    return BD.queryOne(`INSERT INTO permisos_otorgados_pertenecientes (${fields.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *`, values);
-  }
+    const sql = `
+      SELECT
+        id,
+        id_vinculo_profesional_perteneciente,
+        id_permiso_profesional,
+        habilitado,
+        id_usuario_modificador,
+        fecha_modificacion
+      FROM permisos_otorgados_profesionales
+      ORDER BY id DESC
+    `;
 
-  createProfesional(data) {
-    const entries = Object.entries(data).filter(([, value]) => value !== undefined);
-    const fields = entries.map(([key]) => key);
-    const values = entries.map(([, value]) => value);
-    const placeholders = fields.map((_, i) => `$${i + 1}`);
-    return BD.queryOne(`INSERT INTO permisos_otorgados_profesionales (${fields.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *`, values);
-  }
+    return await BD.query(sql);
+  };
 
-  updatePerteneciente(id, data) {
-    const entries = Object.entries(data).filter(([, value]) => value !== undefined);
-    if (!entries.length) return null;
-    const sets = entries.map(([key], i) => `${key} = $${i + 1}`);
-    const values = entries.map(([, value]) => value);
-    return BD.queryOne(`UPDATE permisos_otorgados_pertenecientes SET ${sets.join(', ')} WHERE id = $${values.length + 1} RETURNING *`, [...values, id]);
-  }
+  findByPerteneciente = async (idPerteneciente) => {
+    console.log(`PermisoRepository.findByPerteneciente(${idPerteneciente})`);
 
-  updateProfesional(id, data) {
-    const entries = Object.entries(data).filter(([, value]) => value !== undefined);
-    if (!entries.length) return null;
-    const sets = entries.map(([key], i) => `${key} = $${i + 1}`);
-    const values = entries.map(([, value]) => value);
-    return BD.queryOne(`UPDATE permisos_otorgados_profesionales SET ${sets.join(', ')} WHERE id = $${values.length + 1} RETURNING *`, [...values, id]);
-  }
+    const sql = `
+      SELECT
+        id,
+        id_perteneciente,
+        id_permiso_perteneciente,
+        habilitado,
+        id_usuario_modificador,
+        fecha_modificacion
+      FROM permisos_otorgados_pertenecientes
+      WHERE id_perteneciente = $1
+      ORDER BY id DESC
+    `;
 
-  async removePerteneciente(id) {
-    const count = await BD.execute('DELETE FROM permisos_otorgados_pertenecientes WHERE id = $1', [id]);
+    return await BD.query(sql, [idPerteneciente]);
+  };
+
+  findByProfesional = async (idProfesional) => {
+    console.log(`PermisoRepository.findByProfesional(${idProfesional})`);
+
+    const sql = `
+      SELECT
+        permisos_otorgados_profesionales.id,
+        permisos_otorgados_profesionales.id_vinculo_profesional_perteneciente,
+        permisos_otorgados_profesionales.id_permiso_profesional,
+        permisos_otorgados_profesionales.habilitado,
+        permisos_otorgados_profesionales.id_usuario_modificador,
+        permisos_otorgados_profesionales.fecha_modificacion
+      FROM permisos_otorgados_profesionales
+      JOIN vinculos_profesional_pertenecientes
+        ON vinculos_profesional_pertenecientes.id = permisos_otorgados_profesionales.id_vinculo_profesional_perteneciente
+      WHERE vinculos_profesional_pertenecientes.id_profesional = $1
+      ORDER BY permisos_otorgados_profesionales.id DESC
+    `;
+
+    return await BD.query(sql, [idProfesional]);
+  };
+
+  createPerteneciente = async (entity) => {
+    console.log('PermisoRepository.createPerteneciente()');
+
+    const sql = `
+      INSERT INTO permisos_otorgados_pertenecientes (
+        id_perteneciente,
+        id_permiso_perteneciente,
+        habilitado,
+        id_usuario_modificador,
+        fecha_modificacion
+      )
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING
+        id,
+        id_perteneciente,
+        id_permiso_perteneciente,
+        habilitado,
+        id_usuario_modificador,
+        fecha_modificacion
+    `;
+
+    const values = [
+      entity?.id_perteneciente,
+      entity?.id_permiso_perteneciente,
+      entity?.habilitado,
+      entity?.id_usuario_modificador,
+      entity?.fecha_modificacion,
+    ];
+
+    return await BD.queryOne(sql, values);
+  };
+
+  createProfesional = async (entity) => {
+    console.log('PermisoRepository.createProfesional()');
+
+    const sql = `
+      INSERT INTO permisos_otorgados_profesionales (
+        id_vinculo_profesional_perteneciente,
+        id_permiso_profesional,
+        habilitado,
+        id_usuario_modificador,
+        fecha_modificacion
+      )
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING
+        id,
+        id_vinculo_profesional_perteneciente,
+        id_permiso_profesional,
+        habilitado,
+        id_usuario_modificador,
+        fecha_modificacion
+    `;
+
+    const values = [
+      entity?.id_vinculo_profesional_perteneciente,
+      entity?.id_permiso_profesional,
+      entity?.habilitado,
+      entity?.id_usuario_modificador,
+      entity?.fecha_modificacion,
+    ];
+
+    return await BD.queryOne(sql, values);
+  };
+
+  updatePerteneciente = async (id, entity) => {
+    console.log(`PermisoRepository.updatePerteneciente(${id})`);
+
+    const sql = `
+      UPDATE permisos_otorgados_pertenecientes
+      SET
+        id_perteneciente = $2,
+        id_permiso_perteneciente = $3,
+        habilitado = $4,
+        id_usuario_modificador = $5,
+        fecha_modificacion = $6
+      WHERE id = $1
+      RETURNING
+        id,
+        id_perteneciente,
+        id_permiso_perteneciente,
+        habilitado,
+        id_usuario_modificador,
+        fecha_modificacion
+    `;
+
+    const values = [
+      id,
+      entity?.id_perteneciente,
+      entity?.id_permiso_perteneciente,
+      entity?.habilitado,
+      entity?.id_usuario_modificador,
+      entity?.fecha_modificacion,
+    ];
+
+    return await BD.queryOne(sql, values);
+  };
+
+  updateProfesional = async (id, entity) => {
+    console.log(`PermisoRepository.updateProfesional(${id})`);
+
+    const sql = `
+      UPDATE permisos_otorgados_profesionales
+      SET
+        id_vinculo_profesional_perteneciente = $2,
+        id_permiso_profesional = $3,
+        habilitado = $4,
+        id_usuario_modificador = $5,
+        fecha_modificacion = $6
+      WHERE id = $1
+      RETURNING
+        id,
+        id_vinculo_profesional_perteneciente,
+        id_permiso_profesional,
+        habilitado,
+        id_usuario_modificador,
+        fecha_modificacion
+    `;
+
+    const values = [
+      id,
+      entity?.id_vinculo_profesional_perteneciente,
+      entity?.id_permiso_profesional,
+      entity?.habilitado,
+      entity?.id_usuario_modificador,
+      entity?.fecha_modificacion,
+    ];
+
+    return await BD.queryOne(sql, values);
+  };
+
+  removePerteneciente = async (id) => {
+    console.log(`PermisoRepository.removePerteneciente(${id})`);
+
+    const sql = `DELETE FROM permisos_otorgados_pertenecientes WHERE id = $1`;
+    const count = await BD.execute(sql, [id]);
+
     return count > 0;
-  }
+  };
 
-  async removeProfesional(id) {
-    const count = await BD.execute('DELETE FROM permisos_otorgados_profesionales WHERE id = $1', [id]);
+  removeProfesional = async (id) => {
+    console.log(`PermisoRepository.removeProfesional(${id})`);
+
+    const sql = `DELETE FROM permisos_otorgados_profesionales WHERE id = $1`;
+    const count = await BD.execute(sql, [id]);
+
     return count > 0;
-  }
+  };
 }
 
 export default new PermisoRepository();

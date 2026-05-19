@@ -93,8 +93,31 @@ export default class UsuarioRepository {
     return await BD.queryOne(sql, [nombreUsuario]);
   };
 
+  getByIdForUpdateAsync = async (id) => {
+    console.log(`UsuarioRepository.getByIdForUpdateAsync(${id})`);
+
+    const sql = `
+      SELECT
+        id,
+        id_tipo_usuario,
+        nombre_usuario,
+        contrasena_hash,
+        nombre,
+        apellido,
+        correo,
+        telefono,
+        fecha_nacimiento,
+        fecha_ingreso,
+        activo
+      FROM usuarios
+      WHERE id = $1
+    `;
+
+    return await BD.queryOne(sql, [id]);
+  };
+
   createAsync = async (entity) => {
-    console.log(`UsuarioRepository.createAsync(${JSON.stringify(entity)})`);
+    console.log('UsuarioRepository.createAsync()');
 
     const sql = `
       INSERT INTO usuarios (
@@ -143,11 +166,11 @@ export default class UsuarioRepository {
   };
 
   updateAsync = async (entity) => {
-    console.log(`UsuarioRepository.updateAsync(${JSON.stringify(entity)})`);
+    console.log('UsuarioRepository.updateAsync()');
 
     const id = entity.id;
 
-    const previousEntity = await this.getByIdAsync(id);
+    const previousEntity = await this.getByIdForUpdateAsync(id);
 
     if (previousEntity == null) return 0;
 

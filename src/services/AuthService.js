@@ -10,8 +10,8 @@ class AuthService {
   async register(data) {
     const entity = { ...data };
 
-    if (!entity.contrasena_hash && entity.password) {
-      entity.contrasena_hash = await hashValue(entity.password);
+    if (!entity.contrasena_hash && entity.contrasena) {
+      entity.contrasena_hash = await hashValue(entity.contrasena);
     }
 
     if (!entity.fecha_ingreso) {
@@ -25,20 +25,21 @@ class AuthService {
     return { user, token };
   }
 
-  async login({ identifier, password }) {
-    if (!identifier || !password) throw new AppError('identifier y password son obligatorios', 400);
+  async login({ correo, nombre_usuario, contrasena }) {
+    const identificador = correo || nombre_usuario;
+    const contrasenaIngresada = contrasena;
 
-    const user = await AuthRepository.findByEmailOrUsername(identifier);
+    if (!identificador || !contrasenaIngresada) throw new AppError('correo o nombre_usuario y contrasena son obligatorios', 400);
+
+    const user = await AuthRepository.findByCorreoOrNombreUsuario(identificador);
 
     if (!user) throw new AppError('Credenciales invalidas', 401);
 
-    const valid = await compareValue(password, user.contrasena_hash || user.password_hash || user.password);
+    const valid = await compareValue(contrasenaIngresada, user.contrasena_hash);
 
     if (!valid) throw new AppError('Credenciales invalidas', 401);
 
     delete user.contrasena_hash;
-    delete user.password_hash;
-    delete user.password;
 
     const token = signJwt({ id: user.id, correo: user.correo, nombre_usuario: user.nombre_usuario });
 
