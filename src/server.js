@@ -76,6 +76,7 @@ import TipoPermisoArchivoController from './controllers/TipoPermisoArchivoContro
 import TipoUsuarioController from './controllers/TipoUsuarioController.js';
 import ValidacionProfesionalController from './controllers/ValidacionProfesionalController.js';
 import VinculoProfesionalPertenecienteController from './controllers/VinculoProfesionalPertenecienteController.js';
+import VinculoTutorPertenecienteController from './controllers/VinculoTutorPertenecienteController.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { envConfig } from './configs/env.config.js';
 import BD from './db/BD.js';
@@ -210,6 +211,8 @@ app.use('/api/tipos-usuarios', TipoUsuarioController);
 app.use('/api/validaciones-profesionales', ValidacionProfesionalController);
 
 app.use('/api/vinculos-profesionales-pertenecientes', VinculoProfesionalPertenecienteController);
+
+app.use('/api/vinculos-tutor-pertenecientes', VinculoTutorPertenecienteController);
 
 app.use(errorMiddleware);
 

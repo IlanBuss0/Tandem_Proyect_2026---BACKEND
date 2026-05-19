@@ -72,7 +72,7 @@ export default class ZonaSeguraRepository {
 
   deleteByIdAsync = async (id) => {
     console.log(`ZonaSeguraRepository.deleteByIdAsync(${id})`);
-    const sql = `UPDATE zonas_seguras SET activa = false WHERE id = $1`;
+    const sql = `DELETE FROM zonas_seguras WHERE id = $1`;
     return await BD.execute(sql, [id]);
   };
 }
