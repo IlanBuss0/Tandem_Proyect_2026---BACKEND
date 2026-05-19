@@ -32,6 +32,49 @@ import BloqueoUsuarioController from './controllers/BloqueoUsuarioController.js'
 import ConfiguracionUsuarioController from './controllers/ConfiguracionUsuarioController.js';
 import ConfiguracionAccesibilidadController from './controllers/ConfiguracionAccesibilidadController.js';
 import ReporteUsuarioController from './controllers/ReporteUsuarioController.js';
+import AlcanceArchivoController from './controllers/AlcanceArchivoController.js';
+import ArchivoController from './controllers/ArchivoController.js';
+import AuditoriaEventoController from './controllers/AuditoriaEventoController.js';
+import AutonomiaOperativaController from './controllers/AutonomiaOperativaController.js';
+import BeneficiarioSuscripcionController from './controllers/BeneficiarioSuscripcionController.js';
+import CatalogoPermisoPertenecienteController from './controllers/CatalogoPermisoPertenecienteController.js';
+import CatalogoPermisoProfesionalController from './controllers/CatalogoPermisoProfesionalController.js';
+import DificultadActividadController from './controllers/DificultadActividadController.js';
+import EntidadAfectadaAuditoriaController from './controllers/EntidadAfectadaAuditoriaController.js';
+import EstadoActividadController from './controllers/EstadoActividadController.js';
+import EstadoContactoController from './controllers/EstadoContactoController.js';
+import EstadoPagoController from './controllers/EstadoPagoController.js';
+import EstadoReporteController from './controllers/EstadoReporteController.js';
+import EstadoSuscripcionController from './controllers/EstadoSuscripcionController.js';
+import EstadoValidacionProfesionalController from './controllers/EstadoValidacionProfesionalController.js';
+import EstadoVinculoController from './controllers/EstadoVinculoController.js';
+import HistorialPermisoOtorgadoPertenecienteController from './controllers/HistorialPermisoOtorgadoPertenecienteController.js';
+import HistorialPermisoOtorgadoProfesionalController from './controllers/HistorialPermisoOtorgadoProfesionalController.js';
+import MensajeArchivoController from './controllers/MensajeArchivoController.js';
+import NivelApoyoController from './controllers/NivelApoyoController.js';
+import PagoSuscripcionController from './controllers/PagoSuscripcionController.js';
+import PaquetePuntoController from './controllers/PaquetePuntoController.js';
+import PerfilProfesionalController from './controllers/PerfilProfesionalController.js';
+import PermisoArchivoController from './controllers/PermisoArchivoController.js';
+import PermisoOtorgadoPertenecienteController from './controllers/PermisoOtorgadoPertenecienteController.js';
+import PermisoOtorgadoProfesionalController from './controllers/PermisoOtorgadoProfesionalController.js';
+import PlanSuscripcionController from './controllers/PlanSuscripcionController.js';
+import PuntoOtorgadoController from './controllers/PuntoOtorgadoController.js';
+import ResenaProfesionalController from './controllers/ResenaProfesionalController.js';
+import RolAdministradorController from './controllers/RolAdministradorController.js';
+import TipoActividadController from './controllers/TipoActividadController.js';
+import TipoArchivoController from './controllers/TipoArchivoController.js';
+import TipoChatController from './controllers/TipoChatController.js';
+import TipoEventoAuditoriaController from './controllers/TipoEventoAuditoriaController.js';
+import TipoEventoZonaSeguraController from './controllers/TipoEventoZonaSeguraController.js';
+import TipoItemAvatarController from './controllers/TipoItemAvatarController.js';
+import TipoMensajeController from './controllers/TipoMensajeController.js';
+import TipoMovimientoPuntoController from './controllers/TipoMovimientoPuntoController.js';
+import TipoNotificacionController from './controllers/TipoNotificacionController.js';
+import TipoPermisoArchivoController from './controllers/TipoPermisoArchivoController.js';
+import TipoUsuarioController from './controllers/TipoUsuarioController.js';
+import ValidacionProfesionalController from './controllers/ValidacionProfesionalController.js';
+import VinculoProfesionalPertenecienteController from './controllers/VinculoProfesionalPertenecienteController.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { envConfig } from './configs/env.config.js';
 import BD from './db/BD.js';
@@ -79,6 +122,92 @@ app.use('/api/bloqueos-usuarios', BloqueoUsuarioController);
 app.use('/api/configuraciones-usuarios', ConfiguracionUsuarioController);
 app.use('/api/configuraciones-accesibilidad', ConfiguracionAccesibilidadController);
 app.use('/api/reportes-usuarios', ReporteUsuarioController);
+
+app.use('/api/alcances-archivos', AlcanceArchivoController);
+
+app.use('/api/archivos', ArchivoController);
+
+app.use('/api/auditorias-eventos', AuditoriaEventoController);
+
+app.use('/api/autonomias-operativas', AutonomiaOperativaController);
+
+app.use('/api/beneficiarios-suscripciones', BeneficiarioSuscripcionController);
+
+app.use('/api/catalogos-permisos-pertenecientes', CatalogoPermisoPertenecienteController);
+
+app.use('/api/catalogos-permisos-profesionales', CatalogoPermisoProfesionalController);
+
+app.use('/api/dificultades-actividades', DificultadActividadController);
+
+app.use('/api/entidades-afectadas-auditorias', EntidadAfectadaAuditoriaController);
+
+app.use('/api/estados-actividades', EstadoActividadController);
+
+app.use('/api/estados-contactos', EstadoContactoController);
+
+app.use('/api/estados-pagos', EstadoPagoController);
+
+app.use('/api/estados-reportes', EstadoReporteController);
+
+app.use('/api/estados-suscripciones', EstadoSuscripcionController);
+
+app.use('/api/estados-validaciones-profesionales', EstadoValidacionProfesionalController);
+
+app.use('/api/estados-vinculos', EstadoVinculoController);
+
+app.use('/api/historiales-permisos-otorgados-pertenecientes', HistorialPermisoOtorgadoPertenecienteController);
+
+app.use('/api/historiales-permisos-otorgados-profesionales', HistorialPermisoOtorgadoProfesionalController);
+
+app.use('/api/mensajes-archivos', MensajeArchivoController);
+
+app.use('/api/niveles-apoyos', NivelApoyoController);
+
+app.use('/api/pagos-suscripciones', PagoSuscripcionController);
+
+app.use('/api/paquetes-puntos', PaquetePuntoController);
+
+app.use('/api/perfiles-profesionales', PerfilProfesionalController);
+
+app.use('/api/permisos-archivos', PermisoArchivoController);
+
+app.use('/api/permisos-otorgados-pertenecientes', PermisoOtorgadoPertenecienteController);
+
+app.use('/api/permisos-otorgados-profesionales', PermisoOtorgadoProfesionalController);
+
+app.use('/api/planes-suscripciones', PlanSuscripcionController);
+
+app.use('/api/puntos-otorgados', PuntoOtorgadoController);
+
+app.use('/api/resenas-profesionales', ResenaProfesionalController);
+
+app.use('/api/roles-administradores', RolAdministradorController);
+
+app.use('/api/tipos-actividades', TipoActividadController);
+
+app.use('/api/tipos-archivos', TipoArchivoController);
+
+app.use('/api/tipos-chats', TipoChatController);
+
+app.use('/api/tipos-eventos-auditorias', TipoEventoAuditoriaController);
+
+app.use('/api/tipos-eventos-zonas-seguras', TipoEventoZonaSeguraController);
+
+app.use('/api/tipos-items-avatares', TipoItemAvatarController);
+
+app.use('/api/tipos-mensajes', TipoMensajeController);
+
+app.use('/api/tipos-movimientos-puntos', TipoMovimientoPuntoController);
+
+app.use('/api/tipos-notificaciones', TipoNotificacionController);
+
+app.use('/api/tipos-permisos-archivos', TipoPermisoArchivoController);
+
+app.use('/api/tipos-usuarios', TipoUsuarioController);
+
+app.use('/api/validaciones-profesionales', ValidacionProfesionalController);
+
+app.use('/api/vinculos-profesionales-pertenecientes', VinculoProfesionalPertenecienteController);
 
 app.use(errorMiddleware);
 
