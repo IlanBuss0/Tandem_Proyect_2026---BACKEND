@@ -22,6 +22,14 @@ export default class PertenecienteService {
     return returnEntity;
   };
 
+  getByUsuarioIdAsync = async (idUsuario) => {
+    console.log(`PertenecienteService.getByUsuarioIdAsync(${idUsuario})`);
+    if (!idUsuario || Number.isNaN(idUsuario)) {
+      throw new Error('El id del usuario es invalido.');
+    }
+    return await this.PertenecienteRepository.getByUsuarioIdAsync(idUsuario);
+  };
+
   createAsync = async (entity) => {
     console.log(`PertenecienteService.createAsync(${JSON.stringify(entity)})`);
     this.validarPertenecienteParaCrear(entity);
