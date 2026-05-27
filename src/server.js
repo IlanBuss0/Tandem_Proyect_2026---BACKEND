@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import AuthController from './controllers/AuthController.js';
 import UsuarioController from './controllers/UsuarioController.js';
@@ -81,10 +83,40 @@ import { errorMiddleware } from './middlewares/error.middleware.js';
 import { envConfig } from './configs/env.config.js';
 import BD from './db/BD.js';
 
+// Configuración para usar __dirname con ES Modules (import)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Documentación Interactiva con Swagger (Solo disponible en Desarrollo)
+if (process.env.NODE_ENV !== 'production') {
+    try {
+        // Usamos imports dinámicos para mantener la compatibilidad con ES Modules
+        const swaggerUi = await import('swagger-ui-express');
+        const YAML = await import('yamljs');
+        const fs = await import('fs');
+
+        const swaggerDocument = YAML.default.load(path.join(__dirname, 'configs', 'swagger.yaml'));
+        const customCss = fs.readFileSync(path.join(__dirname, 'configs', 'swagger-custom.css'), 'utf8');
+
+        const options = {
+            customCss,
+            customSiteTitle: 'Tándem 2026 - API Docs',
+            swaggerOptions: {
+                docExpansion: 'none'
+            }
+        };
+
+        app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, options));
+        console.log('➤ [Swagger]: Documentación disponible en http://localhost:3000/api-docs');        
+    } catch (error) {
+        console.error('➤ [Swagger Error]: No se pudo cargar la configuración de Swagger:', error.message);
+    }
+}
 
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -125,93 +157,49 @@ app.use('/api/bloqueos-usuarios', BloqueoUsuarioController);
 app.use('/api/configuraciones-usuarios', ConfiguracionUsuarioController);
 app.use('/api/configuraciones-accesibilidad', ConfiguracionAccesibilidadController);
 app.use('/api/reportes-usuarios', ReporteUsuarioController);
-
 app.use('/api/alcances-archivos', AlcanceArchivoController);
-
 app.use('/api/archivos', ArchivoController);
-
 app.use('/api/auditorias-eventos', AuditoriaEventoController);
-
 app.use('/api/autonomias-operativas', AutonomiaOperativaController);
-
 app.use('/api/beneficiarios-suscripciones', BeneficiarioSuscripcionController);
-
 app.use('/api/catalogos-permisos-pertenecientes', CatalogoPermisoPertenecienteController);
-
 app.use('/api/catalogos-permisos-profesionales', CatalogoPermisoProfesionalController);
-
 app.use('/api/dificultades-actividades', DificultadActividadController);
-
 app.use('/api/entidades-afectadas-auditorias', EntidadAfectadaAuditoriaController);
-
 app.use('/api/estados-actividades', EstadoActividadController);
-
 app.use('/api/estados-contactos', EstadoContactoController);
-
 app.use('/api/estados-pagos', EstadoPagoController);
-
 app.use('/api/estados-reportes', EstadoReporteController);
-
 app.use('/api/estados-suscripciones', EstadoSuscripcionController);
-
 app.use('/api/estados-validaciones-profesionales', EstadoValidacionProfesionalController);
-
 app.use('/api/estados-vinculos', EstadoVinculoController);
-
 app.use('/api/historiales-permisos-otorgados-pertenecientes', HistorialPermisoOtorgadoPertenecienteController);
-
 app.use('/api/historiales-permisos-otorgados-profesionales', HistorialPermisoOtorgadoProfesionalController);
-
 app.use('/api/mensajes-archivos', MensajeArchivoController);
-
 app.use('/api/niveles-apoyos', NivelApoyoController);
-
 app.use('/api/pagos-suscripciones', PagoSuscripcionController);
-
 app.use('/api/paquetes-puntos', PaquetePuntoController);
-
 app.use('/api/perfiles-profesionales', PerfilProfesionalController);
-
 app.use('/api/permisos-archivos', PermisoArchivoController);
-
 app.use('/api/permisos-otorgados-pertenecientes', PermisoOtorgadoPertenecienteController);
-
 app.use('/api/permisos-otorgados-profesionales', PermisoOtorgadoProfesionalController);
-
 app.use('/api/planes-suscripciones', PlanSuscripcionController);
-
 app.use('/api/puntos-otorgados', PuntoOtorgadoController);
-
 app.use('/api/resenas-profesionales', ResenaProfesionalController);
-
 app.use('/api/roles-administradores', RolAdministradorController);
-
 app.use('/api/tipos-actividades', TipoActividadController);
-
 app.use('/api/tipos-archivos', TipoArchivoController);
-
 app.use('/api/tipos-chats', TipoChatController);
-
 app.use('/api/tipos-eventos-auditorias', TipoEventoAuditoriaController);
-
 app.use('/api/tipos-eventos-zonas-seguras', TipoEventoZonaSeguraController);
-
 app.use('/api/tipos-items-avatares', TipoItemAvatarController);
-
 app.use('/api/tipos-mensajes', TipoMensajeController);
-
 app.use('/api/tipos-movimientos-puntos', TipoMovimientoPuntoController);
-
 app.use('/api/tipos-notificaciones', TipoNotificacionController);
-
 app.use('/api/tipos-permisos-archivos', TipoPermisoArchivoController);
-
 app.use('/api/tipos-usuarios', TipoUsuarioController);
-
 app.use('/api/validaciones-profesionales', ValidacionProfesionalController);
-
 app.use('/api/vinculos-profesionales-pertenecientes', VinculoProfesionalPertenecienteController);
-
 app.use('/api/vinculos-tutor-pertenecientes', VinculoTutorPertenecienteController);
 
 app.use(errorMiddleware);

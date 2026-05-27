@@ -1,0 +1,89 @@
+﻿:root {
+    --primary: #4f46e5; /* Indigo profesional */
+    --secondary: #64748b;
+    --bg-main: #f8fafc; /* Fondo claro por defecto, pero haremos un dark mode suave */
+    --bg-dark: #1e293b; /* Slate dark */
+    --bg-panel: #ffffff;
+    --text-main: #334155;
+    --get: #2563eb;
+    --post: #16a34a;
+    --put: #d97706;
+    --delete: #dc2626;
+}
+
+/* Reset y Base */
+.swagger-ui {
+    background-color: #f1f5f9;
+    color: var(--text-main);
+    padding-bottom: 50px;
+}
+
+.swagger-ui .info {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    border-top: 4px solid var(--primary);
+}
+
+.swagger-ui .info .title { font-size: 2rem; font-weight: 800; color: #0f172a; }
+
+/* Tags / Carpetas */
+.swagger-ui .opblock-tag-section {
+    background: #fff;
+    margin: 1.5rem 0;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+.swagger-ui .opblock-tag {
+    background: #f8fafc;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+/* Endpoints */
+.swagger-ui .opblock {
+    margin: 0.5rem 1rem;
+    border-radius: 8px !important;
+    border: 1px solid transparent !important;
+}
+
+/* MÃ©todos con colores profesionales */
+.swagger-ui .opblock.opblock-get { background: #eff6ff !important; border-color: #bfdbfe !important; }
+.swagger-ui .opblock.opblock-post { background: #f0fdf4 !important; border-color: #bbf7d0 !important; }
+.swagger-ui .opblock.opblock-put { background: #fffbeb !important; border-color: #fef3c7 !important; }
+.swagger-ui .opblock.opblock-delete { background: #fef2f2 !important; border-color: #fee2e2 !important; }
+
+.swagger-ui .opblock .opblock-summary-method {
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+.swagger-ui .opblock .opblock-summary-path {
+    font-size: 1rem;
+    color: #334155;
+    font-weight: 600;
+}
+
+/* Tablas y Parametros */
+.swagger-ui table thead tr td, .swagger-ui table thead tr th {
+    color: #64748b;
+    border-bottom: 2px solid #f1f5f9;
+}
+
+/* BotÃ³n Ejecutar */
+.swagger-ui .btn.execute {
+    background-color: var(--primary) !important;
+    border-radius: 6px !important;
+    color: white !important;
+    padding: 8px 24px !important;
+}
+
+/* Ocultar Topbar */
+.swagger-ui .topbar { display: none; }
