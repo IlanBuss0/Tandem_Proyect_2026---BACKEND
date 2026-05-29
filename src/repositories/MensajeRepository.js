@@ -17,10 +17,17 @@ export default class MensajeRepository {
     return await BD.queryOne(sql, [id]);
   };
 
-  getByChatIdAsync = async (idChat) => {
-    console.log(`MensajeRepository.getByChatIdAsync(${idChat})`);
-    const sql = `SELECT id, id_chat, id_usuario_emisor, id_tipo_mensaje, contenido, fecha_envio, eliminado FROM mensajes WHERE id_chat = $1 ORDER BY fecha_envio ASC`;
-    return await BD.query(sql, [idChat]);
+  getByChatIdAsync = async (idChat, limit = 30, beforeId = null) => {
+    console.log(`MensajeRepository.getByChatIdAsync(${idChat}, ${limit}, ${beforeId})`);
+    const sql = `
+      SELECT id, id_chat, id_usuario_emisor, id_tipo_mensaje, contenido, fecha_envio, eliminado 
+      FROM mensajes 
+      WHERE id_chat = $1 
+        AND ($3::int IS NULL OR id < $3)
+      ORDER BY id DESC 
+      LIMIT $2
+    `;
+    return await BD.query(sql, [idChat, limit, beforeId]);
   };
 
   createAsync = async (entity) => {

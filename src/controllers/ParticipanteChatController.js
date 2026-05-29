@@ -1,9 +1,107 @@
-import { Router } from 'express'; import { StatusCodes } from 'http-status-codes';
-import ParticipanteChatService from '../services/ParticipanteChatService.js'; import ParticipanteChat from '../entities/ParticipanteChat.js';
-const router = Router(); const currentService = new ParticipanteChatService();
-router.get('', async (req, res) => { try { console.log('ParticipanteChatController.getAll'); const r = await currentService.getAllAsync(); if (r != null) { res.status(StatusCodes.OK).json(r); } else { res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.'); } } catch (error) { console.log(error); res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`); } });
-router.get('/:id', async (req, res) => { try { const id = parseInt(req.params.id); console.log(`ParticipanteChatController.getById(${id})`); const r = await currentService.getByIdAsync(id); if (r != null) { res.status(StatusCodes.OK).json(r); } else { res.status(StatusCodes.NOT_FOUND).send(`No se encontro el participante con id: ${id}.`); } } catch (error) { console.log(error); res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`); } });
-router.post('', async (req, res) => { try { console.log('ParticipanteChatController.create'); const entity = new ParticipanteChat(req.body); const newId = await currentService.createAsync(entity); if (newId > 0) { res.status(StatusCodes.CREATED).json({ message: `Se creo el participante con id: ${newId}`, id: newId }); } else { res.status(StatusCodes.BAD_REQUEST).json({ message: 'No se pudo crear el participante.' }); } } catch (error) { console.log(error); res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`); } });
-router.put('/:id', async (req, res) => { try { const id = parseInt(req.params.id); const entity = new ParticipanteChat(req.body); console.log(`ParticipanteChatController.update(${id})`); if (entity.id && parseInt(entity.id) !== id) { return res.status(StatusCodes.BAD_REQUEST).send(`El id de la URL (${id}) no coincide con el id del body (${entity.id}).`); } entity.id = id; const rowsAffected = await currentService.updateAsync(entity); if (rowsAffected !== 0) { res.status(StatusCodes.OK).json({ message: `Se actualizo el participante con id: ${id}`, rowsAffected }); } else { res.status(StatusCodes.NOT_FOUND).send(`No se encontro el participante con id: ${id}.`); } } catch (error) { console.log(error); res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`); } });
-router.delete('/:id', async (req, res) => { try { const id = parseInt(req.params.id); console.log(`ParticipanteChatController.delete(${id})`); const rowCount = await currentService.deleteByIdAsync(id); if (rowCount !== 0) { res.status(StatusCodes.OK).json({ message: `Se elimino el participante con id: ${id}`, rowsAffected: rowCount }); } else { res.status(StatusCodes.NOT_FOUND).send(`No se encontro el participante con id: ${id}.`); } } catch (error) { console.log(error); res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`); } });
+import { Router } from 'express';
+import { StatusCodes } from 'http-status-codes';
+import ParticipanteChatService from '../services/ParticipanteChatService.js';
+import ParticipanteChat from '../entities/ParticipanteChat.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
+
+const router = Router();
+const currentService = new ParticipanteChatService();
+
+router.put('/leer/:idChat', authMiddleware, async (req, res) => {
+  try {
+    const idChat = parseInt(req.params.idChat);
+    const idMensaje = req.body.id_mensaje ? parseInt(req.body.id_mensaje) : null;
+    console.log(`ParticipanteChatController.marcarComoLeido(${idChat}, ${req.user.id}, ${idMensaje})`);
+    await currentService.marcarComoLeidoAsync(idChat, req.user.id, idMensaje);
+    res.status(StatusCodes.OK).json({ ok: true });
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
+router.get('', async (req, res) => {
+  try {
+    console.log('ParticipanteChatController.getAll');
+    const r = await currentService.getAllAsync();
+    if (r != null) {
+      res.status(StatusCodes.OK).json(r);
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    console.log(`ParticipanteChatController.getById(${id})`);
+    const r = await currentService.getByIdAsync(id);
+    if (r != null) {
+      res.status(StatusCodes.OK).json(r);
+    } else {
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro el participante con id: ${id}.`);
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
+router.post('', async (req, res) => {
+  try {
+    console.log('ParticipanteChatController.create');
+    const entity = new ParticipanteChat(req.body);
+    const newId = await currentService.createAsync(entity);
+    if (newId > 0) {
+      res.status(StatusCodes.CREATED).json({ message: `Se creo el participante con id: ${newId}`, id: newId });
+    } else {
+      res.status(StatusCodes.BAD_REQUEST).json({ message: 'No se pudo crear el participante.' });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const entity = new ParticipanteChat(req.body);
+    console.log(`ParticipanteChatController.update(${id})`);
+    if (entity.id && parseInt(entity.id) !== id) {
+      return res.status(StatusCodes.BAD_REQUEST).send(`El id de la URL (${id}) no coincide con el id del body (${entity.id}).`);
+    }
+    entity.id = id;
+    const rowsAffected = await currentService.updateAsync(entity);
+    if (rowsAffected !== 0) {
+      res.status(StatusCodes.OK).json({ message: `Se actualizo el participante con id: ${id}`, rowsAffected });
+    } else {
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro el participante con id: ${id}.`);
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    console.log(`ParticipanteChatController.delete(${id})`);
+    const rowCount = await currentService.deleteByIdAsync(id);
+    if (rowCount !== 0) {
+      res.status(StatusCodes.OK).json({ message: `Se elimino el participante con id: ${id}`, rowsAffected: rowCount });
+    } else {
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro el participante con id: ${id}.`);
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
 export default router;

@@ -22,6 +22,26 @@ export default class ChatService {
   getByUsuarioIdAsync = async (idUsuario) => { console.log(`ChatService.getByUsuarioIdAsync(${idUsuario})`); if (!idUsuario || Number.isNaN(idUsuario)) { throw new Error('El id del usuario es invalido.'); } return await this.ChatRepository.getByUsuarioIdAsync(idUsuario); };
   createAsync = async (entity) => { console.log(`ChatService.createAsync(${JSON.stringify(entity)})`); this.validarChatParaCrear(entity); return await this.ChatRepository.createAsync(entity); };
 
+  createDirectChatAsync = async (idUsuarioA, idUsuarioB, idTipoChat = 1, nombre = null) => {
+    console.log(`ChatService.createDirectChatAsync(${idUsuarioA}, ${idUsuarioB})`);
+    
+    // 1. Verificar si ya existe un chat activo entre ambos
+    const existente = await this.ChatRepository.getActiveBetweenUsersAsync(idUsuarioA, idUsuarioB, idTipoChat);
+    if (existente) {
+        return { chat: existente, created: false };
+    }
+
+    // 2. Crear chat con ambos participantes en una sola transaccion
+    const chat = await this.ChatRepository.createWithParticipantsAsync({
+        id_tipo_chat: idTipoChat,
+        nombre: nombre,
+        fecha_creacion: new Date(),
+        participantes: [idUsuarioA, idUsuarioB]
+    });
+
+    return { chat, created: true };
+  };
+
   createProfesionalPertenecienteAsync = async ({ id_usuario_profesional, id_perteneciente, id_tipo_chat = null, nombre = null }) => {
     console.log(`ChatService.createProfesionalPertenecienteAsync(${JSON.stringify({ id_usuario_profesional, id_perteneciente, id_tipo_chat, nombre })})`);
 
@@ -45,21 +65,9 @@ export default class ChatService {
     this.validarVinculoProfesionalPerteneciente(vinculo, esMayorDeEdad);
 
     const idTipoChat = await this.resolveTipoChatProfesionalPertenecienteAsync(id_tipo_chat);
-    const existente = await this.ChatRepository.getActiveBetweenUsersAsync(id_usuario_profesional, perteneciente.id_usuario, idTipoChat);
-
-    if (existente) {
-      return { chat: existente, created: false };
-    }
-
-    const chat = await this.ChatRepository.createWithParticipantsAsync({
-      id_tipo_chat: idTipoChat,
-      nombre,
-      fecha_creacion: new Date(),
-      participantes: [id_usuario_profesional, perteneciente.id_usuario],
-    });
-
-    return { chat, created: true };
+    return await this.createDirectChatAsync(id_usuario_profesional, perteneciente.id_usuario, idTipoChat, nombre);
   };
+  
   updateAsync = async (entity) => { console.log(`ChatService.updateAsync(${JSON.stringify(entity)})`); if (!entity?.id || Number.isNaN(entity.id)) { throw new Error('El id del chat es obligatorio para actualizar.'); } const prev = await this.ChatRepository.getByIdAsync(entity.id); if (prev == null) return 0; return await this.ChatRepository.updateAsync(entity); };
   deleteByIdAsync = async (id) => { console.log(`ChatService.deleteByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del chat es invalido.'); } return await this.ChatRepository.deleteByIdAsync(id); };
 
@@ -79,7 +87,7 @@ export default class ChatService {
       LIMIT 1
     `;
     const validado = await BD.queryOne(sql, [idProfesional]);
-    if (!validado) throw new Error('El profesional debe estar validado para crear chats con pertenecientes.');
+    if (!validado) throw new Error('El profesional debe estar validado para crear chats con pertenecientes.');  
   };
 
   validarVinculoProfesionalPerteneciente = (vinculo, esMayorDeEdad) => {
@@ -102,7 +110,7 @@ export default class ChatService {
   resolveTipoChatProfesionalPertenecienteAsync = async (idTipoChat) => {
     if (idTipoChat) return idTipoChat;
 
-    const nombres = ['profesional_perteneciente', 'profesional-perteneciente', 'profesional perteneciente'];
+    const nombres = ['profesional_perteneciente', 'profesional-perteneciente', 'profesional perteneciente'];    
 
     for (const nombre of nombres) {
       const tipo = await this.TipoChatRepository.getByNombreAsync(nombre);

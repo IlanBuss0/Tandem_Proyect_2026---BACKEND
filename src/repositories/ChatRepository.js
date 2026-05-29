@@ -20,13 +20,41 @@ export default class ChatRepository {
   getByUsuarioIdAsync = async (idUsuario) => {
     console.log(`ChatRepository.getByUsuarioIdAsync(${idUsuario})`);
     const sql = `
-      SELECT c.id, c.id_tipo_chat, c.nombre, c.fecha_creacion, c.activo
+      SELECT 
+        c.id, 
+        c.id_tipo_chat, 
+        c.nombre, 
+        c.fecha_creacion, 
+        c.activo,
+        u_otro.id AS id_otro_usuario,
+        u_otro.nombre AS nombre_otro_usuario,
+        u_otro.apellido AS apellido_otro_usuario,
+        m.contenido AS ultimo_mensaje_contenido,
+        m.fecha_envio AS ultimo_mensaje_fecha,
+        m.id_usuario_emisor AS ultimo_mensaje_id_emisor,
+        (
+          SELECT COUNT(*)::int
+          FROM mensajes m2 
+          WHERE m2.id_chat = c.id 
+            AND m2.id > COALESCE(pc.ultimo_mensaje_leido_id, 0)
+            AND m2.id_usuario_emisor != $1
+            AND m2.eliminado = false
+        ) AS cantidad_no_leidos
       FROM chats c
       INNER JOIN participantes_chats pc ON pc.id_chat = c.id
+      LEFT JOIN participantes_chats pc_otro ON pc_otro.id_chat = c.id AND pc_otro.id_usuario != $1
+      LEFT JOIN usuarios u_otro ON u_otro.id = pc_otro.id_usuario
+      LEFT JOIN LATERAL (
+          SELECT contenido, fecha_envio, id_usuario_emisor
+          FROM mensajes 
+          WHERE id_chat = c.id AND eliminado = false
+          ORDER BY fecha_envio DESC
+          LIMIT 1
+      ) m ON true
       WHERE pc.id_usuario = $1
         AND pc.fecha_salida IS NULL
         AND c.activo = true
-      ORDER BY c.fecha_creacion DESC
+      ORDER BY m.fecha_envio DESC NULLS LAST, c.fecha_creacion DESC
     `;
     return await BD.query(sql, [idUsuario]);
   };
@@ -51,7 +79,6 @@ export default class ChatRepository {
   };
 
   createWithParticipantsAsync = async ({ id_tipo_chat, nombre, fecha_creacion, participantes }) => {
-    console.log(`ChatRepository.createWithParticipantsAsync(${JSON.stringify({ id_tipo_chat, nombre, participantes })})`);
     return await BD.transaction(async (client) => {
       const chatResult = await client.query(
         `INSERT INTO chats (id_tipo_chat, nombre, fecha_creacion, activo) VALUES ($1, $2, $3, true) RETURNING id, id_tipo_chat, nombre, fecha_creacion, activo`,
@@ -72,7 +99,6 @@ export default class ChatRepository {
   };
 
   createAsync = async (entity) => {
-    console.log(`ChatRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `INSERT INTO chats (id_tipo_chat, nombre, fecha_creacion, activo) VALUES ($1, $2, $3, COALESCE($4, true)) RETURNING id`;
     const values = [entity?.id_tipo_chat, entity?.nombre ?? null, entity?.fecha_creacion, entity?.activo ?? true];
     const result = await BD.queryOne(sql, values);
@@ -80,7 +106,6 @@ export default class ChatRepository {
   };
 
   updateAsync = async (entity) => {
-    console.log(`ChatRepository.updateAsync(${JSON.stringify(entity)})`);
     const id = entity.id;
     const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
@@ -90,7 +115,6 @@ export default class ChatRepository {
   };
 
   deleteByIdAsync = async (id) => {
-    console.log(`ChatRepository.deleteByIdAsync(${id})`);
     const sql = `UPDATE chats SET activo = false WHERE id = $1`;
     return await BD.execute(sql, [id]);
   };

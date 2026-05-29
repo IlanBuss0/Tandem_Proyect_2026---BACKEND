@@ -1,0 +1,1 @@
+import BD from './src/db/BD.js'; (async () => { try { await BD.execute('ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS ultimo_mensaje_leido_id INT REFERENCES mensajes(id), ADD COLUMN IF NOT EXISTS fecha_ultima_lectura TIMESTAMP'); console.log('OK'); process.exit(0); } catch(e) { console.error(e); process.exit(1); } })();
