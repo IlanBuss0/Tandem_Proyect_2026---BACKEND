@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import { createServer } from 'http';
 import { fileURLToPath } from 'url';
 
 import AuthController from './controllers/AuthController.js';
@@ -82,12 +83,14 @@ import VinculoTutorPertenecienteController from './controllers/VinculoTutorPerte
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { envConfig } from './configs/env.config.js';
 import BD from './db/BD.js';
+import { setupRealtime } from './realtime/socket.js';
 
 // Configuración para usar __dirname con ES Modules (import)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const httpServer = createServer(app);
 
 app.use(cors());
 app.use(express.json());
@@ -211,8 +214,11 @@ async function startServer() {
     await BD.testConnection();
     console.log('Conexion a base de datos OK');
 
-    app.listen(envConfig.port, () => {
+    setupRealtime(httpServer);
+
+    httpServer.listen(envConfig.port, () => {
       console.log(`Servidor escuchando en puerto ${envConfig.port}`);
+      console.log('Socket.io listo para chat y eventos realtime');
     });
   } catch (error) {
     console.log('Error al iniciar servidor:', error.message);

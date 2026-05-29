@@ -38,6 +38,22 @@ class BD {
     }
   }
 
+  async transaction(callback) {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async testConnection() {
     const sql = 'SELECT NOW() AS fecha_actual';
     return await this.queryOne(sql);

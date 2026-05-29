@@ -17,6 +17,60 @@ export default class ChatRepository {
     return await BD.queryOne(sql, [id]);
   };
 
+  getByUsuarioIdAsync = async (idUsuario) => {
+    console.log(`ChatRepository.getByUsuarioIdAsync(${idUsuario})`);
+    const sql = `
+      SELECT c.id, c.id_tipo_chat, c.nombre, c.fecha_creacion, c.activo
+      FROM chats c
+      INNER JOIN participantes_chats pc ON pc.id_chat = c.id
+      WHERE pc.id_usuario = $1
+        AND pc.fecha_salida IS NULL
+        AND c.activo = true
+      ORDER BY c.fecha_creacion DESC
+    `;
+    return await BD.query(sql, [idUsuario]);
+  };
+
+  getActiveBetweenUsersAsync = async (idUsuarioA, idUsuarioB, idTipoChat = null) => {
+    console.log(`ChatRepository.getActiveBetweenUsersAsync(${idUsuarioA}, ${idUsuarioB}, ${idTipoChat})`);
+    const sql = `
+      SELECT c.id, c.id_tipo_chat, c.nombre, c.fecha_creacion, c.activo
+      FROM chats c
+      INNER JOIN participantes_chats pca ON pca.id_chat = c.id
+      INNER JOIN participantes_chats pcb ON pcb.id_chat = c.id
+      WHERE pca.id_usuario = $1
+        AND pcb.id_usuario = $2
+        AND pca.fecha_salida IS NULL
+        AND pcb.fecha_salida IS NULL
+        AND c.activo = true
+        AND ($3::int IS NULL OR c.id_tipo_chat = $3)
+      ORDER BY c.fecha_creacion DESC
+      LIMIT 1
+    `;
+    return await BD.queryOne(sql, [idUsuarioA, idUsuarioB, idTipoChat]);
+  };
+
+  createWithParticipantsAsync = async ({ id_tipo_chat, nombre, fecha_creacion, participantes }) => {
+    console.log(`ChatRepository.createWithParticipantsAsync(${JSON.stringify({ id_tipo_chat, nombre, participantes })})`);
+    return await BD.transaction(async (client) => {
+      const chatResult = await client.query(
+        `INSERT INTO chats (id_tipo_chat, nombre, fecha_creacion, activo) VALUES ($1, $2, $3, true) RETURNING id, id_tipo_chat, nombre, fecha_creacion, activo`,
+        [id_tipo_chat, nombre ?? null, fecha_creacion],
+      );
+
+      const chat = chatResult.rows[0];
+
+      for (const idUsuario of participantes) {
+        await client.query(
+          `INSERT INTO participantes_chats (id_chat, id_usuario, fecha_ingreso, fecha_salida) VALUES ($1, $2, $3, null)`,
+          [chat.id, idUsuario, fecha_creacion],
+        );
+      }
+
+      return chat;
+    });
+  };
+
   createAsync = async (entity) => {
     console.log(`ChatRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `INSERT INTO chats (id_tipo_chat, nombre, fecha_creacion, activo) VALUES ($1, $2, $3, COALESCE($4, true)) RETURNING id`;

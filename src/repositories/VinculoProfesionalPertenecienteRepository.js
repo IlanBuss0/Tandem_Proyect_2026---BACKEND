@@ -17,6 +17,29 @@ export default class VinculoProfesionalPertenecienteRepository {
     return await BD.queryOne(sql, [id]);
   };
 
+  getByProfesionalYPertenecienteAsync = async (idProfesional, idPerteneciente) => {
+    console.log(`VinculoProfesionalPertenecienteRepository.getByProfesionalYPertenecienteAsync(${idProfesional}, ${idPerteneciente})`);
+    const sql = `
+      SELECT
+        vpp.id,
+        vpp.id_profesional,
+        vpp.id_perteneciente,
+        vpp.id_estado_vinculo,
+        ev.nombre AS estado_vinculo,
+        vpp.requiere_aprobacion_tutor,
+        vpp.fue_aprobado_por_tutor,
+        vpp.id_tutor_aprobador,
+        vpp.fecha_solicitud,
+        vpp.fecha_resolucion
+      FROM vinculos_profesional_pertenecientes vpp
+      INNER JOIN estados_vinculos ev ON ev.id = vpp.id_estado_vinculo
+      WHERE vpp.id_profesional = $1
+        AND vpp.id_perteneciente = $2
+      LIMIT 1
+    `;
+    return await BD.queryOne(sql, [idProfesional, idPerteneciente]);
+  };
+
   createAsync = async (entity) => {
     console.log(`VinculoProfesionalPertenecienteRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `INSERT INTO vinculos_profesional_pertenecientes (id_profesional, id_perteneciente, id_estado_vinculo, requiere_aprobacion_tutor, fue_aprobado_por_tutor, id_tutor_aprobador, fecha_solicitud, fecha_resolucion) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`;

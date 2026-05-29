@@ -17,6 +17,12 @@ export default class TipoChatRepository {
     return await BD.queryOne(sql, [id]);
   };
 
+  getByNombreAsync = async (nombre) => {
+    console.log(`TipoChatRepository.getByNombreAsync(${nombre})`);
+    const sql = `SELECT id, nombre, orden FROM tipos_chats WHERE LOWER(nombre) = LOWER($1)`;
+    return await BD.queryOne(sql, [nombre]);
+  };
+
   createAsync = async (entity) => {
     console.log(`TipoChatRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `INSERT INTO tipos_chats (nombre, orden) VALUES ($1, $2) RETURNING id`;
