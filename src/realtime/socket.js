@@ -1,9 +1,11 @@
 import { Server } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
 import { verifyJwt } from '../modules/security/jwt.helper.js';
 import MensajeService from '../services/MensajeService.js';
 import ParticipanteChatService from '../services/ParticipanteChatService.js';
 import { chatRoom, userRoom } from './rooms.js';
 import { setRealtimeServer } from './realtime.js';
+import { connectRedisClient, createRedisConnection, isRedisEnabled } from '../redis/redisClient.js';
 
 const mensajeService = new MensajeService();
 const participanteChatService = new ParticipanteChatService();
@@ -28,7 +30,7 @@ function ack(callback, response) {
   if (typeof callback === 'function') callback(response);
 }
 
-export function setupRealtime(httpServer) {
+export async function setupRealtime(httpServer) {
   const io = new Server(httpServer, {
     cors: {
       origin: '*',
@@ -41,6 +43,19 @@ export function setupRealtime(httpServer) {
   });
 
   setRealtimeServer(io);
+
+  if (isRedisEnabled()) {
+    const pubClient = createRedisConnection('socket-io-pub');
+    const subClient = createRedisConnection('socket-io-sub');
+    await Promise.all([
+      connectRedisClient(pubClient, 'socket-io-pub'),
+      connectRedisClient(subClient, 'socket-io-sub'),
+    ]);
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log('[Socket.io] Redis adapter activado.');
+  } else {
+    console.log('[Socket.io] Redis adapter desactivado; REDIS_URL no configurado.');
+  }
 
   io.use((socket, next) => {
     const token = getTokenFromSocket(socket);

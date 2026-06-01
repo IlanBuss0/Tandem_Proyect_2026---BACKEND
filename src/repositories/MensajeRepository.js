@@ -24,6 +24,7 @@ export default class MensajeRepository {
       FROM mensajes 
       WHERE id_chat = $1 
         AND ($3::int IS NULL OR id < $3)
+        AND eliminado = false
       ORDER BY id DESC 
       LIMIT $2
     `;

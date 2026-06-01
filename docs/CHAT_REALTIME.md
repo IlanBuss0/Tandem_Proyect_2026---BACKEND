@@ -72,6 +72,33 @@ Content-Type: application/json
 
 El backend toma `id_usuario_emisor` desde el JWT, guarda el mensaje y emite `message:new` al room del chat.
 
+## Escalado realtime y notificaciones
+
+Para activar escalado horizontal de Socket.io, cola de notificaciones y cache de participantes, configurar:
+
+```env
+REDIS_URL=redis://localhost:6379
+NOTIFICATION_WORKER_CONCURRENCY=5
+START_NOTIFICATION_WORKER=true
+```
+
+Con `REDIS_URL` configurado:
+
+- Socket.io usa `@socket.io/redis-adapter`, por lo que un `message:new` emitido desde una instancia llega a usuarios conectados en otras instancias.
+- Al enviar un mensaje, el request solo valida participante, guarda el mensaje y encola el procesamiento de notificaciones en BullMQ.
+- El worker procesa notificaciones con bulk insert en PostgreSQL y emite `notification:new` a las rooms `user:{id}`.
+- `ParticipanteChatService.ensureActiveParticipantAsync` usa Redis como cache de membresia del chat y cae a PostgreSQL si no hay cache.
+
+Si `REDIS_URL` no esta configurado, el backend sigue funcionando en modo desarrollo: no usa Redis Adapter ni BullMQ, y procesa notificaciones en segundo plano dentro del mismo proceso.
+
+Worker separado:
+
+```bash
+npm run worker:notifications
+```
+
+En produccion se puede usar el worker embebido en la API (`START_NOTIFICATION_WORKER=true`) o levantar procesos separados con `npm run worker:notifications`. Si se usa worker separado y no se quiere que la API tambien consuma jobs, configurar `START_NOTIFICATION_WORKER=false` en la API.
+
 ## Eventos Socket.io
 
 ### `chat:join`

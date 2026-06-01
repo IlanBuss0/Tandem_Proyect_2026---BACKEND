@@ -64,6 +64,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
     entity.id = id;
     const rowsAffected = await currentService.updateFromUserAsync(entity, req.user.id);
     if (rowsAffected !== 0) {
+      const message = await currentService.getByIdAsync(id);
+      if (message) emitToChat(message.id_chat, 'message:updated', message);
       res.status(StatusCodes.OK).json({ message: `Se actualizo el mensaje con id: ${id}`, rowsAffected });
     } else {
       res.status(StatusCodes.NOT_FOUND).send(`No se encontro el mensaje con id: ${id}.`);
@@ -78,8 +80,15 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     console.log(`MensajeController.deleteFromUser(${id})`);
+    const message = await currentService.getByIdAsync(id);
     const rowCount = await currentService.deleteFromUserAsync(id, req.user.id);
     if (rowCount !== 0) {
+      if (message) {
+        emitToChat(message.id_chat, 'message:deleted', {
+          id: message.id,
+          id_chat: message.id_chat,
+        });
+      }
       res.status(StatusCodes.OK).json({ message: `Se elimino el mensaje con id: ${id}`, rowsAffected: rowCount });
     } else {
       res.status(StatusCodes.NOT_FOUND).send(`No se encontro el mensaje con id: ${id}.`);

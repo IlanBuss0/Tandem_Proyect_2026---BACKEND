@@ -31,6 +31,48 @@ export default class NotificacionRepository {
     return result?.id ?? 0;
   };
 
+  createManyAsync = async (entities) => {
+    console.log(`NotificacionRepository.createManyAsync(${entities?.length ?? 0})`);
+    if (!Array.isArray(entities) || entities.length === 0) return 0;
+
+    const chunkSize = 1000;
+    let totalRows = 0;
+
+    for (let i = 0; i < entities.length; i += chunkSize) {
+      totalRows += await this.createManyChunkAsync(entities.slice(i, i + chunkSize));
+    }
+
+    return totalRows;
+  };
+
+  createManyChunkAsync = async (entities) => {
+    const columnsPerRow = 8;
+    const values = [];
+    const placeholders = entities.map((entity, index) => {
+      const base = index * columnsPerRow;
+      values.push(
+        entity?.id_usuario_destino,
+        entity?.id_usuario_actor ?? null,
+        entity?.id_tipo_notificacion,
+        entity?.titulo,
+        entity?.cuerpo ?? null,
+        entity?.leida ?? false,
+        entity?.fecha_creacion,
+        entity?.fecha_lectura ?? null,
+      );
+
+      return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, COALESCE($${base + 6}, false), $${base + 7}, $${base + 8})`;
+    });
+
+    const sql = `
+      INSERT INTO notificaciones
+        (id_usuario_destino, id_usuario_actor, id_tipo_notificacion, titulo, cuerpo, leida, fecha_creacion, fecha_lectura)
+      VALUES ${placeholders.join(', ')}
+    `;
+
+    return await BD.execute(sql, values);
+  };
+
   updateAsync = async (entity) => {
     console.log(`NotificacionRepository.updateAsync(${JSON.stringify(entity)})`);
     const id = entity.id;

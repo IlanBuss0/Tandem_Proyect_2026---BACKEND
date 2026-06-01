@@ -1,4 +1,11 @@
 import ParticipanteChatRepository from '../repositories/ParticipanteChatRepository.js';
+import BD from '../db/BD.js';
+import {
+  addCachedChatMember,
+  hydrateCachedChatMembers,
+  isCachedChatMember,
+  removeCachedChatMember,
+} from '../cache/chatMembershipCache.js';
 
 export default class ParticipanteChatService {
   constructor() {
@@ -8,14 +15,28 @@ export default class ParticipanteChatService {
 
   getAllAsync = async () => { console.log('ParticipanteChatService.getAllAsync()'); const r = await this.ParticipanteChatRepository.getAllAsync(); if (r == null) return null; return r; };
   getByIdAsync = async (id) => { console.log(`ParticipanteChatService.getByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del participante es invalido.'); } return await this.ParticipanteChatRepository.getByIdAsync(id); };
-  getByChatIdAsync = async (idChat) => { console.log(`ParticipanteChatService.getByChatIdAsync(${idChat})`); if (!idChat || Number.isNaN(idChat)) { throw new Error('El id del chat es invalido.'); } return await this.ParticipanteChatRepository.getByChatIdAsync(idChat); };
+  getByChatIdAsync = async (idChat) => {
+    console.log(`ParticipanteChatService.getByChatIdAsync(${idChat})`);
+    if (!idChat || Number.isNaN(idChat)) { throw new Error('El id del chat es invalido.'); }
+    const participantes = await this.ParticipanteChatRepository.getByChatIdAsync(idChat);
+    await hydrateCachedChatMembers(idChat, participantes);
+    return participantes;
+  };
   getByChatAndUsuarioAsync = async (idChat, idUsuario) => { console.log(`ParticipanteChatService.getByChatAndUsuarioAsync(${idChat}, ${idUsuario})`); if (!idChat || Number.isNaN(idChat)) { throw new Error('El id del chat es invalido.'); } if (!idUsuario || Number.isNaN(idUsuario)) { throw new Error('El id del usuario es invalido.'); } return await this.ParticipanteChatRepository.getByChatAndUsuarioAsync(idChat, idUsuario); };
 
   ensureActiveParticipantAsync = async (idChat, idUsuario) => {
+    const cachedMember = await isCachedChatMember(idChat, idUsuario);
+    if (cachedMember === true) {
+      return { id_chat: idChat, id_usuario: idUsuario };
+    }
+
     const participante = await this.getByChatAndUsuarioAsync(idChat, idUsuario);
     if (!participante || participante.fecha_salida) {
+      await removeCachedChatMember(idChat, idUsuario);
       throw new Error('El usuario no es participante activo del chat.');
     }
+
+    await addCachedChatMember(idChat, idUsuario);
     return participante;
   };
 
@@ -41,11 +62,38 @@ export default class ParticipanteChatService {
     this.validarParticipanteParaCrear(entity);
     const existente = await this.ParticipanteChatRepository.getByChatAndUsuarioAsync(entity.id_chat, entity.id_usuario);
     if (existente != null) { throw new Error(`El usuario ${entity.id_usuario} ya es participante del chat ${entity.id_chat}.`); }
-    return await this.ParticipanteChatRepository.createAsync(entity);
+    const newId = await this.ParticipanteChatRepository.createAsync(entity);
+    if (!entity.fecha_salida) {
+      await addCachedChatMember(entity.id_chat, entity.id_usuario);
+    }
+    return newId;
   };
 
-  updateAsync = async (entity) => { console.log(`ParticipanteChatService.updateAsync(${JSON.stringify(entity)})`); if (!entity?.id || Number.isNaN(entity.id)) { throw new Error('El id del participante es obligatorio para actualizar.'); } const prev = await this.ParticipanteChatRepository.getByIdAsync(entity.id); if (prev == null) return 0; return await this.ParticipanteChatRepository.updateAsync(entity); };
-  deleteByIdAsync = async (id) => { console.log(`ParticipanteChatService.deleteByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del participante es invalido.'); } return await this.ParticipanteChatRepository.deleteByIdAsync(id); };
+  updateAsync = async (entity) => {
+    console.log(`ParticipanteChatService.updateAsync(${JSON.stringify(entity)})`);
+    if (!entity?.id || Number.isNaN(entity.id)) { throw new Error('El id del participante es obligatorio para actualizar.'); }
+    const prev = await this.ParticipanteChatRepository.getByIdAsync(entity.id);
+    if (prev == null) return 0;
+    const rowsAffected = await this.ParticipanteChatRepository.updateAsync(entity);
+    const nextFechaSalida = entity?.fecha_salida ?? prev.fecha_salida;
+    if (nextFechaSalida) {
+      await removeCachedChatMember(prev.id_chat, prev.id_usuario);
+    } else {
+      await addCachedChatMember(entity?.id_chat ?? prev.id_chat, entity?.id_usuario ?? prev.id_usuario);
+    }
+    return rowsAffected;
+  };
+
+  deleteByIdAsync = async (id) => {
+    console.log(`ParticipanteChatService.deleteByIdAsync(${id})`);
+    if (!id || Number.isNaN(id)) { throw new Error('El id del participante es invalido.'); }
+    const prev = await this.ParticipanteChatRepository.getByIdAsync(id);
+    const rowsAffected = await this.ParticipanteChatRepository.deleteByIdAsync(id);
+    if (prev) {
+      await removeCachedChatMember(prev.id_chat, prev.id_usuario);
+    }
+    return rowsAffected;
+  };
 
   validarParticipanteParaCrear = (entity) => {
     if (!entity) throw new Error('El participante es obligatorio.');

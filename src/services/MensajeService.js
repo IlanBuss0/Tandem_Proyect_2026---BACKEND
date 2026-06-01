@@ -1,15 +1,14 @@
 import MensajeRepository from '../repositories/MensajeRepository.js';
 import ParticipanteChatService from './ParticipanteChatService.js';
-import NotificacionService from './NotificacionService.js';
-import { emitToUser } from '../realtime/realtime.js';
-import BD from '../db/BD.js';
+import ChatNotificationJobService from './ChatNotificationJobService.js';
+import { enqueueChatMessageNotifications } from '../queues/notificationQueue.js';
 
 export default class MensajeService {
   constructor() {
     console.log('Estoy en: MensajeService.constructor()');
     this.MensajeRepository = new MensajeRepository();
     this.ParticipanteChatService = new ParticipanteChatService();  
-    this.NotificacionService = new NotificacionService();
+    this.ChatNotificationJobService = new ChatNotificationJobService();
   }
 
   getAllAsync = async () => { console.log('MensajeService.getAllAsync()'); const r = await this.MensajeRepository.getAllAsync(); if (r == null) return null; return r; };
@@ -35,42 +34,25 @@ export default class MensajeService {
     const newId = await this.MensajeRepository.createAsync(entity);
     const message = await this.MensajeRepository.getByIdAsync(newId);
 
-    // Procesar notificaciones en segundo plano para no demorar la respuesta
-    this.procesarNotificacionesAsync(message).catch(err => console.error('Error notificaciones:', err.message));
+    await this.enqueueNotificationsAsync(message);
 
     return message;
   };
 
-  procesarNotificacionesAsync = async (message) => {
-    const participantes = await this.ParticipanteChatService.getByChatIdAsync(message.id_chat);
-    const otros = participantes.filter(p => p.id_usuario !== message.id_usuario_emisor && !p.fecha_salida);
+  enqueueNotificationsAsync = async (message) => {
+    const queued = await enqueueChatMessageNotifications({
+      messageId: message.id,
+      idChat: message.id_chat,
+      idUsuarioEmisor: message.id_usuario_emisor,
+    });
 
-    // Buscar ID del tipo de notificacion 'Chat'
-    const tipoChat = await BD.queryOne("SELECT id FROM tipos_notificaciones WHERE LOWER(nombre) = 'chat'");
-    const idTipoChat = tipoChat ? tipoChat.id : 2; // Fallback a 'Informacion'
+    if (queued) return;
 
-    for (const otro of otros) {
-        try {
-            await this.NotificacionService.createAsync({
-                id_usuario_destino: otro.id_usuario,
-                id_tipo_notificacion: idTipoChat,
-                titulo: 'Nuevo mensaje',
-                contenido: message.contenido.substring(0, 50),
-                fecha_creacion: new Date(),
-                leida: false
-            });
-
-            emitToUser(otro.id_usuario, 'notification:new', {
-                type: 'chat_message',
-                id_chat: message.id_chat,
-                id_mensaje: message.id,
-                contenido: message.contenido,
-                id_usuario_emisor: message.id_usuario_emisor
-            });
-        } catch (e) {
-            console.error(`Error notificando al usuario ${otro.id_usuario}:`, e.message);
-        }
-    }
+    setImmediate(() => {
+      this.ChatNotificationJobService
+        .processMessageNotificationsAsync({ messageId: message.id })
+        .catch((err) => console.error('Error notificaciones:', err.message));
+    });
   };
 
   updateFromUserAsync = async (entity, idUsuario) => {

@@ -84,6 +84,7 @@ import { errorMiddleware } from './middlewares/error.middleware.js';
 import { envConfig } from './configs/env.config.js';
 import BD from './db/BD.js';
 import { setupRealtime } from './realtime/socket.js';
+import { startNotificationWorker } from './workers/notificationWorker.js';
 
 // Configuración para usar __dirname con ES Modules (import)
 const __filename = fileURLToPath(import.meta.url);
@@ -214,7 +215,11 @@ async function startServer() {
     await BD.testConnection();
     console.log('Conexion a base de datos OK');
 
-    setupRealtime(httpServer);
+    await setupRealtime(httpServer);
+
+    if (envConfig.startNotificationWorker) {
+      startNotificationWorker();
+    }
 
     httpServer.listen(envConfig.port, () => {
       console.log(`Servidor escuchando en puerto ${envConfig.port}`);
