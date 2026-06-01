@@ -14,6 +14,7 @@ import ActividadPersonalizadaController from './controllers/ActividadPersonaliza
 import ActividadAsignadaController from './controllers/ActividadAsignadaController.js';
 import FavoritoActividadController from './controllers/FavoritoActividadController.js';
 import CalificacionActividadController from './controllers/CalificacionActividadController.js';
+import PictogramaController from './controllers/PictogramaController.js';
 import AvatarController from './controllers/AvatarController.js';
 import SaldoPuntoController from './controllers/SaldoPuntoController.js';
 import MovimientoPuntoController from './controllers/MovimientoPuntoController.js';
@@ -139,6 +140,9 @@ app.use('/api/actividades-personalizadas', ActividadPersonalizadaController);
 app.use('/api/actividades-asignadas', ActividadAsignadaController);
 app.use('/api/favoritos-actividades', FavoritoActividadController);
 app.use('/api/calificaciones-actividades', CalificacionActividadController);
+app.use('/api/pictograms', PictogramaController);
+app.use('/api/pictogramas', PictogramaController);
+app.use('/pictograms', PictogramaController);
 app.use('/api/avatares', AvatarController);
 app.use('/api/saldos-puntos', SaldoPuntoController);
 app.use('/api/movimientos-puntos', MovimientoPuntoController);
