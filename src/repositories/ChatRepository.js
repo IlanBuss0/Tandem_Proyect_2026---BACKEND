@@ -10,6 +10,27 @@ export default class ChatRepository {
     if (this.descriptionColumnReady) return;
     await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS descripcion TEXT`);
     await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS oculto_desde TIMESTAMP`);
+    await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS es_admin BOOLEAN DEFAULT false`);
+    await BD.execute(`
+      WITH grupos_sin_admin AS (
+        SELECT id_chat
+        FROM participantes_chats
+        WHERE fecha_salida IS NULL
+        GROUP BY id_chat
+        HAVING COUNT(*) > 2 AND BOOL_OR(COALESCE(es_admin, false)) = false
+      ),
+      primer_participante AS (
+        SELECT DISTINCT ON (pc.id_chat) pc.id
+        FROM participantes_chats pc
+        INNER JOIN grupos_sin_admin g ON g.id_chat = pc.id_chat
+        WHERE pc.fecha_salida IS NULL
+        ORDER BY pc.id_chat, pc.id ASC
+      )
+      UPDATE participantes_chats pc
+      SET es_admin = true
+      FROM primer_participante pp
+      WHERE pc.id = pp.id
+    `);
     this.descriptionColumnReady = true;
   };
 
@@ -44,7 +65,8 @@ export default class ChatRepository {
             'id_usuario', u_part.id,
             'nombre', u_part.nombre,
             'apellido', u_part.apellido,
-            'id_tipo_usuario', u_part.id_tipo_usuario
+            'id_tipo_usuario', u_part.id_tipo_usuario,
+            'es_admin', COALESCE(pc_all.es_admin, false)
           )
         ) FILTER (WHERE u_part.id IS NOT NULL) AS participantes,
         MAX(u_part.id) FILTER (WHERE u_part.id != $1) AS id_otro_usuario,
@@ -118,7 +140,7 @@ export default class ChatRepository {
   getActiveParticipantsAsync = async (idChat) => {
     await this.ensureDescriptionColumnAsync();
     const sql = `
-      SELECT id, id_chat, id_usuario, fecha_ingreso, fecha_salida, oculto_desde
+      SELECT id, id_chat, id_usuario, fecha_ingreso, fecha_salida, oculto_desde, COALESCE(es_admin, false) AS es_admin
       FROM participantes_chats
       WHERE id_chat = $1 AND fecha_salida IS NULL
       ORDER BY id ASC
@@ -126,7 +148,7 @@ export default class ChatRepository {
     return await BD.query(sql, [idChat]);
   };
 
-  replaceParticipantsAsync = async (idChat, participantIds, fecha = new Date()) => {
+  replaceParticipantsAsync = async (idChat, participantIds, adminIds = [], fecha = new Date()) => {
     await this.ensureDescriptionColumnAsync();
     return await BD.transaction(async (client) => {
       for (const idUsuario of participantIds) {
@@ -137,13 +159,31 @@ export default class ChatRepository {
 
         if (existing.rows[0]?.id) {
           await client.query(
-            `UPDATE participantes_chats SET fecha_salida = null, oculto_desde = null WHERE id = $1`,
-            [existing.rows[0].id],
+            `
+              UPDATE participantes_chats
+              SET fecha_salida = null,
+                  oculto_desde = CASE
+                    WHEN fecha_salida IS NULL THEN null
+                    ELSE (
+                      SELECT MIN(fecha_envio)
+                      FROM (
+                        SELECT fecha_envio
+                        FROM mensajes
+                        WHERE id_chat = $2 AND eliminado = false
+                        ORDER BY id DESC
+                        LIMIT 5
+                      ) ultimos
+                    )
+                  END,
+                  es_admin = $3
+              WHERE id = $1
+            `,
+            [existing.rows[0].id, idChat, adminIds.includes(idUsuario)],
           );
         } else {
           await client.query(
             `
-              INSERT INTO participantes_chats (id_chat, id_usuario, fecha_ingreso, fecha_salida, oculto_desde)
+              INSERT INTO participantes_chats (id_chat, id_usuario, fecha_ingreso, fecha_salida, oculto_desde, es_admin)
               VALUES (
                 $1,
                 $2,
@@ -158,10 +198,11 @@ export default class ChatRepository {
                     ORDER BY id DESC
                     LIMIT 5
                   ) ultimos
-                )
+                ),
+                $4
               )
             `,
-            [idChat, idUsuario, fecha],
+            [idChat, idUsuario, fecha, adminIds.includes(idUsuario)],
           );
         }
       }
@@ -169,7 +210,7 @@ export default class ChatRepository {
       await client.query(
         `
           UPDATE participantes_chats
-          SET fecha_salida = $2
+          SET fecha_salida = $2, es_admin = false
           WHERE id_chat = $1
             AND fecha_salida IS NULL
             AND id_usuario <> ALL($3::int[])
@@ -179,7 +220,7 @@ export default class ChatRepository {
     });
   };
 
-  createWithParticipantsAsync = async ({ id_tipo_chat, nombre, descripcion = null, fecha_creacion, participantes }) => {
+  createWithParticipantsAsync = async ({ id_tipo_chat, nombre, descripcion = null, fecha_creacion, participantes, administradores = [] }) => {
     await this.ensureDescriptionColumnAsync();
     return await BD.transaction(async (client) => {
       const chatResult = await client.query(
@@ -191,8 +232,8 @@ export default class ChatRepository {
 
       for (const idUsuario of participantes) {
         await client.query(
-          `INSERT INTO participantes_chats (id_chat, id_usuario, fecha_ingreso, fecha_salida) VALUES ($1, $2, $3, null)`,
-          [chat.id, idUsuario, fecha_creacion],
+          `INSERT INTO participantes_chats (id_chat, id_usuario, fecha_ingreso, fecha_salida, oculto_desde, es_admin) VALUES ($1, $2, $3, null, null, $4)`,
+          [chat.id, idUsuario, fecha_creacion, administradores.includes(idUsuario)],
         );
       }
 

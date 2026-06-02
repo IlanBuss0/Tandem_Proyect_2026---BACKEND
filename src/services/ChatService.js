@@ -36,7 +36,8 @@ export default class ChatService {
         id_tipo_chat: idTipoChat,
         nombre: nombre,
         fecha_creacion: new Date(),
-        participantes: [idUsuarioA, idUsuarioB]
+        participantes: [idUsuarioA, idUsuarioB],
+        administradores: [],
     });
 
     return { chat, participantes: await this.ChatRepository.getActiveParticipantsAsync(chat.id), created: true };
@@ -70,6 +71,7 @@ export default class ChatService {
       descripcion: descripcion ? String(descripcion).trim() : null,
       fecha_creacion: new Date(),
       participantes: participantIds,
+      administradores: [id_usuario_creador],
     });
 
     return { chat, participantes: await this.ChatRepository.getActiveParticipantsAsync(chat.id), created: true };
@@ -110,9 +112,9 @@ export default class ChatService {
     if (!idUsuario || Number.isNaN(idUsuario)) throw new Error('El usuario es invalido.');
 
     const participanteActual = await this.ChatRepository.getActiveParticipantsAsync(idChat);
-    if (!participanteActual.some((participante) => participante.id_usuario === idUsuario)) {
-      throw new Error('No tenes permiso para administrar este chat.');
-    }
+    if (participanteActual.length <= 2) throw new Error('Los chats directos no se pueden administrar.');
+    const solicitante = participanteActual.find((participante) => participante.id_usuario === idUsuario);
+    if (!solicitante?.es_admin) throw new Error('Solo un administrador puede administrar este grupo.');
 
     const chat = await this.ChatRepository.getByIdAsync(idChat);
     if (!chat?.activo) throw new Error('No se encontro el chat activo.');
@@ -123,22 +125,37 @@ export default class ChatService {
       descripcion: payload?.descripcion === undefined ? chat.descripcion : String(payload.descripcion || '').trim() || null,
     });
 
-    if (Array.isArray(payload?.participantes)) {
-      const participantIds = Array.from(new Set(
+    const participantIds = Array.isArray(payload?.participantes)
+      ? Array.from(new Set(
         payload.participantes
           .map((id) => parseInt(id))
           .filter((id) => Number.isInteger(id) && id > 0),
-      ));
+      ))
+      : participanteActual.map((participante) => participante.id_usuario);
 
-      if (!participantIds.includes(idUsuario)) participantIds.push(idUsuario);
-      if (participantIds.length < 2) throw new Error('El chat necesita al menos 2 participantes.');
+    if (!participantIds.includes(idUsuario)) participantIds.push(idUsuario);
+    if (participantIds.length < 3) throw new Error('Un grupo necesita al menos 3 participantes.');
 
+    const adminIds = Array.isArray(payload?.administradores)
+      ? Array.from(new Set(
+        payload.administradores
+          .map((id) => parseInt(id))
+          .filter((id) => Number.isInteger(id) && id > 0 && participantIds.includes(id)),
+      ))
+      : participanteActual
+        .filter((participante) => participante.es_admin && participantIds.includes(participante.id_usuario))
+        .map((participante) => participante.id_usuario);
+
+    if (!adminIds.includes(idUsuario)) adminIds.push(idUsuario);
+    if (adminIds.length < 1) throw new Error('El grupo necesita al menos un administrador.');
+
+    if (Array.isArray(payload?.participantes) || Array.isArray(payload?.administradores)) {
       for (const idParticipante of participantIds) {
         const usuario = await this.UsuarioRepository.getByIdAsync(idParticipante);
         if (!usuario?.activo) throw new Error(`El usuario ${idParticipante} no existe o no esta activo.`);
       }
 
-      await this.ChatRepository.replaceParticipantsAsync(idChat, participantIds);
+      await this.ChatRepository.replaceParticipantsAsync(idChat, participantIds, adminIds);
     }
 
     const updatedChat = await this.ChatRepository.getByIdAsync(idChat);

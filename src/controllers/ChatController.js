@@ -128,8 +128,11 @@ router.delete('/:id/me', authMiddleware, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     console.log(`ChatController.hideForMe(${id}, user:${req.user.id})`);
-    const rowsAffected = await participanteChatService.hideForUserAsync(id, req.user.id);
-    res.status(StatusCodes.OK).json({ ok: true, rowsAffected });
+    const participantes = await currentService.ChatRepository.getActiveParticipantsAsync(id);
+    const rowsAffected = participantes.length > 2
+      ? await participanteChatService.leaveForUserAsync(id, req.user.id)
+      : await participanteChatService.hideForUserAsync(id, req.user.id);
+    res.status(StatusCodes.OK).json({ ok: true, rowsAffected, mode: participantes.length > 2 ? 'left_group' : 'hidden_for_me' });
   } catch (error) {
     console.log(error);
     res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);

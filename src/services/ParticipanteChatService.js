@@ -63,6 +63,12 @@ export default class ParticipanteChatService {
     return await this.ParticipanteChatRepository.hideForUserAsync(idChat, idUsuario);
   };
 
+  leaveForUserAsync = async (idChat, idUsuario) => {
+    console.log(`ParticipanteChatService.leaveForUserAsync(${idChat}, ${idUsuario})`);
+    await this.ensureActiveParticipantAsync(idChat, idUsuario);
+    return await this.ParticipanteChatRepository.leaveForUserAsync(idChat, idUsuario);
+  };
+
   createAsync = async (entity) => {
     console.log(`ParticipanteChatService.createAsync(${JSON.stringify(entity)})`);
     this.validarParticipanteParaCrear(entity);
