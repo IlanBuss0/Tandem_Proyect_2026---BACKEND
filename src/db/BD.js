@@ -7,6 +7,9 @@ class BD {
   constructor() {
     this.pool = new Pool({
       connectionString: envConfig.databaseUrl,
+      max: envConfig.databasePoolMax,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 10000,
       ssl: {
         rejectUnauthorized: false,
       },

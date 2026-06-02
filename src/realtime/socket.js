@@ -83,6 +83,11 @@ export async function setupRealtime(httpServer) {
         const idChat = parsePositiveInt(id_chat);
         if (!idChat) throw new Error('id_chat invalido.');
 
+        if (socket.rooms.has(chatRoom(idChat))) {
+          ack(callback, { ok: true, data: { id_chat: idChat, already_joined: true } });
+          return;
+        }
+
         await participanteChatService.ensureActiveParticipantAsync(idChat, idUsuario);
         socket.join(chatRoom(idChat));
         console.log(`[Socket.io] chat:join OK user:${idUsuario} chat:${idChat} socket:${socket.id}`);
