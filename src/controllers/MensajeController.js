@@ -3,10 +3,21 @@ import { StatusCodes } from 'http-status-codes';
 import MensajeService from '../services/MensajeService.js';
 import Mensaje from '../entities/Mensaje.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
-import { emitToChat } from '../realtime/realtime.js';
+import { emitToChat, emitToUser } from '../realtime/realtime.js';
+import ChatRepository from '../repositories/ChatRepository.js';
 
 const router = Router();
 const currentService = new MensajeService();
+const chatRepository = new ChatRepository();
+
+async function emitMessageToParticipants(message) {
+  emitToChat(message.id_chat, 'message:new', message);
+
+  const participantes = await chatRepository.getActiveParticipantsAsync(message.id_chat);
+  participantes.forEach((participante) => {
+    emitToUser(participante.id_usuario, 'message:new', message);
+  });
+}
 
 router.get('', async (req, res) => {
   try {
@@ -48,7 +59,7 @@ router.post('/chat/:idChat', authMiddleware, async (req, res) => {
       fecha_envio: req.body?.fecha_envio ?? new Date()
     });
     const message = await currentService.createFromUserAsync(entity);
-    emitToChat(idChat, 'message:new', message);
+    await emitMessageToParticipants(message);
     res.status(StatusCodes.CREATED).json(message);
   } catch (error) {
     console.log(error);

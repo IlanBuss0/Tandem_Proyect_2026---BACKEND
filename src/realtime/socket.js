@@ -110,6 +110,12 @@ export async function setupRealtime(httpServer) {
         });
 
         io.to(chatRoom(idChat)).emit('message:new', message);
+        const participantes = await participanteChatService.getByChatIdAsync(idChat);
+        participantes
+          .filter((participante) => !participante.fecha_salida)
+          .forEach((participante) => {
+            io.to(userRoom(participante.id_usuario)).emit('message:new', message);
+          });
         ack(callback, { ok: true, data: message });
       } catch (error) {
         ack(callback, { ok: false, error: error.message });

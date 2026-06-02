@@ -42,6 +42,39 @@ export default class ChatService {
     return { chat, created: true };
   };
 
+  createGroupChatAsync = async ({ id_usuario_creador, participantes, nombre, descripcion = null, id_tipo_chat = null }) => {
+    console.log(`ChatService.createGroupChatAsync(${JSON.stringify({ id_usuario_creador, participantes, nombre, descripcion, id_tipo_chat })})`);
+
+    if (!id_usuario_creador || Number.isNaN(id_usuario_creador)) throw new Error('El usuario creador es invalido.');
+    if (!nombre || !String(nombre).trim()) throw new Error('El titulo del grupo es obligatorio.');
+    if (!Array.isArray(participantes)) throw new Error('participantes debe ser un array de ids de usuario.');
+
+    const participantIds = Array.from(new Set([
+      id_usuario_creador,
+      ...participantes.map((id) => parseInt(id)).filter((id) => Number.isInteger(id) && id > 0),
+    ]));
+
+    if (participantIds.length < 3) {
+      throw new Error('Un grupo necesita al menos 3 participantes incluyendo al creador.');
+    }
+
+    for (const idUsuario of participantIds) {
+      const usuario = await this.UsuarioRepository.getByIdAsync(idUsuario);
+      if (!usuario?.activo) throw new Error(`El usuario ${idUsuario} no existe o no esta activo.`);
+    }
+
+    const idTipoChat = id_tipo_chat ? parseInt(id_tipo_chat) : await this.resolveTipoChatGrupoAsync();
+    const chat = await this.ChatRepository.createWithParticipantsAsync({
+      id_tipo_chat: idTipoChat,
+      nombre: String(nombre).trim(),
+      descripcion: descripcion ? String(descripcion).trim() : null,
+      fecha_creacion: new Date(),
+      participantes: participantIds,
+    });
+
+    return { chat, participantes: await this.ChatRepository.getActiveParticipantsAsync(chat.id), created: true };
+  };
+
   createProfesionalPertenecienteAsync = async ({ id_usuario_profesional, id_perteneciente, id_tipo_chat = null, nombre = null }) => {
     console.log(`ChatService.createProfesionalPertenecienteAsync(${JSON.stringify({ id_usuario_profesional, id_perteneciente, id_tipo_chat, nombre })})`);
 
@@ -118,6 +151,17 @@ export default class ChatService {
     }
 
     throw new Error('No se encontro el tipo de chat profesional-perteneciente. Envia id_tipo_chat o crea el catalogo correspondiente.');
+  };
+
+  resolveTipoChatGrupoAsync = async () => {
+    const nombres = ['grupo', 'grupal', 'group'];
+
+    for (const nombre of nombres) {
+      const tipo = await this.TipoChatRepository.getByNombreAsync(nombre);
+      if (tipo) return tipo.id;
+    }
+
+    return await this.TipoChatRepository.createAsync({ nombre: 'grupo', orden: 20 });
   };
 
   esMayorDeEdad = (fechaNacimiento) => {

@@ -3,6 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 import ChatService from '../services/ChatService.js';
 import Chat from '../entities/Chat.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { emitToUser } from '../realtime/realtime.js';
 
 const router = Router();
 const currentService = new ChatService();
@@ -60,6 +61,26 @@ router.post('/profesional-perteneciente', authMiddleware, async (req, res) => {
       nombre: req.body?.nombre ?? null
     });
     res.status(r.created ? StatusCodes.CREATED : StatusCodes.OK).json(r);
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
+router.post('/group', authMiddleware, async (req, res) => {
+  try {
+    console.log(`ChatController.createGroup(${req.user.id})`);
+    const r = await currentService.createGroupChatAsync({
+      id_usuario_creador: req.user.id,
+      participantes: req.body?.participantes ?? req.body?.ids_usuarios ?? [],
+      nombre: req.body?.nombre,
+      descripcion: req.body?.descripcion ?? null,
+      id_tipo_chat: req.body?.id_tipo_chat ? parseInt(req.body.id_tipo_chat) : null,
+    });
+    r.participantes.forEach((participante) => {
+      emitToUser(participante.id_usuario, 'chat:new', r.chat);
+    });
+    res.status(StatusCodes.CREATED).json(r);
   } catch (error) {
     console.log(error);
     res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
