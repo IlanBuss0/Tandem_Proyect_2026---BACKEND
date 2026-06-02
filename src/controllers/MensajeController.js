@@ -14,6 +14,7 @@ async function emitMessageToParticipants(message) {
   emitToChat(message.id_chat, 'message:new', message);
 
   const participantes = await chatRepository.getActiveParticipantsAsync(message.id_chat);
+  console.log(`[HTTP chat] message:new chat:${message.id_chat} message:${message.id} participantes:${participantes.length}`);
   participantes.forEach((participante) => {
     emitToUser(participante.id_usuario, 'message:new', message);
   });

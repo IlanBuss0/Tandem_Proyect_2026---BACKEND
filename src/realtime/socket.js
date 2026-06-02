@@ -72,6 +72,11 @@ export async function setupRealtime(httpServer) {
   io.on('connection', (socket) => {
     const idUsuario = socket.data.user.id;
     socket.join(userRoom(idUsuario));
+    console.log(`[Socket.io] usuario conectado user:${idUsuario} socket:${socket.id}`);
+
+    socket.on('disconnect', (reason) => {
+      console.log(`[Socket.io] usuario desconectado user:${idUsuario} socket:${socket.id} reason:${reason}`);
+    });
 
     socket.on('chat:join', async ({ id_chat }, callback) => {
       try {
@@ -80,9 +85,11 @@ export async function setupRealtime(httpServer) {
 
         await participanteChatService.ensureActiveParticipantAsync(idChat, idUsuario);
         socket.join(chatRoom(idChat));
+        console.log(`[Socket.io] chat:join OK user:${idUsuario} chat:${idChat} socket:${socket.id}`);
 
         ack(callback, { ok: true, data: { id_chat: idChat } });
       } catch (error) {
+        console.log(`[Socket.io] chat:join ERROR user:${idUsuario} chat:${id_chat} error:${error.message}`);
         ack(callback, { ok: false, error: error.message });
       }
     });
@@ -111,6 +118,7 @@ export async function setupRealtime(httpServer) {
 
         io.to(chatRoom(idChat)).emit('message:new', message);
         const participantes = await participanteChatService.getByChatIdAsync(idChat);
+        console.log(`[Socket.io] message:new chat:${idChat} message:${message.id} participantes:${participantes.length}`);
         participantes
           .filter((participante) => !participante.fecha_salida)
           .forEach((participante) => {
