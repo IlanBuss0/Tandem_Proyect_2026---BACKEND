@@ -88,12 +88,15 @@ export default class ChatRepository {
       FROM chats c
       INNER JOIN participantes_chats pca ON pca.id_chat = c.id
       INNER JOIN participantes_chats pcb ON pcb.id_chat = c.id
+      INNER JOIN participantes_chats pc_active ON pc_active.id_chat = c.id AND pc_active.fecha_salida IS NULL
       WHERE pca.id_usuario = $1
         AND pcb.id_usuario = $2
         AND pca.fecha_salida IS NULL
         AND pcb.fecha_salida IS NULL
         AND c.activo = true
         AND ($3::int IS NULL OR c.id_tipo_chat = $3)
+      GROUP BY c.id, c.id_tipo_chat, c.nombre, c.descripcion, c.fecha_creacion, c.activo
+      HAVING COUNT(DISTINCT pc_active.id_usuario) = 2
       ORDER BY c.fecha_creacion DESC
       LIMIT 1
     `;

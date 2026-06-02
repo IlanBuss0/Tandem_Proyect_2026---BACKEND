@@ -28,7 +28,7 @@ export default class ChatService {
     // 1. Verificar si ya existe un chat activo entre ambos
     const existente = await this.ChatRepository.getActiveBetweenUsersAsync(idUsuarioA, idUsuarioB, idTipoChat);
     if (existente) {
-        return { chat: existente, created: false };
+        return { chat: existente, participantes: await this.ChatRepository.getActiveParticipantsAsync(existente.id), created: false };
     }
 
     // 2. Crear chat con ambos participantes en una sola transaccion
@@ -39,7 +39,7 @@ export default class ChatService {
         participantes: [idUsuarioA, idUsuarioB]
     });
 
-    return { chat, created: true };
+    return { chat, participantes: await this.ChatRepository.getActiveParticipantsAsync(chat.id), created: true };
   };
 
   createGroupChatAsync = async ({ id_usuario_creador, participantes, nombre, descripcion = null, id_tipo_chat = null }) => {

@@ -44,6 +44,11 @@ router.post('/direct', authMiddleware, async (req, res) => {
             id_tipo_chat ? parseInt(id_tipo_chat) : 1, 
             nombre
         );
+        if (r.created) {
+          r.participantes.forEach((participante) => {
+            emitToUser(participante.id_usuario, 'chat:new', r.chat);
+          });
+        }
         res.status(r.created ? StatusCodes.CREATED : StatusCodes.OK).json(r.chat);
     } catch (error) {
         console.log(error);

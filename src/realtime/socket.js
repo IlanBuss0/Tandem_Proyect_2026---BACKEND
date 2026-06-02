@@ -123,7 +123,7 @@ export async function setupRealtime(httpServer) {
 
         io.to(chatRoom(idChat)).emit('message:new', message);
         const participantes = await participanteChatService.getByChatIdAsync(idChat);
-        console.log(`[Socket.io] message:new chat:${idChat} message:${message.id} participantes:${participantes.length}`);
+        console.log(`[Socket.io] message:new chat:${idChat} message:${message.id} participantes:${participantes.map((p) => p.id_usuario).join(',')}`);
         participantes
           .filter((participante) => !participante.fecha_salida)
           .forEach((participante) => {
