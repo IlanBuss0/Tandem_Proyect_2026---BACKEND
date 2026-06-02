@@ -44,11 +44,13 @@ router.post('/direct', authMiddleware, async (req, res) => {
             id_tipo_chat ? parseInt(id_tipo_chat) : 1, 
             nombre
         );
-        if (r.created) {
-          r.participantes.forEach((participante) => {
-            emitToUser(participante.id_usuario, 'chat:new', r.chat);
+        console.log(`[HTTP chat] chat:new direct chat:${r.chat.id} participantes:${r.participantes.map((p) => p.id_usuario).join(',')}`);
+        r.participantes.forEach((participante) => {
+          emitToUser(participante.id_usuario, 'chat:new', {
+            chat: r.chat,
+            participantes: r.participantes,
           });
-        }
+        });
         res.status(r.created ? StatusCodes.CREATED : StatusCodes.OK).json(r.chat);
     } catch (error) {
         console.log(error);
@@ -82,8 +84,12 @@ router.post('/group', authMiddleware, async (req, res) => {
       descripcion: req.body?.descripcion ?? null,
       id_tipo_chat: req.body?.id_tipo_chat ? parseInt(req.body.id_tipo_chat) : null,
     });
+    console.log(`[HTTP chat] chat:new group chat:${r.chat.id} participantes:${r.participantes.map((p) => p.id_usuario).join(',')}`);
     r.participantes.forEach((participante) => {
-      emitToUser(participante.id_usuario, 'chat:new', r.chat);
+      emitToUser(participante.id_usuario, 'chat:new', {
+        chat: r.chat,
+        participantes: r.participantes,
+      });
     });
     res.status(StatusCodes.CREATED).json(r);
   } catch (error) {
