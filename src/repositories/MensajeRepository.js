@@ -31,6 +31,22 @@ export default class MensajeRepository {
     return await BD.query(sql, [idChat, limit, beforeId]);
   };
 
+  getByChatForParticipantAsync = async (idChat, idUsuario, limit = 30, beforeId = null) => {
+    console.log(`MensajeRepository.getByChatForParticipantAsync(${idChat}, ${idUsuario}, ${limit}, ${beforeId})`);
+    const sql = `
+      SELECT m.id, m.id_chat, m.id_usuario_emisor, m.id_tipo_mensaje, m.contenido, m.fecha_envio, m.eliminado
+      FROM mensajes m
+      INNER JOIN participantes_chats pc ON pc.id_chat = m.id_chat AND pc.id_usuario = $2
+      WHERE m.id_chat = $1
+        AND ($4::int IS NULL OR m.id < $4)
+        AND m.eliminado = false
+        AND (pc.oculto_desde IS NULL OR m.fecha_envio >= pc.oculto_desde)
+      ORDER BY m.id DESC
+      LIMIT $3
+    `;
+    return await BD.query(sql, [idChat, idUsuario, limit, beforeId]);
+  };
+
   createAsync = async (entity) => {
     console.log(`MensajeRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `INSERT INTO mensajes (id_chat, id_usuario_emisor, id_tipo_mensaje, contenido, fecha_envio, eliminado) VALUES ($1, $2, $3, $4, $5, COALESCE($6, false)) RETURNING id`;

@@ -9,6 +9,7 @@ export default class ChatRepository {
   ensureDescriptionColumnAsync = async () => {
     if (this.descriptionColumnReady) return;
     await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS descripcion TEXT`);
+    await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS oculto_desde TIMESTAMP`);
     this.descriptionColumnReady = true;
   };
 
@@ -74,6 +75,17 @@ export default class ChatRepository {
       WHERE pc.id_usuario = $1
         AND pc.fecha_salida IS NULL
         AND c.activo = true
+        AND (
+          pc.oculto_desde IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM mensajes m_visible
+            WHERE m_visible.id_chat = c.id
+              AND m_visible.eliminado = false
+              AND m_visible.fecha_envio > pc.oculto_desde
+              AND m_visible.id_usuario_emisor != $1
+          )
+        )
       GROUP BY c.id, c.id_tipo_chat, c.nombre, c.descripcion, c.fecha_creacion, c.activo, pc.ultimo_mensaje_leido_id, m.contenido, m.fecha_envio, m.id_usuario_emisor
       ORDER BY m.fecha_envio DESC NULLS LAST, c.fecha_creacion DESC
     `;
@@ -104,13 +116,67 @@ export default class ChatRepository {
   };
 
   getActiveParticipantsAsync = async (idChat) => {
+    await this.ensureDescriptionColumnAsync();
     const sql = `
-      SELECT id, id_chat, id_usuario, fecha_ingreso, fecha_salida
+      SELECT id, id_chat, id_usuario, fecha_ingreso, fecha_salida, oculto_desde
       FROM participantes_chats
       WHERE id_chat = $1 AND fecha_salida IS NULL
       ORDER BY id ASC
     `;
     return await BD.query(sql, [idChat]);
+  };
+
+  replaceParticipantsAsync = async (idChat, participantIds, fecha = new Date()) => {
+    await this.ensureDescriptionColumnAsync();
+    return await BD.transaction(async (client) => {
+      for (const idUsuario of participantIds) {
+        const existing = await client.query(
+          `SELECT id FROM participantes_chats WHERE id_chat = $1 AND id_usuario = $2 LIMIT 1`,
+          [idChat, idUsuario],
+        );
+
+        if (existing.rows[0]?.id) {
+          await client.query(
+            `UPDATE participantes_chats SET fecha_salida = null, oculto_desde = null WHERE id = $1`,
+            [existing.rows[0].id],
+          );
+        } else {
+          await client.query(
+            `
+              INSERT INTO participantes_chats (id_chat, id_usuario, fecha_ingreso, fecha_salida, oculto_desde)
+              VALUES (
+                $1,
+                $2,
+                $3,
+                null,
+                (
+                  SELECT MIN(fecha_envio)
+                  FROM (
+                    SELECT fecha_envio
+                    FROM mensajes
+                    WHERE id_chat = $1 AND eliminado = false
+                    ORDER BY id DESC
+                    LIMIT 5
+                  ) ultimos
+                )
+              )
+            `,
+            [idChat, idUsuario, fecha],
+          );
+        }
+      }
+
+      await client.query(
+        `
+          UPDATE participantes_chats
+          SET fecha_salida = $2
+          WHERE id_chat = $1
+            AND fecha_salida IS NULL
+            AND id_usuario <> ALL($3::int[])
+        `,
+        [idChat, fecha, participantIds],
+      );
+    });
   };
 
   createWithParticipantsAsync = async ({ id_tipo_chat, nombre, descripcion = null, fecha_creacion, participantes }) => {

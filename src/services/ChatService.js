@@ -104,6 +104,48 @@ export default class ChatService {
   updateAsync = async (entity) => { console.log(`ChatService.updateAsync(${JSON.stringify(entity)})`); if (!entity?.id || Number.isNaN(entity.id)) { throw new Error('El id del chat es obligatorio para actualizar.'); } const prev = await this.ChatRepository.getByIdAsync(entity.id); if (prev == null) return 0; return await this.ChatRepository.updateAsync(entity); };
   deleteByIdAsync = async (id) => { console.log(`ChatService.deleteByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del chat es invalido.'); } return await this.ChatRepository.deleteByIdAsync(id); };
 
+  manageForUserAsync = async (idChat, idUsuario, payload) => {
+    console.log(`ChatService.manageForUserAsync(${idChat}, ${idUsuario})`);
+    if (!idChat || Number.isNaN(idChat)) throw new Error('El id del chat es invalido.');
+    if (!idUsuario || Number.isNaN(idUsuario)) throw new Error('El usuario es invalido.');
+
+    const participanteActual = await this.ChatRepository.getActiveParticipantsAsync(idChat);
+    if (!participanteActual.some((participante) => participante.id_usuario === idUsuario)) {
+      throw new Error('No tenes permiso para administrar este chat.');
+    }
+
+    const chat = await this.ChatRepository.getByIdAsync(idChat);
+    if (!chat?.activo) throw new Error('No se encontro el chat activo.');
+
+    await this.ChatRepository.updateAsync({
+      ...chat,
+      nombre: payload?.nombre === undefined ? chat.nombre : String(payload.nombre || '').trim() || null,
+      descripcion: payload?.descripcion === undefined ? chat.descripcion : String(payload.descripcion || '').trim() || null,
+    });
+
+    if (Array.isArray(payload?.participantes)) {
+      const participantIds = Array.from(new Set(
+        payload.participantes
+          .map((id) => parseInt(id))
+          .filter((id) => Number.isInteger(id) && id > 0),
+      ));
+
+      if (!participantIds.includes(idUsuario)) participantIds.push(idUsuario);
+      if (participantIds.length < 2) throw new Error('El chat necesita al menos 2 participantes.');
+
+      for (const idParticipante of participantIds) {
+        const usuario = await this.UsuarioRepository.getByIdAsync(idParticipante);
+        if (!usuario?.activo) throw new Error(`El usuario ${idParticipante} no existe o no esta activo.`);
+      }
+
+      await this.ChatRepository.replaceParticipantsAsync(idChat, participantIds);
+    }
+
+    const updatedChat = await this.ChatRepository.getByIdAsync(idChat);
+    const participantes = await this.ChatRepository.getActiveParticipantsAsync(idChat);
+    return { chat: updatedChat, participantes };
+  };
+
   validarChatParaCrear = (entity) => {
     if (!entity) throw new Error('El chat es obligatorio.');
     if (!entity.id_tipo_chat) throw new Error('id_tipo_chat es obligatorio.');

@@ -22,7 +22,7 @@ export default class MensajeService {
 
   getByChatForUserAsync = async (idChat, idUsuario, limit = 30, beforeId = null) => { 
     await this.ParticipanteChatService.ensureActiveParticipantAsync(idChat, idUsuario); 
-    return await this.getByChatIdAsync(idChat, limit, beforeId); 
+    return await this.MensajeRepository.getByChatForParticipantAsync(idChat, idUsuario, limit, beforeId); 
   };
 
   createAsync = async (entity) => { console.log(`MensajeService.createAsync(${JSON.stringify(entity)})`); this.validarMensajeParaCrear(entity); return await this.MensajeRepository.createAsync(entity); };

@@ -4,9 +4,11 @@ import ChatService from '../services/ChatService.js';
 import Chat from '../entities/Chat.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { emitToUser } from '../realtime/realtime.js';
+import ParticipanteChatService from '../services/ParticipanteChatService.js';
 
 const router = Router();
 const currentService = new ChatService();
+const participanteChatService = new ParticipanteChatService();
 
 router.get('', async (req, res) => {
   try {
@@ -92,6 +94,42 @@ router.post('/group', authMiddleware, async (req, res) => {
       });
     });
     res.status(StatusCodes.CREATED).json(r);
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
+router.patch('/:id/manage', authMiddleware, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    console.log(`ChatController.manage(${id}, user:${req.user.id})`);
+    const r = await currentService.manageForUserAsync(id, req.user.id, req.body);
+
+    r.participantes.forEach((participante) => {
+      emitToUser(participante.id_usuario, 'chat:updated', {
+        chat: r.chat,
+        participantes: r.participantes,
+      });
+      emitToUser(participante.id_usuario, 'chat:new', {
+        chat: r.chat,
+        participantes: r.participantes,
+      });
+    });
+
+    res.status(StatusCodes.OK).json(r);
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
+router.delete('/:id/me', authMiddleware, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    console.log(`ChatController.hideForMe(${id}, user:${req.user.id})`);
+    const rowsAffected = await participanteChatService.hideForUserAsync(id, req.user.id);
+    res.status(StatusCodes.OK).json({ ok: true, rowsAffected });
   } catch (error) {
     console.log(error);
     res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
