@@ -49,6 +49,21 @@ router.get('/chat/:idChat', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/chat/:idChat/usuario/:idUsuario', authMiddleware, async (req, res) => {
+  try {
+    const idChat = parseInt(req.params.idChat);
+    const idUsuario = parseInt(req.params.idUsuario);
+    const limit = req.query.limit ? parseInt(req.query.limit) : 30;
+    const beforeId = req.query.beforeId ? parseInt(req.query.beforeId) : null;
+    console.log(`MensajeController.getByChatForUsuario(${idChat}, ${idUsuario}) - limit: ${limit}, beforeId: ${beforeId}`);
+    const r = await currentService.getByChatForUserAsync(idChat, idUsuario, limit, beforeId);
+    res.status(StatusCodes.OK).json(r);
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
 router.post('/chat/:idChat', authMiddleware, async (req, res) => {
   try {
     const idChat = parseInt(req.params.idChat);

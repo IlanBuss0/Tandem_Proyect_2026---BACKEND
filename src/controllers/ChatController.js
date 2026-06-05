@@ -36,6 +36,18 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/usuario/:idUsuario', authMiddleware, async (req, res) => {
+  try {
+    const idUsuario = parseInt(req.params.idUsuario);
+    console.log(`ChatController.getByUsuario(${idUsuario}, requester:${req.user.id})`);
+    const r = await currentService.getByUsuarioIdAsync(idUsuario);
+    res.status(StatusCodes.OK).json(r);
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
 router.post('/direct', authMiddleware, async (req, res) => {
     try {
         const { id_usuario_destino, id_tipo_chat, nombre } = req.body;
