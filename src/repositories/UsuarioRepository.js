@@ -65,7 +65,7 @@ export default class UsuarioRepository {
         fecha_ingreso,
         activo
       FROM usuarios
-      WHERE correo = $1
+      WHERE LOWER(correo) = LOWER($1)
     `;
 
     return await BD.queryOne(sql, [correo]);
@@ -87,7 +87,7 @@ export default class UsuarioRepository {
         fecha_ingreso,
         activo
       FROM usuarios
-      WHERE nombre_usuario = $1
+      WHERE LOWER(nombre_usuario) = LOWER($1)
     `;
 
     return await BD.queryOne(sql, [nombreUsuario]);

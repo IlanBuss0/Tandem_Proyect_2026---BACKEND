@@ -17,7 +17,7 @@ class AuthRepository {
           fecha_ingreso,
           activo
         FROM usuarios
-        WHERE correo = $1 OR nombre_usuario = $1
+        WHERE LOWER(correo) = LOWER($1) OR LOWER(nombre_usuario) = LOWER($1)
         LIMIT 1
       `,
       [identificador],

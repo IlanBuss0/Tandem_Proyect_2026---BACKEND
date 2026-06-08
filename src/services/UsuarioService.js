@@ -31,6 +31,9 @@ export default class UsuarioService {
   createAsync = async (entity) => {
     console.log(`UsuarioService.createAsync(${JSON.stringify(entity)})`);
 
+    if (entity?.nombre_usuario) entity.nombre_usuario = String(entity.nombre_usuario).trim();
+    if (entity?.correo) entity.correo = String(entity.correo).trim();
+
     this.validarUsuarioParaCrear(entity);
 
     const usuarioConMismoCorreo = await this.UsuarioRepository.getByCorreoAsync(entity.correo);
@@ -63,7 +66,10 @@ export default class UsuarioService {
       return 0;
     }
 
-    if (entity.correo && entity.correo !== previousEntity.correo) {
+    if (entity?.nombre_usuario) entity.nombre_usuario = String(entity.nombre_usuario).trim();
+    if (entity?.correo) entity.correo = String(entity.correo).trim();
+
+    if (entity.correo && entity.correo.toLowerCase() !== String(previousEntity.correo || '').toLowerCase()) {
       const usuarioConMismoCorreo = await this.UsuarioRepository.getByCorreoAsync(entity.correo);
 
       if (usuarioConMismoCorreo != null) {
@@ -71,7 +77,7 @@ export default class UsuarioService {
       }
     }
 
-    if (entity.nombre_usuario && entity.nombre_usuario !== previousEntity.nombre_usuario) {
+    if (entity.nombre_usuario && entity.nombre_usuario.toLowerCase() !== String(previousEntity.nombre_usuario || '').toLowerCase()) {
       const usuarioConMismoNombreUsuario = await this.UsuarioRepository.getByNombreUsuarioAsync(entity.nombre_usuario);
 
       if (usuarioConMismoNombreUsuario != null) {
