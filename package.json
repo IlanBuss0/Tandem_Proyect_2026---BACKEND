@@ -10,7 +10,9 @@
     "server": "cls && node --watch src/server.js",
     "worker:notifications": "node src/workers/notification.worker.js",
     "test:chat-flow": "node scripts/test-chat-flow.mjs",
-    "seed:permissions": "node scripts/seed-permission-catalogs.mjs"
+    "seed:permissions": "node scripts/seed-permission-catalogs.mjs",
+    "db:pictograms": "node scripts/create-pictograms-table.mjs",
+    "sync:pictograms": "node scripts/sync-pictograms.mjs"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",

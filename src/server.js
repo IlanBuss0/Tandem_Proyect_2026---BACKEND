@@ -87,6 +87,7 @@ import { envConfig } from './configs/env.config.js';
 import BD from './db/BD.js';
 import { setupRealtime } from './realtime/socket.js';
 import { startNotificationWorker } from './workers/notificationWorker.js';
+import { startPictogramaSyncJob } from './jobs/pictogramaSyncJob.js';
 
 // Configuración para usar __dirname con ES Modules (import)
 const __filename = fileURLToPath(import.meta.url);
@@ -226,6 +227,8 @@ async function startServer() {
     if (envConfig.startNotificationWorker) {
       startNotificationWorker();
     }
+
+    startPictogramaSyncJob();
 
     httpServer.listen(envConfig.port, () => {
       console.log(`Servidor escuchando en puerto ${envConfig.port}`);

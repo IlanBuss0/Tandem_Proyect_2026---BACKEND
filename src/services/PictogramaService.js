@@ -1,5 +1,6 @@
 import axiosClient from '../modules/axios/axiosClient.js';
 import https from 'https';
+import PictogramaRepository from '../repositories/PictogramaRepository.js';
 
 const DEFAULT_ARASAAC_API_URL = 'https://api.arasaac.org/api';
 const DEFAULT_ARASAAC_STATIC_URL = 'https://static.arasaac.org/pictograms';
@@ -7,6 +8,37 @@ const DEFAULT_LANGUAGE = 'es';
 const DEFAULT_RESOLUTION = 300;
 const DEFAULT_LIMIT = 48;
 const MAX_LIMIT = 100;
+const DEFAULT_ARASAAC_TIMEOUT_MS = 30000;
+const SYNC_SEARCH_TERMS = [
+  'acciones y rutinas',
+  'actividades',
+  'casa',
+  'comida',
+  'comunicacion',
+  'compras y dinero',
+  'conceptos',
+  'conductas',
+  'emociones',
+  'escuela y aprendizaje',
+  'higiene',
+  'lugares',
+  'naturaleza',
+  'objetos',
+  'ocio',
+  'personas',
+  'salud y cuerpo',
+  'tecnologia',
+  'tiempo',
+  'transporte',
+  'vida diaria',
+  'beber',
+  'comer',
+  'dolor',
+  'familia',
+  'jugar',
+  'leer',
+  'vestirse',
+];
 const allowSelfSignedCertificates =
   process.env.ARASAAC_ALLOW_SELF_SIGNED === 'true' || process.env.NODE_ENV !== 'production';
 const arasaacHttpsAgent = new https.Agent({
@@ -199,12 +231,34 @@ function normalizePictogram(pictogram, language) {
 export default class PictogramaService {
   constructor() {
     this.baseUrl = (process.env.ARASAAC_API_BASE_URL || DEFAULT_ARASAAC_API_URL).replace(/\/$/, '');
+    this.PictogramaRepository = new PictogramaRepository();
+    this.schemaReady = null;
+  }
+
+  async ensureSchemaAsync() {
+    if (!this.schemaReady) {
+      this.schemaReady = this.PictogramaRepository.ensureSchemaAsync();
+    }
+
+    return await this.schemaReady;
   }
 
   async searchAsync({ search, category, language, limit }) {
+    await this.ensureSchemaAsync();
+
     const locale = normalizeLanguage(language);
     const normalizedLimit = normalizeLimit(limit);
     const searchText = String(search || category || '').trim();
+
+    const cached = await this.PictogramaRepository.searchAsync({
+      search,
+      category,
+      language: locale,
+      limit: normalizedLimit,
+    });
+
+    if (cached.length > 0) return cached;
+
     const path = searchText
       ? `/pictograms/${encodeURIComponent(locale)}/search/${encodeURIComponent(searchText)}`
       : `/pictograms/${encodeURIComponent(locale)}/new/${normalizedLimit}`;
@@ -213,6 +267,8 @@ export default class PictogramaService {
     const normalized = pictograms
       .slice(0, normalizedLimit)
       .map((pictogram) => normalizePictogram(pictogram, locale));
+
+    await this.PictogramaRepository.upsertManyAsync(normalized);
 
     if (!category || category === 'todas' || searchText === category) return normalized;
 
@@ -225,10 +281,76 @@ export default class PictogramaService {
       throw new Error('El id del pictograma es obligatorio.');
     }
 
+    await this.ensureSchemaAsync();
+
     const locale = normalizeLanguage(language);
+    const cached = await this.PictogramaRepository.getByExternalIdAsync(id, locale);
+    if (cached) return cached;
+
     const path = `/pictograms/${encodeURIComponent(locale)}/${encodeURIComponent(id)}`;
     const pictogram = await this.fetchArasaacPictogram(path);
-    return pictogram ? normalizePictogram(pictogram, locale) : null;
+    const normalized = pictogram ? normalizePictogram(pictogram, locale) : null;
+    if (normalized) await this.PictogramaRepository.upsertManyAsync([normalized]);
+    return normalized;
+  }
+
+  async getCategoriesAsync(language) {
+    await this.ensureSchemaAsync();
+    return await this.PictogramaRepository.getCategoriesAsync(normalizeLanguage(language));
+  }
+
+  async downloadAsync(id, language) {
+    const locale = normalizeLanguage(language);
+    const pictogram = await this.getByIdAsync(id, locale);
+    if (!pictogram?.downloadUrl && !pictogram?.imageUrl) return null;
+
+    const url = pictogram.downloadUrl || pictogram.imageUrl;
+    const response = await axiosClient.get(url, {
+      responseType: 'arraybuffer',
+      httpsAgent: arasaacHttpsAgent,
+      timeout: Number.parseInt(process.env.ARASAAC_REQUEST_TIMEOUT_MS || DEFAULT_ARASAAC_TIMEOUT_MS, 10),
+    });
+
+    await this.PictogramaRepository.incrementDownloadAsync(id, locale);
+
+    return {
+      data: Buffer.from(response.data),
+      contentType: response.headers?.['content-type'] || 'image/png',
+      fileName: `${String(pictogram.name || `pictograma-${id}`).replace(/[^\w.-]+/g, '_')}.png`,
+    };
+  }
+
+  async getFavoritesAsync(userId, language) {
+    await this.ensureSchemaAsync();
+    if (!userId) {
+      throw new Error('El usuario es obligatorio.');
+    }
+
+    return await this.PictogramaRepository.getFavoritesByUserAsync(userId, normalizeLanguage(language));
+  }
+
+  async markSavedAsync(id, language, userId) {
+    await this.ensureSchemaAsync();
+    if (!userId) {
+      throw new Error('El usuario es obligatorio.');
+    }
+
+    const locale = normalizeLanguage(language);
+    const pictogram = await this.getByIdAsync(id, locale);
+    if (!pictogram) return null;
+
+    await this.PictogramaRepository.addFavoriteAsync({ userId, pictogramId: id, language: locale });
+    return pictogram;
+  }
+
+  async unmarkSavedAsync(id, language, userId) {
+    await this.ensureSchemaAsync();
+    if (!userId) {
+      throw new Error('El usuario es obligatorio.');
+    }
+
+    const locale = normalizeLanguage(language);
+    return await this.PictogramaRepository.removeFavoriteAsync({ userId, pictogramId: id, language: locale });
   }
 
   getImageUrl(id, resolution) {
@@ -245,6 +367,7 @@ export default class PictogramaService {
       const response = await axiosClient.get(`${this.baseUrl}${path}`, {
         headers: { Accept: 'application/json' },
         httpsAgent: arasaacHttpsAgent,
+        timeout: Number.parseInt(process.env.ARASAAC_REQUEST_TIMEOUT_MS || DEFAULT_ARASAAC_TIMEOUT_MS, 10),
       });
       return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
@@ -253,11 +376,53 @@ export default class PictogramaService {
     }
   }
 
+  async syncFromArasaacAsync({ language } = {}) {
+    await this.ensureSchemaAsync();
+
+    const locale = normalizeLanguage(language);
+    const pictograms = await this.fetchArasaacCatalog(locale);
+    const normalized = pictograms.map((pictogram) => normalizePictogram(pictogram, locale));
+    const affected = await this.PictogramaRepository.upsertManyAsync(normalized);
+
+    return {
+      language: locale,
+      fetched: pictograms.length,
+      saved: affected,
+    };
+  }
+
+  async fetchArasaacCatalog(locale) {
+    const configuredPath = process.env.ARASAAC_PICTOGRAMS_SYNC_PATH;
+    const candidatePaths = [
+      configuredPath ? configuredPath.replace('{language}', encodeURIComponent(locale)) : null,
+      `/pictograms/${encodeURIComponent(locale)}/all`,
+      `/pictograms/${encodeURIComponent(locale)}`,
+    ].filter(Boolean);
+
+    for (const path of candidatePaths) {
+      const pictograms = await this.fetchArasaacPictograms(path).catch(() => []);
+      if (pictograms.length > 0) return pictograms;
+    }
+
+    const byId = new Map();
+    for (const term of SYNC_SEARCH_TERMS) {
+      const path = `/pictograms/${encodeURIComponent(locale)}/search/${encodeURIComponent(term)}`;
+      const pictograms = await this.fetchArasaacPictograms(path).catch(() => []);
+      for (const pictogram of pictograms) {
+        const id = pictogram?._id || pictogram?.id;
+        if (id) byId.set(String(id), pictogram);
+      }
+    }
+
+    return Array.from(byId.values());
+  }
+
   async fetchArasaacPictogram(path) {
     try {
       const response = await axiosClient.get(`${this.baseUrl}${path}`, {
         headers: { Accept: 'application/json' },
         httpsAgent: arasaacHttpsAgent,
+        timeout: Number.parseInt(process.env.ARASAAC_REQUEST_TIMEOUT_MS || DEFAULT_ARASAAC_TIMEOUT_MS, 10),
       });
       return response.data;
     } catch (error) {
