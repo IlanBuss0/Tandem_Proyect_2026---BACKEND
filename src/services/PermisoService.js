@@ -18,6 +18,14 @@ class PermisoService {
     return PermisoRepository.findByProfesional(id);
   }
 
+  getPertenecientePermissionById(id) {
+    return PermisoRepository.findPertenecientePermissionById(id);
+  }
+
+  getProfesionalPermissionById(id) {
+    return PermisoRepository.findProfesionalPermissionById(id);
+  }
+
   createPerteneciente(body) {
     return PermisoRepository.createPerteneciente(body);
   }

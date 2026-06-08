@@ -5,6 +5,8 @@ import ProfesionalRepository from '../repositories/ProfesionalRepository.js';
 import TipoChatRepository from '../repositories/TipoChatRepository.js';
 import UsuarioRepository from '../repositories/UsuarioRepository.js';
 import VinculoProfesionalPertenecienteRepository from '../repositories/VinculoProfesionalPertenecienteRepository.js';
+import AuthorizationService from './AuthorizationService.js';
+import { AUTH_ACTIONS } from '../modules/security/permissions.constants.js';
 
 export default class ChatService {
   constructor() {
@@ -94,10 +96,12 @@ export default class ChatService {
     const usuarioPerteneciente = await this.UsuarioRepository.getByIdAsync(perteneciente.id_usuario);
     if (!usuarioPerteneciente?.activo) throw new Error('El usuario perteneciente no esta activo.');
 
-    const esMayorDeEdad = this.esMayorDeEdad(usuarioPerteneciente.fecha_nacimiento);
     const vinculo = await this.VinculoProfesionalPertenecienteRepository.getByProfesionalYPertenecienteAsync(profesional.id, perteneciente.id);
 
-    this.validarVinculoProfesionalPerteneciente(vinculo, esMayorDeEdad);
+    this.validarVinculoProfesionalPerteneciente(vinculo);
+    await AuthorizationService.assertCan(id_usuario_profesional, AUTH_ACTIONS.PROFESIONAL_CHAT_ENVIAR, {
+      id_perteneciente: perteneciente.id,
+    });
 
     const idTipoChat = await this.resolveTipoChatProfesionalPertenecienteAsync(id_tipo_chat);
     return await this.createDirectChatAsync(id_usuario_profesional, perteneciente.id_usuario, idTipoChat, nombre);
@@ -182,7 +186,7 @@ export default class ChatService {
     if (!validado) throw new Error('El profesional debe estar validado para crear chats con pertenecientes.');  
   };
 
-  validarVinculoProfesionalPerteneciente = (vinculo, esMayorDeEdad) => {
+  validarVinculoProfesionalPerteneciente = (vinculo) => {
     if (!vinculo) {
       throw new Error('Debe existir un vinculo entre el profesional y el perteneciente.');
     }
@@ -194,8 +198,8 @@ export default class ChatService {
       throw new Error('El vinculo profesional-perteneciente debe estar activo o aprobado.');
     }
 
-    if (!esMayorDeEdad && (!vinculo.fue_aprobado_por_tutor || !vinculo.id_tutor_aprobador)) {
-      throw new Error('El tutor debe aprobar el vinculo antes de crear el chat con un perteneciente menor de edad.');
+    if (vinculo.requiere_aprobacion_tutor && (!vinculo.fue_aprobado_por_tutor || !vinculo.id_tutor_aprobador)) {
+      throw new Error('El tutor debe aprobar el vinculo antes de crear el chat con este perteneciente.');
     }
   };
 

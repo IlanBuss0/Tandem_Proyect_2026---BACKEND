@@ -9,7 +9,8 @@
   "scripts": {
     "server": "cls && node --watch src/server.js",
     "worker:notifications": "node src/workers/notification.worker.js",
-    "test:chat-flow": "node scripts/test-chat-flow.mjs"
+    "test:chat-flow": "node scripts/test-chat-flow.mjs",
+    "seed:permissions": "node scripts/seed-permission-catalogs.mjs"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",

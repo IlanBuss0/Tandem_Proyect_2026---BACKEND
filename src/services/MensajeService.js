@@ -1,6 +1,7 @@
 import MensajeRepository from '../repositories/MensajeRepository.js';
 import ParticipanteChatService from './ParticipanteChatService.js';
 import ChatNotificationJobService from './ChatNotificationJobService.js';
+import AuthorizationService from './AuthorizationService.js';
 import { enqueueChatMessageNotifications } from '../queues/notificationQueue.js';
 
 export default class MensajeService {
@@ -30,6 +31,7 @@ export default class MensajeService {
   createFromUserAsync = async (entity) => {
     console.log(`MensajeService.createFromUserAsync(${JSON.stringify(entity)})`);
     await this.ParticipanteChatService.ensureActiveParticipantAsync(entity?.id_chat, entity?.id_usuario_emisor);
+    await AuthorizationService.assertCanSendMessageToChat(entity?.id_usuario_emisor, entity?.id_chat);
     this.validarMensajeParaCrear(entity);
     const newId = await this.MensajeRepository.createAsync(entity);
     const message = await this.MensajeRepository.getByIdAsync(newId);

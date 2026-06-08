@@ -1,0 +1,228 @@
+import BD from '../db/BD.js';
+
+class AuthorizationRepository {
+  getUsuarioById = async (idUsuario) => {
+    return await BD.queryOne(
+      `
+        SELECT id, id_tipo_usuario, nombre_usuario, nombre, apellido, correo, activo
+        FROM usuarios
+        WHERE id = $1
+      `,
+      [idUsuario],
+    );
+  };
+
+  getPertenecienteByUsuarioId = async (idUsuario) => {
+    return await BD.queryOne(
+      `
+        SELECT p.id, p.id_usuario, p.puede_autogestionarse
+        FROM pertenecientes p
+        INNER JOIN usuarios u ON u.id = p.id_usuario
+        WHERE p.id_usuario = $1
+          AND u.activo = true
+        LIMIT 1
+      `,
+      [idUsuario],
+    );
+  };
+
+  getTutorByUsuarioId = async (idUsuario) => {
+    return await BD.queryOne(
+      `
+        SELECT t.id, t.id_usuario
+        FROM tutores t
+        INNER JOIN usuarios u ON u.id = t.id_usuario
+        WHERE t.id_usuario = $1
+          AND u.activo = true
+        LIMIT 1
+      `,
+      [idUsuario],
+    );
+  };
+
+  getProfesionalByUsuarioId = async (idUsuario) => {
+    return await BD.queryOne(
+      `
+        SELECT p.id, p.id_usuario, p.id_estado_validacion
+        FROM profesionales p
+        INNER JOIN usuarios u ON u.id = p.id_usuario
+        WHERE p.id_usuario = $1
+          AND u.activo = true
+        LIMIT 1
+      `,
+      [idUsuario],
+    );
+  };
+
+  getPertenecienteById = async (idPerteneciente) => {
+    return await BD.queryOne(
+      `
+        SELECT p.id, p.id_usuario, p.puede_autogestionarse, u.activo AS usuario_activo
+        FROM pertenecientes p
+        INNER JOIN usuarios u ON u.id = p.id_usuario
+        WHERE p.id = $1
+      `,
+      [idPerteneciente],
+    );
+  };
+
+  getVinculoProfesionalById = async (idVinculo) => {
+    return await BD.queryOne(
+      `
+        SELECT
+          vpp.id,
+          vpp.id_profesional,
+          vpp.id_perteneciente,
+          vpp.id_estado_vinculo,
+          ev.nombre AS estado_vinculo,
+          vpp.requiere_aprobacion_tutor,
+          vpp.fue_aprobado_por_tutor,
+          vpp.id_tutor_aprobador,
+          p.id_estado_validacion,
+          evp.nombre AS estado_validacion_profesional,
+          up.activo AS usuario_profesional_activo,
+          upe.activo AS usuario_perteneciente_activo
+        FROM vinculos_profesional_pertenecientes vpp
+        INNER JOIN estados_vinculos ev ON ev.id = vpp.id_estado_vinculo
+        INNER JOIN profesionales p ON p.id = vpp.id_profesional
+        INNER JOIN usuarios up ON up.id = p.id_usuario
+        INNER JOIN pertenecientes pe ON pe.id = vpp.id_perteneciente
+        INNER JOIN usuarios upe ON upe.id = pe.id_usuario
+        LEFT JOIN estados_validaciones_profesionales evp ON evp.id = p.id_estado_validacion
+        WHERE vpp.id = $1
+        LIMIT 1
+      `,
+      [idVinculo],
+    );
+  };
+
+  getProfessionalPertenecienteChatContext = async (idChat, idUsuarioEmisor) => {
+    return await BD.queryOne(
+      `
+        WITH participantes_activos AS (
+          SELECT id_chat, id_usuario
+          FROM participantes_chats
+          WHERE id_chat = $1
+            AND fecha_salida IS NULL
+        ),
+        chat_directo AS (
+          SELECT id_chat
+          FROM participantes_activos
+          GROUP BY id_chat
+          HAVING COUNT(*) = 2
+        )
+        SELECT
+          pa_sender.id_usuario AS id_usuario_emisor,
+          prof.id AS id_profesional,
+          prof.id_usuario AS id_usuario_profesional,
+          pe.id AS id_perteneciente,
+          pe.id_usuario AS id_usuario_perteneciente,
+          CASE
+            WHEN prof.id_usuario = pa_sender.id_usuario THEN 'profesional'
+            WHEN pe.id_usuario = pa_sender.id_usuario THEN 'perteneciente'
+            ELSE NULL
+          END AS emisor_tipo
+        FROM chat_directo cd
+        INNER JOIN participantes_activos pa_sender
+          ON pa_sender.id_chat = cd.id_chat
+         AND pa_sender.id_usuario = $2
+        INNER JOIN participantes_activos pa_other
+          ON pa_other.id_chat = cd.id_chat
+         AND pa_other.id_usuario <> pa_sender.id_usuario
+        INNER JOIN profesionales prof
+          ON prof.id_usuario IN (pa_sender.id_usuario, pa_other.id_usuario)
+        INNER JOIN pertenecientes pe
+          ON pe.id_usuario IN (pa_sender.id_usuario, pa_other.id_usuario)
+        LIMIT 1
+      `,
+      [idChat, idUsuarioEmisor],
+    );
+  };
+
+  getApprovedProfessionalLink = async (idProfesional, idPerteneciente) => {
+    return await BD.queryOne(
+      `
+        SELECT
+          vpp.id,
+          vpp.id_profesional,
+          vpp.id_perteneciente,
+          vpp.id_estado_vinculo,
+          ev.nombre AS estado_vinculo,
+          vpp.requiere_aprobacion_tutor,
+          vpp.fue_aprobado_por_tutor,
+          vpp.id_tutor_aprobador,
+          evp.nombre AS estado_validacion_profesional,
+          up.activo AS usuario_profesional_activo,
+          upe.activo AS usuario_perteneciente_activo
+        FROM vinculos_profesional_pertenecientes vpp
+        INNER JOIN estados_vinculos ev ON ev.id = vpp.id_estado_vinculo
+        INNER JOIN profesionales p ON p.id = vpp.id_profesional
+        INNER JOIN usuarios up ON up.id = p.id_usuario
+        INNER JOIN pertenecientes pe ON pe.id = vpp.id_perteneciente
+        INNER JOIN usuarios upe ON upe.id = pe.id_usuario
+        LEFT JOIN estados_validaciones_profesionales evp ON evp.id = p.id_estado_validacion
+        WHERE vpp.id_profesional = $1
+          AND vpp.id_perteneciente = $2
+        ORDER BY vpp.id DESC
+        LIMIT 1
+      `,
+      [idProfesional, idPerteneciente],
+    );
+  };
+
+  isTutorActivoForPerteneciente = async (idTutor, idPerteneciente) => {
+    const row = await BD.queryOne(
+      `
+        SELECT vtp.id
+        FROM vinculos_tutor_pertenecientes vtp
+        INNER JOIN estados_vinculos ev ON ev.id = vtp.id_estado_vinculo
+        INNER JOIN tutores t ON t.id = vtp.id_tutor
+        INNER JOIN usuarios ut ON ut.id = t.id_usuario
+        INNER JOIN pertenecientes p ON p.id = vtp.id_perteneciente
+        INNER JOIN usuarios up ON up.id = p.id_usuario
+        WHERE vtp.id_tutor = $1
+          AND vtp.id_perteneciente = $2
+          AND vtp.fecha_fin IS NULL
+          AND ut.activo = true
+          AND up.activo = true
+          AND LOWER(ev.nombre) IN ('activo', 'activa', 'aprobado', 'aprobada', 'aceptado', 'aceptada')
+        LIMIT 1
+      `,
+      [idTutor, idPerteneciente],
+    );
+
+    return Boolean(row);
+  };
+
+  getPertenecientePermission = async (idPerteneciente, nombrePermiso) => {
+    return await BD.queryOne(
+      `
+        SELECT pop.habilitado
+        FROM permisos_otorgados_pertenecientes pop
+        INNER JOIN catalogo_permisos_pertenecientes cpp ON cpp.id = pop.id_permiso_perteneciente
+        WHERE pop.id_perteneciente = $1
+          AND LOWER(cpp.nombre) = LOWER($2)
+        ORDER BY pop.fecha_modificacion DESC NULLS LAST, pop.id DESC
+        LIMIT 1
+      `,
+      [idPerteneciente, nombrePermiso],
+    );
+  };
+
+  getProfesionalPermission = async (idVinculoProfesionalPerteneciente, nombrePermiso) => {
+    return await BD.queryOne(
+      `
+        SELECT pop.habilitado
+        FROM permisos_otorgados_profesionales pop
+        INNER JOIN catalogo_permisos_profesionales cpp ON cpp.id = pop.id_permiso_profesional
+        WHERE pop.id_vinculo_profesional_perteneciente = $1
+          AND LOWER(cpp.nombre) = LOWER($2)
+        ORDER BY pop.fecha_modificacion DESC NULLS LAST, pop.id DESC
+        LIMIT 1
+      `,
+      [idVinculoProfesionalPerteneciente, nombrePermiso],
+    );
+  };
+}
+
+export default new AuthorizationRepository();

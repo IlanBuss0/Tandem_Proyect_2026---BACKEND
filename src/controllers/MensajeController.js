@@ -20,18 +20,13 @@ async function emitMessageToParticipants(message) {
   });
 }
 
-router.get('', async (req, res) => {
+router.get('', authMiddleware, async (req, res) => {
   try {
-    console.log('MensajeController.getAll');
-    const r = await currentService.getAllAsync();
-    if (r != null) {
-      res.status(StatusCodes.OK).json(r);
-    } else {
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
-    }
+    console.log(`MensajeController.getAllBlocked(${req.user.id})`);
+    res.status(StatusCodes.FORBIDDEN).send('No autorizado para listar todos los mensajes.');
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+    res.status(error.statusCode ?? StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
 
@@ -45,7 +40,7 @@ router.get('/chat/:idChat', authMiddleware, async (req, res) => {
     res.status(StatusCodes.OK).json(r);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+    res.status(error.statusCode ?? StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
 
@@ -56,11 +51,14 @@ router.get('/chat/:idChat/usuario/:idUsuario', authMiddleware, async (req, res) 
     const limit = req.query.limit ? parseInt(req.query.limit) : 30;
     const beforeId = req.query.beforeId ? parseInt(req.query.beforeId) : null;
     console.log(`MensajeController.getByChatForUsuario(${idChat}, ${idUsuario}) - limit: ${limit}, beforeId: ${beforeId}`);
+    if (idUsuario !== req.user.id) {
+      return res.status(StatusCodes.FORBIDDEN).send('No autorizado para consultar mensajes de otro usuario.');
+    }
     const r = await currentService.getByChatForUserAsync(idChat, idUsuario, limit, beforeId);
     res.status(StatusCodes.OK).json(r);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+    res.status(error.statusCode ?? StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
 
@@ -79,7 +77,7 @@ router.post('/chat/:idChat', authMiddleware, async (req, res) => {
     res.status(StatusCodes.CREATED).json(message);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+    res.status(error.statusCode ?? StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
 
@@ -126,12 +124,13 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     console.log(`MensajeController.getById(${id})`);
     const r = await currentService.getByIdAsync(id);
     if (r != null) {
+      await currentService.ParticipanteChatService.ensureActiveParticipantAsync(r.id_chat, req.user.id);
       res.status(StatusCodes.OK).json(r);
     } else {
       res.status(StatusCodes.NOT_FOUND).send(`No se encontro el mensaje con id: ${id}.`);

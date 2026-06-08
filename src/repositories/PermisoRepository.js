@@ -56,6 +56,24 @@ class PermisoRepository {
     return await BD.query(sql, [idPerteneciente]);
   };
 
+  findPertenecientePermissionById = async (id) => {
+    console.log(`PermisoRepository.findPertenecientePermissionById(${id})`);
+
+    const sql = `
+      SELECT
+        id,
+        id_perteneciente,
+        id_permiso_perteneciente,
+        habilitado,
+        id_usuario_modificador,
+        fecha_modificacion
+      FROM permisos_otorgados_pertenecientes
+      WHERE id = $1
+    `;
+
+    return await BD.queryOne(sql, [id]);
+  };
+
   findByProfesional = async (idProfesional) => {
     console.log(`PermisoRepository.findByProfesional(${idProfesional})`);
 
@@ -75,6 +93,24 @@ class PermisoRepository {
     `;
 
     return await BD.query(sql, [idProfesional]);
+  };
+
+  findProfesionalPermissionById = async (id) => {
+    console.log(`PermisoRepository.findProfesionalPermissionById(${id})`);
+
+    const sql = `
+      SELECT
+        id,
+        id_vinculo_profesional_perteneciente,
+        id_permiso_profesional,
+        habilitado,
+        id_usuario_modificador,
+        fecha_modificacion
+      FROM permisos_otorgados_profesionales
+      WHERE id = $1
+    `;
+
+    return await BD.queryOne(sql, [id]);
   };
 
   createPerteneciente = async (entity) => {

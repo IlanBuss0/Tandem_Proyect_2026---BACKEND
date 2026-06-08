@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import ChatService from '../services/ChatService.js';
-import Chat from '../entities/Chat.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { emitToUser } from '../realtime/realtime.js';
 import ParticipanteChatService from '../services/ParticipanteChatService.js';
@@ -10,18 +9,14 @@ const router = Router();
 const currentService = new ChatService();
 const participanteChatService = new ParticipanteChatService();
 
-router.get('', async (req, res) => {
+router.get('', authMiddleware, async (req, res) => {
   try {
-    console.log('ChatController.getAll');
-    const r = await currentService.getAllAsync();
-    if (r != null) {
-      res.status(StatusCodes.OK).json(r);
-    } else {
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
-    }
+    console.log(`ChatController.getAllForUser(${req.user.id})`);
+    const r = await currentService.getByUsuarioIdAsync(req.user.id);
+    res.status(StatusCodes.OK).json(r);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+    res.status(error.statusCode ?? StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
 
@@ -32,7 +27,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.status(StatusCodes.OK).json(r);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+    res.status(error.statusCode ?? StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
 
@@ -40,11 +35,14 @@ router.get('/usuario/:idUsuario', authMiddleware, async (req, res) => {
   try {
     const idUsuario = parseInt(req.params.idUsuario);
     console.log(`ChatController.getByUsuario(${idUsuario}, requester:${req.user.id})`);
+    if (idUsuario !== req.user.id) {
+      return res.status(StatusCodes.FORBIDDEN).send('No autorizado para consultar chats de otro usuario.');
+    }
     const r = await currentService.getByUsuarioIdAsync(idUsuario);
     res.status(StatusCodes.OK).json(r);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+    res.status(error.statusCode ?? StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
 
@@ -84,7 +82,7 @@ router.post('/profesional-perteneciente', authMiddleware, async (req, res) => {
     res.status(r.created ? StatusCodes.CREATED : StatusCodes.OK).json(r);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+    res.status(error.statusCode ?? StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
 
@@ -151,10 +149,11 @@ router.delete('/:id/me', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     console.log(`ChatController.getById(${id})`);
+    await participanteChatService.ensureActiveParticipantAsync(id, req.user.id);
     const r = await currentService.getByIdAsync(id);
     if (r != null) {
       res.status(StatusCodes.OK).json(r);
@@ -167,53 +166,30 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('', async (req, res) => {
+router.post('', authMiddleware, async (req, res) => {
   try {
-    console.log('ChatController.create');
-    const entity = new Chat(req.body);
-    const newId = await currentService.createAsync(entity);
-    if (newId > 0) {
-      res.status(StatusCodes.CREATED).json({ message: `Se creo el chat con id: ${newId}`, id: newId });
-    } else {
-      res.status(StatusCodes.BAD_REQUEST).json({ message: 'No se pudo crear el chat.' });
-    }
+    console.log(`ChatController.createBlocked(${req.user.id})`);
+    res.status(StatusCodes.FORBIDDEN).send('Usa los endpoints especificos de chat direct, group o profesional-perteneciente.');
   } catch (error) {
     console.log(error);
     res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
-    const entity = new Chat(req.body);
-    console.log(`ChatController.update(${id})`);
-    if (entity.id && parseInt(entity.id) !== id) {
-      return res.status(StatusCodes.BAD_REQUEST).send(`El id de la URL (${id}) no coincide con el id del body (${entity.id}).`);
-    }
-    entity.id = id;
-    const rowsAffected = await currentService.updateAsync(entity);
-    if (rowsAffected !== 0) {
-      res.status(StatusCodes.OK).json({ message: `Se actualizo el chat con id: ${id}`, rowsAffected });
-    } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontro el chat con id: ${id}.`);
-    }
+    console.log(`ChatController.updateBlocked(${req.params.id}, user:${req.user.id})`);
+    res.status(StatusCodes.FORBIDDEN).send('Usa PATCH /api/chats/:id/manage para administrar grupos.');
   } catch (error) {
     console.log(error);
     res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
-    console.log(`ChatController.delete(${id})`);
-    const rowCount = await currentService.deleteByIdAsync(id);
-    if (rowCount !== 0) {
-      res.status(StatusCodes.OK).json({ message: `Se desactivo el chat con id: ${id}`, rowsAffected: rowCount });
-    } else {
-      res.status(StatusCodes.NOT_FOUND).send(`No se encontro el chat con id: ${id}.`);
-    }
+    console.log(`ChatController.deleteBlocked(${req.params.id}, user:${req.user.id})`);
+    res.status(StatusCodes.FORBIDDEN).send('Usa DELETE /api/chats/:id/me para ocultar o salir de un chat.');
   } catch (error) {
     console.log(error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);

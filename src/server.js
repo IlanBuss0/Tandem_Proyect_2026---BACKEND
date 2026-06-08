@@ -61,6 +61,7 @@ import PagoSuscripcionController from './controllers/PagoSuscripcionController.j
 import PaquetePuntoController from './controllers/PaquetePuntoController.js';
 import PerfilProfesionalController from './controllers/PerfilProfesionalController.js';
 import PermisoArchivoController from './controllers/PermisoArchivoController.js';
+import PermisoController from './controllers/PermisoController.js';
 import PermisoOtorgadoPertenecienteController from './controllers/PermisoOtorgadoPertenecienteController.js';
 import PermisoOtorgadoProfesionalController from './controllers/PermisoOtorgadoProfesionalController.js';
 import PlanSuscripcionController from './controllers/PlanSuscripcionController.js';
@@ -188,6 +189,7 @@ app.use('/api/niveles-apoyos', NivelApoyoController);
 app.use('/api/pagos-suscripciones', PagoSuscripcionController);
 app.use('/api/paquetes-puntos', PaquetePuntoController);
 app.use('/api/perfiles-profesionales', PerfilProfesionalController);
+app.use('/api/permisos', PermisoController);
 app.use('/api/permisos-archivos', PermisoArchivoController);
 app.use('/api/permisos-otorgados-pertenecientes', PermisoOtorgadoPertenecienteController);
 app.use('/api/permisos-otorgados-profesionales', PermisoOtorgadoProfesionalController);
