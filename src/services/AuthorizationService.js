@@ -67,6 +67,70 @@ class AuthorizationService {
     };
   }
 
+  async getPermissionContext(idUsuario) {
+    const userContext = await this.getUserContext(idUsuario);
+    if (!userContext) throw new AppError('Usuario no encontrado o inactivo', 404);
+
+    const roles = [];
+    if (userContext.tutor) roles.push('Tutor');
+    if (userContext.perteneciente) roles.push('Perteneciente');
+    if (userContext.profesional) roles.push('Profesional');
+
+    const data = {
+      rol: roles[0] ?? 'Usuario',
+      roles,
+      usuario: userContext.usuario,
+    };
+
+    if (userContext.tutor) {
+      const pertenecientes = await AuthorizationRepository.getTutorPertenecientes(userContext.tutor.id);
+      data.tutor = userContext.tutor;
+      data.pertenecientes = await Promise.all(pertenecientes.map(async (row) => {
+        const profesionales = await AuthorizationRepository.getProfesionalVinculosByPertenecienteId(row.id_perteneciente);
+
+        return {
+          id: row.id_perteneciente,
+          usuario: this.mapContextUsuario(row),
+          perteneciente: this.mapContextPerteneciente(row),
+          vinculo: this.mapContextTutorVinculo(row),
+          permisos_efectivos: await this.getEffectivePertenecientePermissions(row.id_perteneciente),
+          profesionales_vinculados: await Promise.all(profesionales.map(async (profesionalRow) => ({
+            id_vinculo: profesionalRow.id_vinculo_profesional_perteneciente,
+            profesional: this.mapContextProfesional(profesionalRow),
+            vinculo: this.mapContextProfesionalVinculo(profesionalRow),
+            permisos_efectivos: await this.getEffectiveProfesionalPermissions(
+              profesionalRow.id_vinculo_profesional_perteneciente,
+            ),
+          }))),
+        };
+      }));
+    }
+
+    if (userContext.perteneciente) {
+      data.perteneciente = {
+        ...userContext.perteneciente,
+        permisos_efectivos: await this.getEffectivePertenecientePermissions(userContext.perteneciente.id),
+      };
+    }
+
+    if (userContext.profesional) {
+      const vinculos = await AuthorizationRepository.getProfesionalVinculos(userContext.profesional.id);
+      data.profesional = userContext.profesional;
+      data.vinculos = await Promise.all(vinculos.map(async (row) => ({
+        id_vinculo: row.id_vinculo_profesional_perteneciente,
+        perteneciente: {
+          id: row.id_perteneciente,
+          usuario: this.mapContextUsuario(row),
+          ...this.mapContextPerteneciente(row),
+        },
+        vinculo: this.mapContextProfesionalVinculo(row),
+        permisos_efectivos: await this.getEffectiveProfesionalPermissions(row.id_vinculo_profesional_perteneciente),
+      })));
+    }
+
+    return data;
+  }
+
   async can(idUsuario, action, context = {}) {
     const userContext = await this.getUserContext(idUsuario);
     if (!userContext) return this.deny('Usuario no encontrado o inactivo');
@@ -160,6 +224,117 @@ class AuthorizationService {
     return tutorAccess;
   }
 
+  async assertCanReadPertenecienteResource(idUsuario, idPerteneciente, profesionalPermissionName = null) {
+    const userContext = await this.getUserContext(idUsuario);
+    if (!userContext) throw new AppError('No autorizado', 403);
+
+    if (userContext.perteneciente?.id === idPerteneciente) return this.allow();
+
+    if (userContext.tutor?.id) {
+      const tutorAccess = await this.canTutorActOnPerteneciente(userContext, { id_perteneciente: idPerteneciente });
+      if (tutorAccess.allowed) return tutorAccess;
+    }
+
+    if (userContext.profesional?.id && profesionalPermissionName) {
+      const profesionalAccess = await this.canProfesionalPermission(
+        userContext,
+        { id_perteneciente: idPerteneciente },
+        profesionalPermissionName,
+      );
+      if (profesionalAccess.allowed) return profesionalAccess;
+    }
+
+    throw new AppError('No autorizado para acceder a este recurso', 403);
+  }
+
+  async assertCanWritePertenecienteResource(idUsuario, idPerteneciente, options = {}) {
+    const {
+      pertenecientePermissionName = null,
+      profesionalPermissionName = null,
+      allowTutor = true,
+    } = options;
+
+    const userContext = await this.getUserContext(idUsuario);
+    if (!userContext) throw new AppError('No autorizado', 403);
+
+    if (userContext.perteneciente?.id === idPerteneciente) {
+      if (!pertenecientePermissionName) return this.allow();
+      return await this.assertCan(idUsuario, this.actionForPertenecientePermission(pertenecientePermissionName), {
+        id_perteneciente: idPerteneciente,
+      });
+    }
+
+    if (allowTutor && userContext.tutor?.id) {
+      const tutorAccess = await this.canTutorActOnPerteneciente(userContext, { id_perteneciente: idPerteneciente });
+      if (tutorAccess.allowed) return tutorAccess;
+    }
+
+    if (userContext.profesional?.id && profesionalPermissionName) {
+      const profesionalAccess = await this.canProfesionalPermission(
+        userContext,
+        { id_perteneciente: idPerteneciente },
+        profesionalPermissionName,
+      );
+      if (profesionalAccess.allowed) return profesionalAccess;
+    }
+
+    throw new AppError('No autorizado para modificar este recurso', 403);
+  }
+
+  async assertCanAccessDispositivoLocation(idUsuario, idDispositivo, mode = 'read') {
+    const perteneciente = await AuthorizationRepository.getPertenecienteByDispositivoId(idDispositivo);
+    if (!perteneciente?.usuario_activo) throw new AppError('Dispositivo no encontrado o inactivo', 404);
+
+    if (mode === 'write') {
+      return await this.assertCanWritePertenecienteResource(idUsuario, perteneciente.id, {
+        pertenecientePermissionName: PERTENECIENTE_PERMISSIONS.COMPARTIR_UBICACION,
+        allowTutor: false,
+      });
+    }
+
+    return await this.assertCanReadPertenecienteResource(
+      idUsuario,
+      perteneciente.id,
+      PROFESIONAL_PERMISSIONS.VER_UBICACION,
+    );
+  }
+
+  async assertCanAccessUbicacionActual(idUsuario, idUbicacion, mode = 'read') {
+    const perteneciente = await AuthorizationRepository.getPertenecienteByUbicacionActualId(idUbicacion);
+    if (!perteneciente?.usuario_activo) throw new AppError('Ubicacion actual no encontrada', 404);
+
+    if (mode === 'write') {
+      return await this.assertCanWritePertenecienteResource(idUsuario, perteneciente.id, {
+        pertenecientePermissionName: PERTENECIENTE_PERMISSIONS.COMPARTIR_UBICACION,
+        allowTutor: false,
+      });
+    }
+
+    return await this.assertCanReadPertenecienteResource(
+      idUsuario,
+      perteneciente.id,
+      PROFESIONAL_PERMISSIONS.VER_UBICACION,
+    );
+  }
+
+  async assertCanAccessUbicacionHistorial(idUsuario, idUbicacion, mode = 'read') {
+    const perteneciente = await AuthorizationRepository.getPertenecienteByUbicacionHistorialId(idUbicacion);
+    if (!perteneciente?.usuario_activo) throw new AppError('Historial de ubicacion no encontrado', 404);
+
+    if (mode === 'write') {
+      return await this.assertCanWritePertenecienteResource(idUsuario, perteneciente.id, {
+        pertenecientePermissionName: PERTENECIENTE_PERMISSIONS.COMPARTIR_UBICACION,
+        allowTutor: false,
+      });
+    }
+
+    return await this.assertCanReadPertenecienteResource(
+      idUsuario,
+      perteneciente.id,
+      PROFESIONAL_PERMISSIONS.VER_UBICACION,
+    );
+  }
+
   async canPertenecientePermission(userContext, context, permissionName) {
     const idPerteneciente = Number(context.id_perteneciente ?? userContext.perteneciente?.id);
     if (!idPerteneciente) return this.deny('id_perteneciente requerido');
@@ -214,6 +389,15 @@ class AuthorizationService {
   }
 
   async assertCanSendMessageToChat(idUsuarioEmisor, idChat) {
+    const userContext = await this.getUserContext(idUsuarioEmisor);
+    if (!userContext) throw new AppError('Usuario no encontrado o inactivo', 403);
+
+    if (userContext.perteneciente?.id) {
+      await this.assertCan(idUsuarioEmisor, AUTH_ACTIONS.PERTENECIENTE_CHAT_ENVIAR, {
+        id_perteneciente: userContext.perteneciente.id,
+      });
+    }
+
     const chatContext = await this.getProfessionalPertenecienteChatContext(idChat, idUsuarioEmisor);
     if (!chatContext) return this.allow();
 
@@ -266,6 +450,90 @@ class AuthorizationService {
 
   deny(reason) {
     return { allowed: false, reason };
+  }
+
+  actionForPertenecientePermission(permissionName) {
+    switch (permissionName) {
+      case PERTENECIENTE_PERMISSIONS.COMPLETAR_ACTIVIDADES:
+        return AUTH_ACTIONS.PERTENECIENTE_ACTIVIDAD_COMPLETAR;
+      case PERTENECIENTE_PERMISSIONS.CREAR_ACTIVIDADES_PROPIAS:
+        return AUTH_ACTIONS.PERTENECIENTE_ACTIVIDAD_CREAR_PROPIA;
+      case PERTENECIENTE_PERMISSIONS.COMPARTIR_UBICACION:
+        return AUTH_ACTIONS.PERTENECIENTE_UBICACION_COMPARTIR;
+      default:
+        throw new AppError(`No existe accion para el permiso ${permissionName}`, 500);
+    }
+  }
+
+  mapContextUsuario(row) {
+    return {
+      id: row.id_usuario_perteneciente,
+      nombre_usuario: row.nombre_usuario,
+      nombre: row.nombre,
+      apellido: row.apellido,
+      correo: row.correo,
+      activo: row.usuario_activo,
+    };
+  }
+
+  mapContextPerteneciente(row) {
+    return {
+      id: row.id_perteneciente,
+      id_usuario: row.id_usuario_perteneciente,
+      id_nivel_apoyo: row.id_nivel_apoyo,
+      id_autonomia_operativa: row.id_autonomia_operativa,
+      puede_autogestionarse: row.puede_autogestionarse,
+      observacion_general: row.observacion_general,
+    };
+  }
+
+  mapContextTutorVinculo(row) {
+    return {
+      id: row.id_vinculo_tutor_perteneciente,
+      id_tutor: row.id_tutor,
+      id_perteneciente: row.id_perteneciente,
+      es_tutor_principal: row.es_tutor_principal,
+      id_estado_vinculo: row.id_estado_vinculo,
+      estado_vinculo: row.estado_vinculo,
+      fecha_alta: row.fecha_alta,
+      fecha_fin: row.fecha_fin,
+    };
+  }
+
+  mapContextProfesionalVinculo(row) {
+    return {
+      id: row.id_vinculo_profesional_perteneciente,
+      id_profesional: row.id_profesional,
+      id_perteneciente: row.id_perteneciente,
+      id_estado_vinculo: row.id_estado_vinculo,
+      estado_vinculo: row.estado_vinculo,
+      requiere_aprobacion_tutor: row.requiere_aprobacion_tutor,
+      fue_aprobado_por_tutor: row.fue_aprobado_por_tutor,
+      id_tutor_aprobador: row.id_tutor_aprobador,
+      fecha_solicitud: row.fecha_solicitud,
+      fecha_resolucion: row.fecha_resolucion,
+    };
+  }
+
+  mapContextProfesional(row) {
+    return {
+      id: row.id_profesional,
+      id_usuario: row.id_usuario_profesional,
+      usuario: {
+        id: row.id_usuario_profesional,
+        nombre_usuario: row.nombre_usuario,
+        nombre: row.nombre,
+        apellido: row.apellido,
+        correo: row.correo,
+        activo: row.usuario_activo,
+      },
+      profesion: row.profesion,
+      especialidad: row.especialidad,
+      matricula: row.matricula,
+      institucion: row.institucion,
+      id_estado_validacion: row.id_estado_validacion,
+      estado_validacion: row.estado_validacion_profesional,
+    };
   }
 }
 

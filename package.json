@@ -10,6 +10,10 @@
     "server": "cls && node --watch src/server.js",
     "worker:notifications": "node src/workers/notification.worker.js",
     "test:chat-flow": "node scripts/test-chat-flow.mjs",
+    "test:permission-upsert-flow": "node scripts/test-permission-upsert-flow.mjs",
+    "test:permission-context-flow": "node scripts/test-permission-context-flow.mjs",
+    "test:resource-authorization-flow": "node scripts/test-resource-authorization-flow.mjs",
+    "test:chat-permission-enforcement": "node scripts/test-chat-permission-enforcement.mjs",
     "seed:permissions": "node scripts/seed-permission-catalogs.mjs",
     "db:pictograms": "node scripts/create-pictograms-table.mjs",
     "sync:pictograms": "node scripts/sync-pictograms.mjs"

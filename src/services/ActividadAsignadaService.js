@@ -22,6 +22,14 @@ export default class ActividadAsignadaService {
     return returnEntity;
   };
 
+  getByPertenecienteIdAsync = async (idPerteneciente) => {
+    console.log(`ActividadAsignadaService.getByPertenecienteIdAsync(${idPerteneciente})`);
+    if (!idPerteneciente || Number.isNaN(idPerteneciente)) {
+      throw new Error('El id del perteneciente es invalido.');
+    }
+    return await this.ActividadAsignadaRepository.getByPertenecienteIdAsync(idPerteneciente);
+  };
+
   createAsync = async (entity) => {
     console.log(`ActividadAsignadaService.createAsync(${JSON.stringify(entity)})`);
     this.validarActividadAsignadaParaCrear(entity);

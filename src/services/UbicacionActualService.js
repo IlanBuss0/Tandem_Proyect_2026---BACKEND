@@ -10,6 +10,8 @@ export default class UbicacionActualService {
 
   getByIdAsync = async (id) => { console.log(`UbicacionActualService.getByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id de la ubicacion actual es invalido.'); } return await this.UbicacionActualRepository.getByIdAsync(id); };
 
+  getByDispositivoIdAsync = async (idDispositivo) => { console.log(`UbicacionActualService.getByDispositivoIdAsync(${idDispositivo})`); if (!idDispositivo || Number.isNaN(idDispositivo)) { throw new Error('El id del dispositivo es invalido.'); } return await this.UbicacionActualRepository.getByDispositivoIdAsync(idDispositivo); };
+
   createAsync = async (entity) => {
     console.log(`UbicacionActualService.createAsync(${JSON.stringify(entity)})`);
     this.validarUbicacionParaCrear(entity);

@@ -30,6 +30,15 @@ router.get('/efectivos/profesional-vinculo/:idVinculo', async (req, res, next) =
   }
 });
 
+router.get('/contexto', async (req, res, next) => {
+  try {
+    const data = await AuthorizationService.getPermissionContext(req.user.id);
+    res.status(200).json({ ok: true, data });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/can', async (req, res, next) => {
   try {
     const action = String(req.query.action || '');
@@ -98,6 +107,38 @@ router.post('/profesional', async (req, res, next) => {
       id_usuario_modificador: req.user.id,
       fecha_modificacion: req.body?.fecha_modificacion ?? new Date(),
     }) });
+  } catch (e) { next(e); }
+});
+
+router.patch('/perteneciente/:idPerteneciente', async (req, res, next) => {
+  try {
+    const idPerteneciente = Number(req.params.idPerteneciente);
+    await AuthorizationService.assertCan(req.user.id, AUTH_ACTIONS.TUTOR_PERMISOS_MODIFICAR, {
+      id_perteneciente: idPerteneciente,
+    });
+
+    const data = await PermisoService.setPertenecientePermissionByName(
+      idPerteneciente,
+      req.body,
+      req.user.id,
+    );
+
+    res.status(200).json({ ok: true, data });
+  } catch (e) { next(e); }
+});
+
+router.patch('/profesional-vinculo/:idVinculo', async (req, res, next) => {
+  try {
+    const idVinculo = Number(req.params.idVinculo);
+    await AuthorizationService.assertCanModifyProfesionalPermissions(req.user.id, idVinculo);
+
+    const data = await PermisoService.setProfesionalPermissionByName(
+      idVinculo,
+      req.body,
+      req.user.id,
+    );
+
+    res.status(200).json({ ok: true, data });
   } catch (e) { next(e); }
 });
 

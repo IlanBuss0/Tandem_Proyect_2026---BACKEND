@@ -10,6 +10,8 @@ export default class UbicacionHistorialService {
 
   getByIdAsync = async (id) => { console.log(`UbicacionHistorialService.getByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del historial de ubicacion es invalido.'); } return await this.UbicacionHistorialRepository.getByIdAsync(id); };
 
+  getByDispositivoIdAsync = async (idDispositivo) => { console.log(`UbicacionHistorialService.getByDispositivoIdAsync(${idDispositivo})`); if (!idDispositivo || Number.isNaN(idDispositivo)) { throw new Error('El id del dispositivo es invalido.'); } return await this.UbicacionHistorialRepository.getByDispositivoIdAsync(idDispositivo); };
+
   createAsync = async (entity) => { console.log(`UbicacionHistorialService.createAsync(${JSON.stringify(entity)})`); this.validarUbicacionParaCrear(entity); return await this.UbicacionHistorialRepository.createAsync(entity); };
 
   updateAsync = async (entity) => { console.log(`UbicacionHistorialService.updateAsync(${JSON.stringify(entity)})`); if (!entity?.id || Number.isNaN(entity.id)) { throw new Error('El id del historial es obligatorio para actualizar.'); } const prev = await this.UbicacionHistorialRepository.getByIdAsync(entity.id); if (prev == null) return 0; return await this.UbicacionHistorialRepository.updateAsync(entity); };

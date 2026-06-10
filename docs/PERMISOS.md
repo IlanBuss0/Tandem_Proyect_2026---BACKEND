@@ -284,6 +284,156 @@ profesional.sesion.agendar
 profesional.chat.enviar
 ```
 
+### Gestion de permisos por nombre
+
+Endpoints disponibles para que el frontend no dependa de IDs internos de catalogo:
+
+```http
+PATCH /api/permisos/perteneciente/:idPerteneciente
+PATCH /api/permisos/profesional-vinculo/:idVinculo
+```
+
+Body:
+
+```json
+{
+  "permiso": "ChatearConProfesional",
+  "habilitado": true,
+  "motivo": "Autorizado por tutor"
+}
+```
+
+Reglas:
+
+- Requiere JWT.
+- Solo un tutor activo del perteneciente puede modificar permisos.
+- En permisos profesionales, el tutor debe estar activo sobre el perteneciente asociado al vinculo profesional.
+- El backend busca el permiso por nombre en el catalogo correspondiente.
+- El estado actual se guarda con upsert transaccional.
+- El historial se crea solo si cambia el valor efectivo anterior.
+- Repetir el mismo valor devuelve OK y no duplica historial.
+
+Respuesta:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "id_perteneciente": 1,
+    "permisos": {
+      "ChatearConProfesional": {
+        "habilitado": true,
+        "source": "otorgado"
+      }
+    },
+    "permiso_actualizado": {
+      "nombre": "ChatearConProfesional",
+      "habilitado": true,
+      "historial_creado": true
+    }
+  }
+}
+```
+
+Prueba de integracion contra DB real:
+
+```bash
+npm run seed:permissions
+npm run test:permission-upsert-flow
+```
+
+Parametros opcionales:
+
+```bash
+npm run test:permission-upsert-flow -- --id-perteneciente=1 --tutor-user-id=5 --id-vinculo=3
+```
+
+### Contexto de permisos para frontend
+
+Endpoint disponible:
+
+```http
+GET /api/permisos/contexto
+```
+
+Reglas:
+
+- Requiere JWT.
+- Devuelve el usuario autenticado, sus roles funcionales y los permisos efectivos relevantes para esos roles.
+- Si el usuario es tutor, devuelve sus pertenecientes activos y los permisos efectivos de cada uno.
+- Si el usuario es perteneciente, devuelve sus permisos efectivos.
+- Si el usuario es profesional, devuelve sus vinculos con pertenecientes y los permisos efectivos de cada vinculo.
+
+Forma general:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "rol": "Tutor",
+    "roles": ["Tutor"],
+    "usuario": {},
+    "tutor": {},
+    "pertenecientes": [
+      {
+        "id": 1,
+        "usuario": {},
+        "perteneciente": {},
+        "vinculo": {},
+        "permisos_efectivos": {}
+      }
+    ]
+  }
+}
+```
+
+Prueba de integracion contra DB real:
+
+```bash
+npm run test:permission-context-flow
+```
+
+### Proteccion inicial de recursos sensibles
+
+Endpoints protegidos en esta fase:
+
+- `GET /api/actividades-asignadas?id_perteneciente=:id`
+- `GET /api/actividades-asignadas/:id`
+- `POST /api/actividades-asignadas`
+- `PUT /api/actividades-asignadas/:id`
+- `DELETE /api/actividades-asignadas/:id`
+- `GET /api/actividades-personalizadas`
+- `GET /api/actividades-personalizadas/:id`
+- `POST /api/actividades-personalizadas`
+- `PUT /api/actividades-personalizadas/:id`
+- `DELETE /api/actividades-personalizadas/:id`
+- `GET /api/ubicaciones-actuales?id_dispositivo=:id`
+- `GET /api/ubicaciones-actuales/:id`
+- `POST /api/ubicaciones-actuales`
+- `PUT /api/ubicaciones-actuales/:id`
+- `DELETE /api/ubicaciones-actuales/:id`
+- `GET /api/ubicaciones-historiales?id_dispositivo=:id`
+- `GET /api/ubicaciones-historiales/:id`
+- `POST /api/ubicaciones-historiales`
+- `PUT /api/ubicaciones-historiales/:id`
+- `DELETE /api/ubicaciones-historiales/:id`
+
+Reglas aplicadas:
+
+- Los listados globales quedan cerrados. Actividades asignadas requieren `id_perteneciente`; ubicacion requiere `id_dispositivo`.
+- Perteneciente puede leer sus propios recursos.
+- Tutor activo puede leer y gestionar recursos del perteneciente vinculado.
+- Profesional vinculado puede leer actividades con `VerHistorial` y asignar/modificar actividades con `AsignarActividades`.
+- Profesional vinculado puede leer ubicacion solo con `VerUbicacion`.
+- Perteneciente puede escribir ubicacion propia solo con `CompartirUbicacion`.
+- Actividades personalizadas se limitan al usuario creador porque la tabla no tiene `id_perteneciente`; cuando se asignan a un perteneciente, aplica la proteccion de actividades asignadas.
+
+Prueba de integracion contra DB real:
+
+```bash
+npm run test:resource-authorization-flow
+```
+
 ### Fase 3: endpoints sensibles
 
 Proteger primero:

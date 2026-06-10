@@ -145,6 +145,162 @@ class PermisoRepository {
     return await BD.queryOne(sql, values);
   };
 
+  findCatalogoPertenecienteByNombre = async (nombre) => {
+    console.log(`PermisoRepository.findCatalogoPertenecienteByNombre(${nombre})`);
+
+    const sql = `
+      SELECT id, nombre, orden
+      FROM catalogo_permisos_pertenecientes
+      WHERE LOWER(nombre) = LOWER($1)
+      LIMIT 1
+    `;
+
+    return await BD.queryOne(sql, [nombre]);
+  };
+
+  findCatalogoProfesionalByNombre = async (nombre) => {
+    console.log(`PermisoRepository.findCatalogoProfesionalByNombre(${nombre})`);
+
+    const sql = `
+      SELECT id, nombre, orden
+      FROM catalogo_permisos_profesionales
+      WHERE LOWER(nombre) = LOWER($1)
+      LIMIT 1
+    `;
+
+    return await BD.queryOne(sql, [nombre]);
+  };
+
+  findPertenecientePermissionByName = async (idPerteneciente, nombre) => {
+    console.log(`PermisoRepository.findPertenecientePermissionByName(${idPerteneciente}, ${nombre})`);
+
+    const sql = `
+      SELECT
+        pop.id,
+        pop.id_perteneciente,
+        pop.id_permiso_perteneciente,
+        cpp.nombre AS permiso,
+        pop.habilitado,
+        pop.id_usuario_modificador,
+        pop.fecha_modificacion
+      FROM permisos_otorgados_pertenecientes pop
+      INNER JOIN catalogo_permisos_pertenecientes cpp
+        ON cpp.id = pop.id_permiso_perteneciente
+      WHERE pop.id_perteneciente = $1
+        AND LOWER(cpp.nombre) = LOWER($2)
+      LIMIT 1
+    `;
+
+    return await BD.queryOne(sql, [idPerteneciente, nombre]);
+  };
+
+  findProfesionalPermissionByName = async (idVinculo, nombre) => {
+    console.log(`PermisoRepository.findProfesionalPermissionByName(${idVinculo}, ${nombre})`);
+
+    const sql = `
+      SELECT
+        pop.id,
+        pop.id_vinculo_profesional_perteneciente,
+        pop.id_permiso_profesional,
+        cpp.nombre AS permiso,
+        pop.habilitado,
+        pop.id_usuario_modificador,
+        pop.fecha_modificacion
+      FROM permisos_otorgados_profesionales pop
+      INNER JOIN catalogo_permisos_profesionales cpp
+        ON cpp.id = pop.id_permiso_profesional
+      WHERE pop.id_vinculo_profesional_perteneciente = $1
+        AND LOWER(cpp.nombre) = LOWER($2)
+      LIMIT 1
+    `;
+
+    return await BD.queryOne(sql, [idVinculo, nombre]);
+  };
+
+  setPertenecientePermissionByName = async ({
+    idPerteneciente,
+    nombrePermiso,
+    habilitado,
+    idUsuarioModificador,
+    motivo,
+    habilitadoAnterior,
+    shouldInsertHistorial,
+  }) => {
+    console.log(`PermisoRepository.setPertenecientePermissionByName(${idPerteneciente}, ${nombrePermiso})`);
+
+    return await BD.transaction(async (client) => {
+      const catalogoResult = await client.query(
+        `
+          SELECT id, nombre, orden
+          FROM catalogo_permisos_pertenecientes
+          WHERE LOWER(nombre) = LOWER($1)
+          LIMIT 1
+        `,
+        [nombrePermiso],
+      );
+      const catalogo = catalogoResult.rows[0] || null;
+      if (!catalogo) return { catalogo: null, permiso: null, historial: null };
+
+      const permisoResult = await client.query(
+        `
+          INSERT INTO permisos_otorgados_pertenecientes (
+            id_perteneciente,
+            id_permiso_perteneciente,
+            habilitado,
+            id_usuario_modificador,
+            fecha_modificacion
+          )
+          VALUES ($1, $2, $3, $4, NOW())
+          ON CONFLICT (id_perteneciente, id_permiso_perteneciente)
+          DO UPDATE SET
+            habilitado = EXCLUDED.habilitado,
+            id_usuario_modificador = EXCLUDED.id_usuario_modificador,
+            fecha_modificacion = EXCLUDED.fecha_modificacion
+          RETURNING
+            id,
+            id_perteneciente,
+            id_permiso_perteneciente,
+            habilitado,
+            id_usuario_modificador,
+            fecha_modificacion
+        `,
+        [idPerteneciente, catalogo.id, habilitado, idUsuarioModificador],
+      );
+      const permiso = permisoResult.rows[0];
+
+      let historial = null;
+      if (shouldInsertHistorial) {
+        const historialResult = await client.query(
+          `
+            INSERT INTO historial_permisos_otorgados_pertenecientes (
+              id_perteneciente,
+              id_permiso_perteneciente,
+              habilitado_anterior,
+              habilitado_nuevo,
+              id_usuario_modificador,
+              motivo,
+              fecha_modificacion
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            RETURNING
+              id,
+              id_perteneciente,
+              id_permiso_perteneciente,
+              habilitado_anterior,
+              habilitado_nuevo,
+              id_usuario_modificador,
+              motivo,
+              fecha_modificacion
+          `,
+          [idPerteneciente, catalogo.id, habilitadoAnterior, habilitado, idUsuarioModificador, motivo ?? null],
+        );
+        historial = historialResult.rows[0];
+      }
+
+      return { catalogo, permiso, historial };
+    });
+  };
+
   createProfesional = async (entity) => {
     console.log('PermisoRepository.createProfesional()');
 
@@ -175,6 +331,90 @@ class PermisoRepository {
     ];
 
     return await BD.queryOne(sql, values);
+  };
+
+  setProfesionalPermissionByName = async ({
+    idVinculo,
+    nombrePermiso,
+    habilitado,
+    idUsuarioModificador,
+    motivo,
+    habilitadoAnterior,
+    shouldInsertHistorial,
+  }) => {
+    console.log(`PermisoRepository.setProfesionalPermissionByName(${idVinculo}, ${nombrePermiso})`);
+
+    return await BD.transaction(async (client) => {
+      const catalogoResult = await client.query(
+        `
+          SELECT id, nombre, orden
+          FROM catalogo_permisos_profesionales
+          WHERE LOWER(nombre) = LOWER($1)
+          LIMIT 1
+        `,
+        [nombrePermiso],
+      );
+      const catalogo = catalogoResult.rows[0] || null;
+      if (!catalogo) return { catalogo: null, permiso: null, historial: null };
+
+      const permisoResult = await client.query(
+        `
+          INSERT INTO permisos_otorgados_profesionales (
+            id_vinculo_profesional_perteneciente,
+            id_permiso_profesional,
+            habilitado,
+            id_usuario_modificador,
+            fecha_modificacion
+          )
+          VALUES ($1, $2, $3, $4, NOW())
+          ON CONFLICT (id_vinculo_profesional_perteneciente, id_permiso_profesional)
+          DO UPDATE SET
+            habilitado = EXCLUDED.habilitado,
+            id_usuario_modificador = EXCLUDED.id_usuario_modificador,
+            fecha_modificacion = EXCLUDED.fecha_modificacion
+          RETURNING
+            id,
+            id_vinculo_profesional_perteneciente,
+            id_permiso_profesional,
+            habilitado,
+            id_usuario_modificador,
+            fecha_modificacion
+        `,
+        [idVinculo, catalogo.id, habilitado, idUsuarioModificador],
+      );
+      const permiso = permisoResult.rows[0];
+
+      let historial = null;
+      if (shouldInsertHistorial) {
+        const historialResult = await client.query(
+          `
+            INSERT INTO historial_permisos_otorgados_profesionales (
+              id_vinculo_profesional_perteneciente,
+              id_permiso_profesional,
+              habilitado_anterior,
+              habilitado_nuevo,
+              id_usuario_modificador,
+              motivo,
+              fecha_modificacion
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            RETURNING
+              id,
+              id_vinculo_profesional_perteneciente,
+              id_permiso_profesional,
+              habilitado_anterior,
+              habilitado_nuevo,
+              id_usuario_modificador,
+              motivo,
+              fecha_modificacion
+          `,
+          [idVinculo, catalogo.id, habilitadoAnterior, habilitado, idUsuarioModificador, motivo ?? null],
+        );
+        historial = historialResult.rows[0];
+      }
+
+      return { catalogo, permiso, historial };
+    });
   };
 
   updatePerteneciente = async (id, entity) => {

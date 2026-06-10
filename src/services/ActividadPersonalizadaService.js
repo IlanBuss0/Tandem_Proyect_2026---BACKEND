@@ -22,6 +22,14 @@ export default class ActividadPersonalizadaService {
     return returnEntity;
   };
 
+  getByUsuarioCreadorAsync = async (idUsuarioCreador) => {
+    console.log(`ActividadPersonalizadaService.getByUsuarioCreadorAsync(${idUsuarioCreador})`);
+    if (!idUsuarioCreador || Number.isNaN(idUsuarioCreador)) {
+      throw new Error('El id del usuario creador es invalido.');
+    }
+    return await this.ActividadPersonalizadaRepository.getByUsuarioCreadorAsync(idUsuarioCreador);
+  };
+
   createAsync = async (entity) => {
     console.log(`ActividadPersonalizadaService.createAsync(${JSON.stringify(entity)})`);
     this.validarActividadPersonalizadaParaCrear(entity);
