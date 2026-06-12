@@ -236,6 +236,24 @@ class AuthorizationRepository {
     );
   };
 
+  getPertenecienteByZonaSeguraId = async (idZonaSegura) => {
+    return await BD.queryOne(
+      `
+        SELECT
+          pe.id,
+          pe.id_usuario,
+          pe.puede_autogestionarse,
+          u.activo AS usuario_activo
+        FROM zonas_seguras zs
+        INNER JOIN pertenecientes pe ON pe.id = zs.id_perteneciente
+        INNER JOIN usuarios u ON u.id = pe.id_usuario
+        WHERE zs.id = $1
+        LIMIT 1
+      `,
+      [idZonaSegura],
+    );
+  };
+
   getVinculoProfesionalById = async (idVinculo) => {
     return await BD.queryOne(
       `

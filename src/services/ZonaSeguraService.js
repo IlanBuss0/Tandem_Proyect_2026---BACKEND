@@ -22,6 +22,14 @@ export default class ZonaSeguraService {
     return returnEntity;
   };
 
+  getByPertenecienteIdAsync = async (idPerteneciente) => {
+    console.log(`ZonaSeguraService.getByPertenecienteIdAsync(${idPerteneciente})`);
+    if (!idPerteneciente || Number.isNaN(idPerteneciente)) {
+      throw new Error('El id del perteneciente es invalido.');
+    }
+    return await this.ZonaSeguraRepository.getByPertenecienteIdAsync(idPerteneciente);
+  };
+
   createAsync = async (entity) => {
     console.log(`ZonaSeguraService.createAsync(${JSON.stringify(entity)})`);
     this.validarZonaSeguraParaCrear(entity);

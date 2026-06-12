@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import PertenecienteService from '../services/PertenecienteService.js';
 import Perteneciente from '../entities/Perteneciente.js';
+import AuthorizationService from '../services/AuthorizationService.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { PERTENECIENTE_PERMISSIONS } from '../modules/security/permissions.constants.js';
 
 const router = Router();
 const currentService = new PertenecienteService();
@@ -49,14 +52,35 @@ router.post('', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+function hasSensitiveProfileChanges(body, previous) {
+  return (
+    (body.id_nivel_apoyo !== undefined && Number(body.id_nivel_apoyo) !== Number(previous.id_nivel_apoyo))
+    || (body.id_autonomia_operativa !== undefined && Number(body.id_autonomia_operativa) !== Number(previous.id_autonomia_operativa))
+    || (body.puede_autogestionarse !== undefined && Boolean(body.puede_autogestionarse) !== Boolean(previous.puede_autogestionarse))
+  );
+}
+
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const entity = new Perteneciente(req.body);
     if (entity.id && parseInt(entity.id) !== id) {
-      return res.status(StatusCodes.BAD_REQUEST).send(`El id de la URL (${id}) no coincide con el id del body (${entity.id}).`);
+        return res.status(StatusCodes.BAD_REQUEST).send(`El id de la URL (${id}) no coincide con el id del body (${entity.id}).`);
     }
+    const previous = await currentService.getByIdAsync(id);
+    if (previous == null) {
+      return res.status(StatusCodes.NOT_FOUND).send(`No se encontro el perteneciente con id: ${id}.`);
+    }
+
+    await AuthorizationService.assertCanWritePertenecienteResource(req.user.id, id, {
+      pertenecientePermissionName: hasSensitiveProfileChanges(req.body ?? {}, previous)
+        ? PERTENECIENTE_PERMISSIONS.EDITAR_PERFIL_SENSIBLE
+        : PERTENECIENTE_PERMISSIONS.EDITAR_PERFIL,
+      allowTutor: true,
+    });
+
     entity.id = id;
+    entity.id_usuario = previous.id_usuario;
     const rowsAffected = await currentService.updateAsync(entity);
     if (rowsAffected !== 0) res.status(StatusCodes.OK).json({ message: `Se actualizo el perteneciente con id: ${id}`, rowsAffected });
     else res.status(StatusCodes.NOT_FOUND).send(`No se encontro el perteneciente con id: ${id}.`);
@@ -65,9 +89,13 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    await AuthorizationService.assertCanWritePertenecienteResource(req.user.id, id, {
+      pertenecientePermissionName: PERTENECIENTE_PERMISSIONS.EDITAR_PERFIL_SENSIBLE,
+      allowTutor: true,
+    });
     const rowCount = await currentService.deleteByIdAsync(id);
     if (rowCount !== 0) res.status(StatusCodes.OK).json({ message: `Se elimino el perteneciente con id: ${id}`, rowsAffected: rowCount });
     else res.status(StatusCodes.NOT_FOUND).send(`No se encontro el perteneciente con id: ${id}.`);

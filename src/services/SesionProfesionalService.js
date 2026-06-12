@@ -22,6 +22,22 @@ export default class SesionProfesionalService {
     return returnEntity;
   };
 
+  getByPertenecienteIdAsync = async (idPerteneciente) => {
+    console.log(`SesionProfesionalService.getByPertenecienteIdAsync(${idPerteneciente})`);
+    if (!idPerteneciente || Number.isNaN(idPerteneciente)) {
+      throw new Error('El id del perteneciente es invalido.');
+    }
+    return await this.SesionProfesionalRepository.getByPertenecienteIdAsync(idPerteneciente);
+  };
+
+  getByProfesionalIdAsync = async (idProfesional) => {
+    console.log(`SesionProfesionalService.getByProfesionalIdAsync(${idProfesional})`);
+    if (!idProfesional || Number.isNaN(idProfesional)) {
+      throw new Error('El id del profesional es invalido.');
+    }
+    return await this.SesionProfesionalRepository.getByProfesionalIdAsync(idProfesional);
+  };
+
   createAsync = async (entity) => {
     console.log(`SesionProfesionalService.createAsync(${JSON.stringify(entity)})`);
     this.validarSesionParaCrear(entity);

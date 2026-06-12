@@ -152,6 +152,14 @@ class AuthorizationService {
         return await this.canPertenecientePermission(userContext, context, PERTENECIENTE_PERMISSIONS.EDITAR_PERFIL);
       case AUTH_ACTIONS.PERTENECIENTE_PERFIL_SENSIBLE_EDITAR:
         return await this.canPertenecientePermission(userContext, context, PERTENECIENTE_PERMISSIONS.EDITAR_PERFIL_SENSIBLE);
+      case AUTH_ACTIONS.PERTENECIENTE_MI_DIA_USAR:
+        return await this.canPertenecientePermission(userContext, context, PERTENECIENTE_PERMISSIONS.USAR_MI_DIA);
+      case AUTH_ACTIONS.PERTENECIENTE_CALENDARIO_USAR:
+        return await this.canPertenecientePermission(userContext, context, PERTENECIENTE_PERMISSIONS.USAR_CALENDARIO);
+      case AUTH_ACTIONS.PERTENECIENTE_EMOCIONES_REGISTRAR:
+        return await this.canPertenecientePermission(userContext, context, PERTENECIENTE_PERMISSIONS.REGISTRAR_EMOCIONES);
+      case AUTH_ACTIONS.PERTENECIENTE_PICTOGRAMAS_USAR:
+        return await this.canPertenecientePermission(userContext, context, PERTENECIENTE_PERMISSIONS.USAR_PICTOGRAMAS);
       case AUTH_ACTIONS.TUTOR_PERMISOS_MODIFICAR:
       case AUTH_ACTIONS.TUTOR_VINCULO_PROFESIONAL_APROBAR:
         return await this.canTutorActOnPerteneciente(userContext, context);
@@ -335,6 +343,33 @@ class AuthorizationService {
     );
   }
 
+  async assertCanAccessZonaSegura(idUsuario, idZonaSegura, mode = 'read') {
+    const perteneciente = await AuthorizationRepository.getPertenecienteByZonaSeguraId(idZonaSegura);
+    if (!perteneciente?.usuario_activo) throw new AppError('Zona segura no encontrada', 404);
+
+    if (mode === 'write') {
+      return await this.assertCanWritePertenecienteResource(idUsuario, perteneciente.id, {
+        allowTutor: true,
+      });
+    }
+
+    return await this.assertCanReadPertenecienteResource(
+      idUsuario,
+      perteneciente.id,
+      PROFESIONAL_PERMISSIONS.VER_UBICACION,
+    );
+  }
+
+  async assertCanUsePertenecienteFeatureByUsuarioId(idUsuarioActor, idUsuarioTarget, permissionName) {
+    const perteneciente = await AuthorizationRepository.getPertenecienteByUsuarioId(idUsuarioTarget);
+    if (!perteneciente) throw new AppError('Perteneciente no encontrado o inactivo', 404);
+
+    return await this.assertCanWritePertenecienteResource(idUsuarioActor, perteneciente.id, {
+      pertenecientePermissionName: permissionName,
+      allowTutor: true,
+    });
+  }
+
   async canPertenecientePermission(userContext, context, permissionName) {
     const idPerteneciente = Number(context.id_perteneciente ?? userContext.perteneciente?.id);
     if (!idPerteneciente) return this.deny('id_perteneciente requerido');
@@ -460,6 +495,18 @@ class AuthorizationService {
         return AUTH_ACTIONS.PERTENECIENTE_ACTIVIDAD_CREAR_PROPIA;
       case PERTENECIENTE_PERMISSIONS.COMPARTIR_UBICACION:
         return AUTH_ACTIONS.PERTENECIENTE_UBICACION_COMPARTIR;
+      case PERTENECIENTE_PERMISSIONS.EDITAR_PERFIL:
+        return AUTH_ACTIONS.PERTENECIENTE_PERFIL_EDITAR;
+      case PERTENECIENTE_PERMISSIONS.EDITAR_PERFIL_SENSIBLE:
+        return AUTH_ACTIONS.PERTENECIENTE_PERFIL_SENSIBLE_EDITAR;
+      case PERTENECIENTE_PERMISSIONS.USAR_MI_DIA:
+        return AUTH_ACTIONS.PERTENECIENTE_MI_DIA_USAR;
+      case PERTENECIENTE_PERMISSIONS.USAR_CALENDARIO:
+        return AUTH_ACTIONS.PERTENECIENTE_CALENDARIO_USAR;
+      case PERTENECIENTE_PERMISSIONS.REGISTRAR_EMOCIONES:
+        return AUTH_ACTIONS.PERTENECIENTE_EMOCIONES_REGISTRAR;
+      case PERTENECIENTE_PERMISSIONS.USAR_PICTOGRAMAS:
+        return AUTH_ACTIONS.PERTENECIENTE_PICTOGRAMAS_USAR;
       default:
         throw new AppError(`No existe accion para el permiso ${permissionName}`, 500);
     }
