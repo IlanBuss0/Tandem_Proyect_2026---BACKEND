@@ -1,9 +1,11 @@
 import AvatarRepository from '../repositories/AvatarRepository.js';
+import AvatarImageStorageService from './AvatarImageStorageService.js';
 
 export default class AvatarService {
   constructor() {
     console.log('Estoy en: AvatarService.constructor()');
     this.AvatarRepository = new AvatarRepository();
+    this.AvatarImageStorageService = new AvatarImageStorageService();
   }
 
   getAllAsync = async () => {
@@ -33,6 +35,9 @@ export default class AvatarService {
     }
 
     const newId = await this.AvatarRepository.createAsync(entity);
+    if (newId > 0) {
+      await this.cacheAvatarImageBestEffortAsync({ ...entity, id: newId });
+    }
     return newId;
   };
 
@@ -52,7 +57,16 @@ export default class AvatarService {
       }
     }
 
-    const rowsAffected = await this.AvatarRepository.updateAsync(entity);
+    const nextEntity = {
+      ...previousEntity,
+      ...entity,
+      id: entity.id,
+    };
+
+    const rowsAffected = await this.AvatarRepository.updateAsync(nextEntity);
+    if (rowsAffected > 0) {
+      await this.cacheAvatarImageBestEffortAsync(nextEntity);
+    }
     return rowsAffected;
   };
 
@@ -71,6 +85,17 @@ export default class AvatarService {
     }
     if (!entity.id_perteneciente) {
       throw new Error('id_perteneciente es obligatorio.');
+    }
+  };
+
+  cacheAvatarImageBestEffortAsync = async (entity) => {
+    try {
+      const imageData = await this.AvatarImageStorageService.cacheAvatarImageAsync(entity);
+      if (imageData) {
+        await this.AvatarRepository.updateAvatarImageAsync(entity.id, imageData);
+      }
+    } catch (error) {
+      console.warn(`No se pudo cachear la imagen del avatar ${entity?.id}: ${error.message}`);
     }
   };
 }
