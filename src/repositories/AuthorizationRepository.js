@@ -26,6 +26,13 @@ class AuthorizationRepository {
     );
   };
 
+  getTutorById = async (id) => {
+    return await BD.queryOne(
+      `SELECT id, id_usuario FROM tutores WHERE id = $1`,
+      [id],
+    );
+  };
+
   getTutorByUsuarioId = async (idUsuario) => {
     return await BD.queryOne(
       `
@@ -382,6 +389,23 @@ class AuthorizationRepository {
       [idVinculoProfesionalPerteneciente],
     );
     return row?.id_usuario ?? null;
+  };
+
+  isTutorPrincipalForPerteneciente = async (idTutor, idPerteneciente) => {
+    const row = await BD.queryOne(
+      `
+        SELECT vtp.id
+        FROM vinculos_tutor_pertenecientes vtp
+        WHERE vtp.id_tutor = $1
+          AND vtp.id_perteneciente = $2
+          AND vtp.es_tutor_principal = true
+          AND vtp.fecha_fin IS NULL
+        LIMIT 1
+      `,
+      [idTutor, idPerteneciente],
+    );
+
+    return Boolean(row);
   };
 
   isTutorActivoForPerteneciente = async (idTutor, idPerteneciente) => {

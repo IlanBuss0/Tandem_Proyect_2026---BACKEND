@@ -160,9 +160,11 @@ class AuthorizationService {
         return await this.canPertenecientePermission(userContext, context, PERTENECIENTE_PERMISSIONS.REGISTRAR_EMOCIONES);
       case AUTH_ACTIONS.PERTENECIENTE_PICTOGRAMAS_USAR:
         return await this.canPertenecientePermission(userContext, context, PERTENECIENTE_PERMISSIONS.USAR_PICTOGRAMAS);
+      case AUTH_ACTIONS.PERTENECIENTE_CHAT_USAR:
+        return await this.canPertenecientePermission(userContext, context, PERTENECIENTE_PERMISSIONS.USAR_CHAT);
       case AUTH_ACTIONS.TUTOR_PERMISOS_MODIFICAR:
       case AUTH_ACTIONS.TUTOR_VINCULO_PROFESIONAL_APROBAR:
-        return await this.canTutorActOnPerteneciente(userContext, context);
+        return await this.canTutorActOnPerteneciente(userContext, context, { requirePrincipal: true });
       case AUTH_ACTIONS.PROFESIONAL_HISTORIAL_VER:
         return await this.canProfesionalPermission(userContext, context, PROFESIONAL_PERMISSIONS.VER_HISTORIAL);
       case AUTH_ACTIONS.PROFESIONAL_UBICACION_VER:
@@ -380,13 +382,20 @@ class AuthorizationService {
     return this.deny(`Permiso ${permissionName} deshabilitado`);
   }
 
-  async canTutorActOnPerteneciente(userContext, context) {
+  async canTutorActOnPerteneciente(userContext, context, options = {}) {
     const idPerteneciente = Number(context.id_perteneciente);
     if (!idPerteneciente) return this.deny('id_perteneciente requerido');
     if (!userContext.tutor?.id) return this.deny('El usuario no es tutor');
 
     const ok = await AuthorizationRepository.isTutorActivoForPerteneciente(userContext.tutor.id, idPerteneciente);
-    return ok ? this.allow() : this.deny('No existe vinculo tutor activo con el perteneciente');
+    if (!ok) return this.deny('No existe vinculo tutor activo con el perteneciente');
+
+    if (options.requirePrincipal) {
+      const isPrincipal = await AuthorizationRepository.isTutorPrincipalForPerteneciente(userContext.tutor.id, idPerteneciente);
+      if (!isPrincipal) return this.deny('Solo el tutor principal puede modificar vinculos y permisos');
+    }
+
+    return this.allow();
   }
 
   async canProfesionalPermission(userContext, context, permissionName) {

@@ -38,6 +38,10 @@ export default class VinculoTutorPertenecienteService {
     return await this.VinculoTutorPertenecienteRepository.getByPertenecienteIdAsync(idPerteneciente);
   };
 
+  getByTutorYPertenecienteAsync = async (idTutor, idPerteneciente) => {
+    return await this.VinculoTutorPertenecienteRepository.getByTutorYPertenecienteAsync(idTutor, idPerteneciente);
+  };
+
   getByTutorIdAsync = async (idTutor) => {
     console.log(`VinculoTutorPertenecienteService.getByTutorIdAsync(${idTutor})`);
 

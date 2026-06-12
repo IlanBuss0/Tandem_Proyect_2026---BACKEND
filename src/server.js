@@ -5,6 +5,7 @@ import { createServer } from 'http';
 import { fileURLToPath } from 'url';
 
 import AuthController from './controllers/AuthController.js';
+import InviteVinculoController from './controllers/InviteVinculoController.js';
 import UsuarioController from './controllers/UsuarioController.js';
 import PertenecienteController from './controllers/PertenecienteController.js';
 import TutorController from './controllers/TutorController.js';
@@ -212,6 +213,7 @@ app.use('/api/tipos-usuarios', TipoUsuarioController);
 app.use('/api/validaciones-profesionales', ValidacionProfesionalController);
 app.use('/api/vinculos-profesionales-pertenecientes', VinculoProfesionalPertenecienteController);
 app.use('/api/vinculos-tutor-pertenecientes', VinculoTutorPertenecienteController);
+app.use('/api/vinculos/invite', InviteVinculoController);
 
 app.use(errorMiddleware);
 

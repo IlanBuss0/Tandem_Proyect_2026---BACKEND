@@ -11,6 +11,7 @@ export const PERTENECIENTE_PERMISSIONS = Object.freeze({
   USAR_CALENDARIO: 'UsarCalendario',
   REGISTRAR_EMOCIONES: 'RegistrarEmociones',
   USAR_PICTOGRAMAS: 'UsarPictogramas',
+  USAR_CHAT: 'UsarChat',
 });
 
 export const PROFESIONAL_PERMISSIONS = Object.freeze({
@@ -36,6 +37,7 @@ export const AUTH_ACTIONS = Object.freeze({
   PERTENECIENTE_CALENDARIO_USAR: 'perteneciente.calendario.usar',
   PERTENECIENTE_EMOCIONES_REGISTRAR: 'perteneciente.emociones.registrar',
   PERTENECIENTE_PICTOGRAMAS_USAR: 'perteneciente.pictogramas.usar',
+  PERTENECIENTE_CHAT_USAR: 'perteneciente.chat.usar',
   TUTOR_PERMISOS_MODIFICAR: 'tutor.permisos.modificar',
   TUTOR_VINCULO_PROFESIONAL_APROBAR: 'tutor.vinculo_profesional.aprobar',
   PROFESIONAL_HISTORIAL_VER: 'profesional.historial.ver',
@@ -60,6 +62,7 @@ export const PERTENECIENTE_DEFAULTS = Object.freeze({
     [PERTENECIENTE_PERMISSIONS.USAR_CALENDARIO]: true,
     [PERTENECIENTE_PERMISSIONS.REGISTRAR_EMOCIONES]: true,
     [PERTENECIENTE_PERMISSIONS.USAR_PICTOGRAMAS]: true,
+    [PERTENECIENTE_PERMISSIONS.USAR_CHAT]: true,
   }),
   TUTELADO: Object.freeze({
     [PERTENECIENTE_PERMISSIONS.EDITAR_PERFIL]: true,
@@ -74,6 +77,7 @@ export const PERTENECIENTE_DEFAULTS = Object.freeze({
     [PERTENECIENTE_PERMISSIONS.USAR_CALENDARIO]: true,
     [PERTENECIENTE_PERMISSIONS.REGISTRAR_EMOCIONES]: true,
     [PERTENECIENTE_PERMISSIONS.USAR_PICTOGRAMAS]: true,
+    [PERTENECIENTE_PERMISSIONS.USAR_CHAT]: false,
   }),
 });
 
