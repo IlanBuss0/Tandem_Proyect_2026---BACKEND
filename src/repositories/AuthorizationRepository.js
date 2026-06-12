@@ -358,6 +358,32 @@ class AuthorizationRepository {
     );
   };
 
+  getUsuarioIdByPertenecienteId = async (idPerteneciente) => {
+    const row = await BD.queryOne(
+      `
+        SELECT p.id_usuario
+        FROM pertenecientes p
+        WHERE p.id = $1
+      `,
+      [idPerteneciente],
+    );
+    return row?.id_usuario ?? null;
+  };
+
+  getUsuarioIdByVinculoProfesionalId = async (idVinculoProfesionalPerteneciente) => {
+    const row = await BD.queryOne(
+      `
+        SELECT u.id AS id_usuario
+        FROM vinculos_profesional_pertenecientes vpp
+        INNER JOIN pertenecientes p ON p.id = vpp.id_perteneciente
+        INNER JOIN usuarios u ON u.id = p.id_usuario
+        WHERE vpp.id = $1
+      `,
+      [idVinculoProfesionalPerteneciente],
+    );
+    return row?.id_usuario ?? null;
+  };
+
   isTutorActivoForPerteneciente = async (idTutor, idPerteneciente) => {
     const row = await BD.queryOne(
       `

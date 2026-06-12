@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import PermisoService from '../services/PermisoService.js';
 import AuthorizationService from '../services/AuthorizationService.js';
+import AuthorizationRepository from '../repositories/AuthorizationRepository.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { AUTH_ACTIONS } from '../modules/security/permissions.constants.js';
+import { emitToUser } from '../realtime/realtime.js';
 
 const router = Router();
 
@@ -109,7 +111,6 @@ router.post('/profesional', async (req, res, next) => {
     }) });
   } catch (e) { next(e); }
 });
-
 router.patch('/perteneciente/:idPerteneciente', async (req, res, next) => {
   try {
     const idPerteneciente = Number(req.params.idPerteneciente);
@@ -123,10 +124,19 @@ router.patch('/perteneciente/:idPerteneciente', async (req, res, next) => {
       req.user.id,
     );
 
-    res.status(200).json({ ok: true, data });
-  } catch (e) { next(e); }
-});
+    const idUsuarioPerteneciente = await AuthorizationRepository.getUsuarioIdByPertenecienteId(idPerteneciente);
+    if (idUsuarioPerteneciente) {
+      emitToUser(idUsuarioPerteneciente, 'permisos:updated', {
+        id_perteneciente: idPerteneciente,
+        permiso_actualizado: data.permiso_actualizado,
+      });
+    }
 
+    res.status(200).json({ ok: true, data });
+  } catch (e) {
+    next(e);
+  }
+});
 router.patch('/profesional-vinculo/:idVinculo', async (req, res, next) => {
   try {
     const idVinculo = Number(req.params.idVinculo);
@@ -138,8 +148,18 @@ router.patch('/profesional-vinculo/:idVinculo', async (req, res, next) => {
       req.user.id,
     );
 
+    const idUsuarioPerteneciente = await AuthorizationRepository.getUsuarioIdByVinculoProfesionalId(idVinculo);
+    if (idUsuarioPerteneciente) {
+      emitToUser(idUsuarioPerteneciente, 'permisos:updated', {
+        id_vinculo: idVinculo,
+        permiso_actualizado: data.permiso_actualizado,
+      });
+    }
+
     res.status(200).json({ ok: true, data });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.put('/perteneciente/:id', async (req, res, next) => {
