@@ -8,6 +8,9 @@ const DEFAULT_APPEARANCE = {
   peinado: 'corto',
   colorPelo: 'castanio',
   expresion: 'feliz',
+  velloFacial: 'ninguno',
+  ropa: 'hoodie',
+  disenoRopa: 'ninguno',
 };
 
 const DEFAULT_EQUIPPED = {
@@ -23,40 +26,36 @@ const SKIN_COLOR = {
 
 const HAIR_STYLE = {
   corto: 'shortWaved',
+  cortoLiso: 'shortFlat',
+  mediaMelena: 'straight01',
   largo: 'straight02',
   rizado: 'curly',
+  despeinado: 'shaggy',
+  afro: 'fro',
+  bun: 'bun',
+  trenzas: 'frida',
   rapado: 'hat',
 };
 
 const GENDER_PRESET = {
-  neutral: {
-    eyebrows: 'default',
-    mouth: 'smile',
-  },
-  femenino: {
-    eyebrows: 'raisedExcited',
-    mouth: 'smile',
-  },
-  masculino: {
-    eyebrows: 'defaultNatural',
-    mouth: 'smile',
-    facialHair: 'beardLight',
-  },
+  neutral: { eyebrows: 'default' },
+  femenino: { eyebrows: 'raisedExcited' },
+  masculino: { eyebrows: 'defaultNatural' },
+  enojado: { eyebrows: 'angry' },
+  triste: { eyebrows: 'sadConcerned' },
+  arribaAbajo: { eyebrows: 'upDown' },
+  ceno: { eyebrows: 'frownNatural' },
 };
 
 const FACE_PRESET = {
-  redonda: {
-    eyes: 'happy',
-    nose: 'default',
-  },
-  ovalada: {
-    eyes: 'default',
-    nose: 'default',
-  },
-  cuadrada: {
-    eyes: 'squint',
-    nose: 'default',
-  },
+  redonda: { eyes: 'happy', nose: 'default' },
+  ovalada: { eyes: 'default', nose: 'default' },
+  cuadrada: { eyes: 'squint', nose: 'default' },
+  cerrados: { eyes: 'closed', nose: 'default' },
+  guino: { eyes: 'wink', nose: 'default' },
+  corazones: { eyes: 'hearts', nose: 'default' },
+  sorprendidos: { eyes: 'surprised', nose: 'default' },
+  llanto: { eyes: 'cry', nose: 'default' },
 };
 
 const HAIR_COLOR = {
@@ -70,6 +69,43 @@ const EXPRESSION = {
   feliz: 'smile',
   tranquilo: 'twinkle',
   concentrado: 'serious',
+  preocupado: 'concerned',
+  triste: 'sad',
+  sorprendido: 'screamOpen',
+  lengua: 'tongue',
+  descreido: 'disbelief',
+};
+
+const FACIAL_HAIR = {
+  ninguno: null,
+  barbaSuave: 'beardLight',
+  barbaPoblada: 'beardMajestic',
+  barbaMedia: 'beardMedium',
+  bigoteFino: 'moustacheFancy',
+  bigoteLargo: 'moustacheMagnum',
+};
+
+const CLOTHING = {
+  hoodie: 'hoodie',
+  blazerCamisa: 'blazerAndShirt',
+  blazerSueter: 'blazerAndSweater',
+  cuelloSueter: 'collarAndSweater',
+  remeraGrafica: 'graphicShirt',
+  overall: 'overall',
+  remeraCuelloRedondo: 'shirtCrewNeck',
+  remeraEscote: 'shirtScoopNeck',
+  remeraCuelloV: 'shirtVNeck',
+};
+
+const CLOTHING_GRAPHIC = {
+  ninguno: null,
+  murcielago: 'bat',
+  oso: 'bear',
+  pizza: 'pizza',
+  calavera: 'skull',
+  diamante: 'diamond',
+  hola: 'hola',
+  resist: 'resist',
 };
 
 const SHIRT_COLOR = {
@@ -123,12 +159,14 @@ function buildDiceBearPngUrl(entity) {
     top: HAIR_STYLE[appearance.peinado],
     hairColor: HAIR_COLOR[appearance.colorPelo],
     clothesColor: SHIRT_COLOR[equipped.ropa || 'shirt-blue'] || SHIRT_COLOR['shirt-blue'],
-    clothing: 'hoodie',
-    mouth: EXPRESSION[appearance.expresion],
+    clothing: CLOTHING[appearance.ropa],
+    ...(CLOTHING_GRAPHIC[appearance.disenoRopa] && { clothingGraphic: CLOTHING_GRAPHIC[appearance.disenoRopa] }),
     accessoriesColor: '25557c',
+    ...(FACIAL_HAIR[appearance.velloFacial] && { facialHair: FACIAL_HAIR[appearance.velloFacial] }),
     facialHairColor: HAIR_COLOR[appearance.colorPelo],
     ...(GENDER_PRESET[appearance.genero] || GENDER_PRESET.neutral),
     ...(FACE_PRESET[appearance.formaCara] || FACE_PRESET.redonda),
+    mouth: EXPRESSION[appearance.expresion],
   };
 
   if (equipped.accesorio === 'acc-glasses') {
