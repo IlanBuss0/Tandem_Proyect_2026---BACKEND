@@ -3,6 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 
 import VinculoTutorPertenecienteService from '../services/VinculoTutorPertenecienteService.js';
 import VinculoTutorPerteneciente from '../entities/VinculoTutorPerteneciente.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 const currentService = new VinculoTutorPertenecienteService();
@@ -147,6 +148,19 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
+router.delete('/tutor/:id', authMiddleware, async (req, res, next) => {
+  try {
+    const data = await currentService.finishByTutorAsync({
+      idUsuarioTutor: req.user.id,
+      idVinculo: req.params.id,
+    });
+
+    res.status(StatusCodes.OK).json({ ok: true, data });
+  } catch (error) {
+    next(error);
   }
 });
 

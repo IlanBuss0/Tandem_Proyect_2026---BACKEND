@@ -8,6 +8,8 @@ export default class ConfiguracionUsuarioService {
 
   getAllAsync = async () => { console.log('ConfiguracionUsuarioService.getAllAsync()'); const r = await this.ConfiguracionUsuarioRepository.getAllAsync(); if (r == null) return null; return r; };
   getByIdAsync = async (id) => { console.log(`ConfiguracionUsuarioService.getByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id de la configuracion es invalido.'); } return await this.ConfiguracionUsuarioRepository.getByIdAsync(id); };
+  getByUsuarioIdAsync = async (idUsuario) => { console.log(`ConfiguracionUsuarioService.getByUsuarioIdAsync(${idUsuario})`); if (!idUsuario || Number.isNaN(idUsuario)) { throw new Error('El id del usuario es invalido.'); } return await this.ConfiguracionUsuarioRepository.getByUsuarioIdAsync(idUsuario); };
+  getByUsuarioAndClaveAsync = async (idUsuario, clave) => { console.log(`ConfiguracionUsuarioService.getByUsuarioAndClaveAsync(${idUsuario}, ${clave})`); if (!idUsuario || Number.isNaN(idUsuario)) { throw new Error('El id del usuario es invalido.'); } if (!clave) { throw new Error('La clave es obligatoria.'); } return await this.ConfiguracionUsuarioRepository.getByUsuarioAndClaveAsync(idUsuario, clave); };
 
   createAsync = async (entity) => {
     console.log(`ConfiguracionUsuarioService.createAsync(${JSON.stringify(entity)})`);

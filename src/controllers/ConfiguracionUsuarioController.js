@@ -20,9 +20,19 @@ async function assertCanWriteConfig(req, entity) {
   const permission = permissionForConfigKey(String(entity?.clave || ''));
   if (!permission) return;
 
+  const key = String(entity?.clave || '');
+  const idUsuarioTarget = Number(entity.id_usuario);
+  if (
+    idUsuarioTarget === Number(req.user.id)
+    && (key === 'calendar.events' || key.startsWith('calendar.event:'))
+  ) {
+    const userContext = await AuthorizationService.getUserContext(req.user.id);
+    if (userContext && !userContext.perteneciente) return;
+  }
+
   await AuthorizationService.assertCanUsePertenecienteFeatureByUsuarioId(
     req.user.id,
-    Number(entity.id_usuario),
+    idUsuarioTarget,
     permission,
   );
 }
@@ -35,6 +45,35 @@ router.get('', async (req, res) => {
       res.status(StatusCodes.OK).json(r);
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
+router.get('/usuario/:idUsuario', async (req, res) => {
+  try {
+    const idUsuario = parseInt(req.params.idUsuario);
+    console.log(`ConfiguracionUsuarioController.getByUsuario(${idUsuario})`);
+    const r = await currentService.getByUsuarioIdAsync(idUsuario);
+    res.status(StatusCodes.OK).json(r ?? []);
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
+router.get('/usuario/:idUsuario/:clave', async (req, res) => {
+  try {
+    const idUsuario = parseInt(req.params.idUsuario);
+    const clave = decodeURIComponent(req.params.clave);
+    console.log(`ConfiguracionUsuarioController.getByUsuarioAndClave(${idUsuario}, ${clave})`);
+    const r = await currentService.getByUsuarioAndClaveAsync(idUsuario, clave);
+    if (r != null) {
+      res.status(StatusCodes.OK).json(r);
+    } else {
+      res.status(StatusCodes.NOT_FOUND).send(`No se encontro la configuracion '${clave}' para el usuario ${idUsuario}.`);
     }
   } catch (error) {
     console.log(error);

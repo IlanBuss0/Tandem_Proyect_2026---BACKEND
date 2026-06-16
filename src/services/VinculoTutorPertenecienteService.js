@@ -1,4 +1,6 @@
 import VinculoTutorPertenecienteRepository from '../repositories/VinculoTutorPertenecienteRepository.js';
+import AuthorizationService from './AuthorizationService.js';
+import AppError from '../modules/errors/AppError.js';
 
 export default class VinculoTutorPertenecienteService {
   constructor() {
@@ -122,6 +124,37 @@ export default class VinculoTutorPertenecienteService {
     const rowsAffected = await this.VinculoTutorPertenecienteRepository.deleteByIdAsync(id);
 
     return rowsAffected;
+  };
+
+  finishByTutorAsync = async ({ idUsuarioTutor, idVinculo }) => {
+    const numericIdVinculo = Number(idVinculo);
+    if (!Number.isInteger(numericIdVinculo) || numericIdVinculo <= 0) {
+      throw new AppError('El id del vinculo es invalido.', 400);
+    }
+
+    const userContext = await AuthorizationService.getUserContext(idUsuarioTutor);
+    if (!userContext?.tutor?.id) {
+      throw new AppError('Solo un tutor puede finalizar este vinculo.', 403);
+    }
+
+    const vinculo = await this.VinculoTutorPertenecienteRepository.getByIdAsync(numericIdVinculo);
+    if (!vinculo) {
+      throw new AppError('Vinculo tutor-perteneciente no encontrado.', 404);
+    }
+
+    if (Number(vinculo.id_tutor) !== Number(userContext.tutor.id)) {
+      throw new AppError('No autorizado para finalizar este vinculo.', 403);
+    }
+
+    if (vinculo.fecha_fin) {
+      return { rowsAffected: 0, vinculo };
+    }
+
+    const rowsAffected = await this.VinculoTutorPertenecienteRepository.deleteByIdAsync(numericIdVinculo);
+    return {
+      rowsAffected,
+      vinculo: await this.VinculoTutorPertenecienteRepository.getByIdAsync(numericIdVinculo),
+    };
   };
 
   validarVinculoParaCrear = (entity) => {
