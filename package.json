@@ -15,6 +15,7 @@
     "test:resource-authorization-flow": "node scripts/test-resource-authorization-flow.mjs",
     "test:chat-permission-enforcement": "node scripts/test-chat-permission-enforcement.mjs",
     "seed:permissions": "node scripts/seed-permission-catalogs.mjs",
+    "db:invites-vinculo": "node scripts/create-invites-vinculo-table.mjs",
     "db:avatar-images": "node scripts/create-avatar-image-columns.mjs",
     "cache:avatar-images": "node scripts/cache-existing-avatar-images.mjs",
     "db:pictograms": "node scripts/create-pictograms-table.mjs",

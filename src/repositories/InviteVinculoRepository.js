@@ -63,4 +63,45 @@ export default class InviteVinculoRepository {
       `UPDATE invites_vinculo SET estado = 'expirado' WHERE estado = 'activo' AND fecha_expiracion < CURRENT_TIMESTAMP`,
     );
   };
+
+  getEstadoVinculoActivoAsync = async () => {
+    return await BD.queryOne(
+      `
+        SELECT id, nombre
+        FROM estados_vinculos
+        WHERE LOWER(nombre) IN ('activo', 'activa', 'aprobado', 'aprobada', 'aceptado', 'aceptada')
+        ORDER BY
+          CASE LOWER(nombre)
+            WHEN 'activo' THEN 1
+            WHEN 'activa' THEN 2
+            ELSE 3
+          END,
+          orden ASC NULLS LAST,
+          id ASC
+        LIMIT 1
+      `,
+    );
+  };
+
+  getDefaultNivelApoyoAsync = async () => {
+    return await BD.queryOne(
+      `
+        SELECT id, nombre
+        FROM niveles_apoyos
+        ORDER BY orden ASC NULLS LAST, id ASC
+        LIMIT 1
+      `,
+    );
+  };
+
+  getDefaultAutonomiaOperativaAsync = async () => {
+    return await BD.queryOne(
+      `
+        SELECT id, nombre
+        FROM autonomias_operativas
+        ORDER BY orden ASC NULLS LAST, id ASC
+        LIMIT 1
+      `,
+    );
+  };
 }
