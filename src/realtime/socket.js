@@ -6,6 +6,7 @@ import ParticipanteChatService from '../services/ParticipanteChatService.js';
 import { chatRoom, userRoom } from './rooms.js';
 import { setRealtimeServer } from './realtime.js';
 import { connectRedisClient, createRedisConnection, isRedisEnabled } from '../redis/redisClient.js';
+import { socketCorsOptions } from '../configs/cors.config.js';
 
 const mensajeService = new MensajeService();
 const participanteChatService = new ParticipanteChatService();
@@ -32,10 +33,7 @@ function ack(callback, response) {
 
 export async function setupRealtime(httpServer) {
   const io = new Server(httpServer, {
-    cors: {
-      origin: '*',
-      methods: ['GET', 'POST'],
-    },
+    cors: socketCorsOptions,
     connectionStateRecovery: {
       maxDisconnectionDuration: 2 * 60 * 1000,
       skipMiddlewares: false,

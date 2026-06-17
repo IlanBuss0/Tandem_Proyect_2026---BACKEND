@@ -85,6 +85,7 @@ import VinculoProfesionalPertenecienteController from './controllers/VinculoProf
 import VinculoTutorPertenecienteController from './controllers/VinculoTutorPertenecienteController.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { envConfig } from './configs/env.config.js';
+import { corsOptions } from './configs/cors.config.js';
 import BD from './db/BD.js';
 import { setupRealtime } from './realtime/socket.js';
 import { startNotificationWorker } from './workers/notificationWorker.js';
@@ -97,7 +98,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const httpServer = createServer(app);
 
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Documentación Interactiva con Swagger (Solo disponible en Desarrollo)

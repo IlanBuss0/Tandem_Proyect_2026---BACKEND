@@ -1,11 +1,20 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+function parseCsv(value) {
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export const envConfig = {
   port: process.env.PORT || 3000,
+  nodeEnv: process.env.NODE_ENV || 'development',
   databaseUrl: process.env.DATABASE_URL,
   databasePoolMax: Number.parseInt(process.env.DATABASE_POOL_MAX || '5', 10),
   jwtSecret: process.env.JWT_SECRET || 'tandem-dev-secret',
+  corsOrigins: parseCsv(process.env.CORS_ORIGINS),
   redisUrl: process.env.REDIS_URL || null,
   arasaacApiBaseUrl: process.env.ARASAAC_API_BASE_URL || 'https://api.arasaac.org/api',
   arasaacStaticUrl: process.env.ARASAAC_STATIC_URL || 'https://static.arasaac.org/pictograms',
