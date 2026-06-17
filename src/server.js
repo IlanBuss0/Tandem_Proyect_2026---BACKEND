@@ -83,6 +83,7 @@ import TipoUsuarioController from './controllers/TipoUsuarioController.js';
 import ValidacionProfesionalController from './controllers/ValidacionProfesionalController.js';
 import VinculoProfesionalPertenecienteController from './controllers/VinculoProfesionalPertenecienteController.js';
 import VinculoTutorPertenecienteController from './controllers/VinculoTutorPertenecienteController.js';
+import { authMiddleware } from './middlewares/auth.middleware.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { envConfig } from './configs/env.config.js';
 import { corsOptions } from './configs/cors.config.js';
@@ -135,6 +136,10 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/auth', AuthController);
+app.use('/api/pictograms', PictogramaController);
+app.use('/api/pictogramas', PictogramaController);
+app.use('/pictograms', PictogramaController);
+app.use('/api', authMiddleware);
 app.use('/api/usuarios', UsuarioController);
 app.use('/api/pertenecientes', PertenecienteController);
 app.use('/api/tutores', TutorController);
@@ -144,9 +149,6 @@ app.use('/api/actividades-personalizadas', ActividadPersonalizadaController);
 app.use('/api/actividades-asignadas', ActividadAsignadaController);
 app.use('/api/favoritos-actividades', FavoritoActividadController);
 app.use('/api/calificaciones-actividades', CalificacionActividadController);
-app.use('/api/pictograms', PictogramaController);
-app.use('/api/pictogramas', PictogramaController);
-app.use('/pictograms', PictogramaController);
 app.use('/api/avatares', AvatarController);
 app.use('/api/saldos-puntos', SaldoPuntoController);
 app.use('/api/movimientos-puntos', MovimientoPuntoController);

@@ -122,7 +122,7 @@ router.delete('/:id/save', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/sync', async (req, res) => {
+router.post('/sync', authMiddleware, async (req, res) => {
   try {
     const result = await currentService.syncFromArasaacAsync({
       language: req.body?.language || req.query.language || req.query.lang,
