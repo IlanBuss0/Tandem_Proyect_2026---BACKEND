@@ -28,7 +28,7 @@ function timingSafeEqual(a, b) {
 
 export function parseExpiresIn(value) {
   const match = String(value || '').trim().match(/^(\d+)([smhd])$/i);
-  if (!match) return 2 * 60 * 60;
+  if (!match) throw new Error(`Formato de expiracion invalido: ${value}`);
 
   const amount = Number(match[1]);
   const unit = match[2].toLowerCase();

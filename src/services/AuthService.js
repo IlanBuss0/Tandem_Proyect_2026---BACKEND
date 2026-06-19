@@ -1,4 +1,5 @@
 import AppError from '../modules/errors/AppError.js';
+import BD from '../db/BD.js';
 import AuthRepository from '../repositories/AuthRepository.js';
 import RefreshTokenRepository from '../repositories/RefreshTokenRepository.js';
 import UsuarioServiceClass from './UsuarioService.js';
@@ -14,7 +15,7 @@ import {
 const UsuarioService = new UsuarioServiceClass();
 
 class AuthService {
-  async createSession(user, familyId = createSessionFamilyId()) {
+  async createSession(user, familyId = createSessionFamilyId(), db = BD) {
     const accessToken = signJwt({ id: user.id, correo: user.correo, nombre_usuario: user.nombre_usuario });
     const refreshToken = generateRefreshToken();
     const refreshTokenHash = hashRefreshToken(refreshToken);
@@ -25,7 +26,7 @@ class AuthService {
       tokenHash: refreshTokenHash,
       familyId,
       expiresAt: refreshExpiresAt,
-    });
+    }, db);
 
     return {
       user,
@@ -81,30 +82,36 @@ class AuthService {
     if (!refreshToken) throw new AppError('No autenticado', 401);
 
     const tokenHash = hashRefreshToken(refreshToken);
-    const previous = await RefreshTokenRepository.findByTokenHash(tokenHash);
+    const result = await BD.transaction(async (client) => {
+      const previous = await RefreshTokenRepository.findByTokenHashForUpdate(tokenHash, client);
 
-    if (!previous) throw new AppError('No autenticado', 401);
+      if (!previous) return null;
 
-    if (previous.revoked_at) {
-      await RefreshTokenRepository.revokeFamily(previous.family_id);
-      throw new AppError('No autenticado', 401);
-    }
+      if (previous.revoked_at) {
+        await RefreshTokenRepository.revokeFamily(previous.family_id, client);
+        return null;
+      }
 
-    if (new Date(previous.expires_at).getTime() <= Date.now()) {
-      await RefreshTokenRepository.revoke(tokenHash);
-      throw new AppError('No autenticado', 401);
-    }
+      if (new Date(previous.expires_at).getTime() <= Date.now()) {
+        await RefreshTokenRepository.revoke(tokenHash, null, client);
+        return null;
+      }
 
-    const user = await AuthRepository.findSafeById(previous.id_usuario);
-    if (!user || user.activo === false) {
-      await RefreshTokenRepository.revokeFamily(previous.family_id);
-      throw new AppError('No autenticado', 401);
-    }
+      const user = await AuthRepository.findSafeById(previous.id_usuario, client);
+      if (!user || user.activo === false) {
+        await RefreshTokenRepository.revokeFamily(previous.family_id, client);
+        return null;
+      }
 
-    const session = await this.createSession(user, previous.family_id);
-    await RefreshTokenRepository.revoke(tokenHash, hashRefreshToken(session.refreshToken));
+      const session = await this.createSession(user, previous.family_id, client);
+      await RefreshTokenRepository.revoke(tokenHash, hashRefreshToken(session.refreshToken), client);
 
-    return session;
+      return session;
+    });
+
+    if (!result) throw new AppError('No autenticado', 401);
+
+    return result;
   }
 
   async logout(refreshToken) {

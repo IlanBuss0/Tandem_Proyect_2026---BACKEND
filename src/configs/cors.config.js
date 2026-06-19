@@ -10,7 +10,7 @@ const developmentOrigins = [
 ];
 
 const configuredOrigins = envConfig.corsOrigins;
-const allowAllOrigins = configuredOrigins.includes('*');
+const allowAllOrigins = envConfig.nodeEnv !== 'production' && configuredOrigins.includes('*');
 const allowedOrigins = configuredOrigins.length > 0
   ? configuredOrigins
   : envConfig.nodeEnv === 'production'
@@ -40,4 +40,5 @@ export const socketCorsOptions = {
     callback(null, isCorsOriginAllowed(origin));
   },
   methods: ['GET', 'POST'],
+  credentials: true,
 };

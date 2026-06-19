@@ -6,12 +6,13 @@ import { envConfig } from '../configs/env.config.js';
 const router = Router();
 
 const REFRESH_COOKIE_NAME = 'tandem_refresh_token';
+const isProduction = envConfig.nodeEnv === 'production';
 
 function refreshCookieOptions(refreshExpiresAt) {
   return {
     httpOnly: true,
-    secure: envConfig.nodeEnv === 'production',
-    sameSite: 'lax',
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
     path: '/api/auth',
     expires: new Date(refreshExpiresAt),
   };
@@ -26,8 +27,8 @@ function sendSession(res, status, session) {
 function clearRefreshCookie(res) {
   res.clearCookie(REFRESH_COOKIE_NAME, {
     httpOnly: true,
-    secure: envConfig.nodeEnv === 'production',
-    sameSite: 'lax',
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
     path: '/api/auth',
   });
 }

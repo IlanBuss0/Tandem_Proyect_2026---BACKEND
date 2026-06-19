@@ -9,6 +9,10 @@ function parseCsv(value) {
     .filter(Boolean);
 }
 
+function isExpiresIn(value) {
+  return /^\d+[smhd]$/i.test(String(value || '').trim());
+}
+
 export const envConfig = {
   port: process.env.PORT || 3000,
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -31,12 +35,20 @@ export const envConfig = {
 
 export function validateEnvConfig() {
   const missing = [];
+  const invalid = [];
 
   if (!envConfig.jwtSecret) missing.push('JWT_SECRET');
   if (!envConfig.databaseUrl) missing.push('DATABASE_URL');
   if (envConfig.nodeEnv === 'production' && !envConfig.corsOrigins.length) missing.push('CORS_ORIGINS');
+  if (!isExpiresIn(envConfig.jwtExpiresIn)) invalid.push('JWT_EXPIRES_IN');
+  if (!isExpiresIn(envConfig.refreshTokenExpiresIn)) invalid.push('REFRESH_TOKEN_EXPIRES_IN');
+  if (envConfig.nodeEnv === 'production' && envConfig.corsOrigins.includes('*')) invalid.push('CORS_ORIGINS');
 
   if (missing.length) {
     throw new Error(`Variables de entorno obligatorias faltantes: ${missing.join(', ')}`);
+  }
+
+  if (invalid.length) {
+    throw new Error(`Variables de entorno invalidas: ${invalid.join(', ')}`);
   }
 }

@@ -1,5 +1,14 @@
 import BD from '../db/BD.js';
 
+function queryOne(db, sql, params) {
+  if (typeof db.queryOne === 'function') return db.queryOne(sql, params);
+
+  return db.query(sql, params).then((result) => {
+    const rows = Array.isArray(result) ? result : result.rows;
+    return rows[0] || null;
+  });
+}
+
 class AuthRepository {
   findByCorreoOrNombreUsuario(identificador) {
     return BD.queryOne(
@@ -24,8 +33,8 @@ class AuthRepository {
     );
   }
 
-  findSafeById(id) {
-    return BD.queryOne('SELECT id, id_tipo_usuario, nombre_usuario, nombre, apellido, correo, telefono, fecha_nacimiento, fecha_ingreso, activo FROM usuarios WHERE id = $1', [id]);
+  findSafeById(id, db = BD) {
+    return queryOne(db, 'SELECT id, id_tipo_usuario, nombre_usuario, nombre, apellido, correo, telefono, fecha_nacimiento, fecha_ingreso, activo FROM usuarios WHERE id = $1', [id]);
   }
 
   updatePasswordHash(id, contrasenaHash) {
