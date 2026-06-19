@@ -1,3 +1,4 @@
+import https from 'https';
 import axios from 'axios';
 import { envConfig } from '../configs/env.config.js';
 
@@ -15,6 +16,7 @@ function getPublicUrl(path) {
 
 const REQUEST_TIMEOUT_UPLOAD = 60000;
 const REQUEST_TIMEOUT_DELETE = 15000;
+const HTTPS_AGENT = new https.Agent({ rejectUnauthorized: false });
 
 export default class FileStorageService {
   uploadAsync = async ({ buffer, contentType, fileName, userId }) => {
@@ -41,6 +43,7 @@ export default class FileStorageService {
     const path = `usuarios/${userId}/${timestamp}-${safeName}`;
 
     await axios.put(buildStorageUrl(path), buffer, {
+      httpsAgent: HTTPS_AGENT,
       timeout: REQUEST_TIMEOUT_UPLOAD,
       headers: {
         apikey: envConfig.supabaseServiceRoleKey,
@@ -65,6 +68,7 @@ export default class FileStorageService {
     }
 
     await axios.delete(buildStorageUrl(path), {
+      httpsAgent: HTTPS_AGENT,
       timeout: REQUEST_TIMEOUT_DELETE,
       headers: {
         apikey: envConfig.supabaseServiceRoleKey,

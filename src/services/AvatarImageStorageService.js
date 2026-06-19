@@ -1,5 +1,8 @@
 import axios from 'axios';
+import https from 'https';
 import { envConfig } from '../configs/env.config.js';
+
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 const DEFAULT_APPEARANCE = {
   genero: 'neutral',
@@ -190,6 +193,7 @@ export default class AvatarImageStorageService {
 
     const sourceUrl = buildDiceBearPngUrl(entity);
     const imageResponse = await axios.get(sourceUrl, {
+      httpsAgent,
       responseType: 'arraybuffer',
       timeout: 30000,
       headers: {
@@ -211,6 +215,7 @@ export default class AvatarImageStorageService {
       `${envConfig.supabaseUrl.replace(/\/$/, '')}/storage/v1/object/${envConfig.supabaseAvatarBucket}/${path}`,
       Buffer.from(imageResponse.data),
       {
+        httpsAgent,
         timeout: 30000,
         headers: {
           apikey: envConfig.supabaseServiceRoleKey,
