@@ -1,4 +1,5 @@
 import MensajeRepository from '../repositories/MensajeRepository.js';
+import MensajeArchivoRepository from '../repositories/MensajeArchivoRepository.js';
 import ParticipanteChatService from './ParticipanteChatService.js';
 import ChatNotificationJobService from './ChatNotificationJobService.js';
 import AuthorizationService from './AuthorizationService.js';
@@ -8,6 +9,7 @@ export default class MensajeService {
   constructor() {
     console.log('Estoy en: MensajeService.constructor()');
     this.MensajeRepository = new MensajeRepository();
+    this.MensajeArchivoRepository = new MensajeArchivoRepository();
     this.ParticipanteChatService = new ParticipanteChatService();  
     this.ChatNotificationJobService = new ChatNotificationJobService();
   }
@@ -28,13 +30,24 @@ export default class MensajeService {
 
   createAsync = async (entity) => { console.log(`MensajeService.createAsync(${JSON.stringify(entity)})`); this.validarMensajeParaCrear(entity); return await this.MensajeRepository.createAsync(entity); };
 
-  createFromUserAsync = async (entity) => {
+  createFromUserAsync = async (entity, idArchivos = []) => {
     console.log(`MensajeService.createFromUserAsync(${JSON.stringify(entity)})`);
     await this.ParticipanteChatService.ensureActiveParticipantAsync(entity?.id_chat, entity?.id_usuario_emisor);
     await AuthorizationService.assertCanSendMessageToChat(entity?.id_usuario_emisor, entity?.id_chat);
     this.validarMensajeParaCrear(entity);
     const newId = await this.MensajeRepository.createAsync(entity);
     const message = await this.MensajeRepository.getByIdAsync(newId);
+
+    if (Array.isArray(idArchivos) && idArchivos.length > 0) {
+      for (const idArchivo of idArchivos) {
+        await this.MensajeArchivoRepository.createAsync({
+          id_mensaje: message.id,
+          id_archivo: idArchivo,
+        });
+      }
+
+      message._archivos_ids = idArchivos;
+    }
 
     await this.enqueueNotificationsAsync(message);
 

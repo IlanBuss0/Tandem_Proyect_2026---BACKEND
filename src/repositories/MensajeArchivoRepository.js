@@ -35,6 +35,12 @@ export default class MensajeArchivoRepository {
     return await BD.execute(sql, values);
   };
 
+  getByMensajeIdAsync = async (idMensaje) => {
+    console.log(`MensajeArchivoRepository.getByMensajeIdAsync(${idMensaje})`);
+    const sql = `SELECT id, id_mensaje, id_archivo FROM mensajes_archivos WHERE id_mensaje = $1`;
+    return await BD.query(sql, [idMensaje]);
+  };
+
   deleteByIdAsync = async (id) => {
     console.log(`MensajeArchivoRepository.deleteByIdAsync(${id})`);
     const sql = `DELETE FROM mensajes_archivos WHERE id = $1`;

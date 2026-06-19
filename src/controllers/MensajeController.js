@@ -66,15 +66,17 @@ router.post('/chat/:idChat', authMiddleware, async (req, res) => {
   try {
     const idChat = parseInt(req.params.idChat);
     console.log(`MensajeController.createForChat(${idChat})`);
+    const { id_archivos, ...bodyRest } = req.body;
     const entity = new Mensaje({
-      ...req.body,
+      ...bodyRest,
       id_chat: idChat,
       id_usuario_emisor: req.user.id,
       fecha_envio: req.body?.fecha_envio ?? new Date()
     });
-    const message = await currentService.createFromUserAsync(entity);
-    await emitMessageToParticipants(message);
-    res.status(StatusCodes.CREATED).json(message);
+    const message = await currentService.createFromUserAsync(entity, id_archivos);
+    const fullMessage = await currentService.getByIdAsync(message.id);
+    await emitMessageToParticipants(fullMessage || message);
+    res.status(StatusCodes.CREATED).json(fullMessage || message);
   } catch (error) {
     console.log(error);
     res.status(error.statusCode ?? StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);

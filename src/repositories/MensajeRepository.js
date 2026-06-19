@@ -13,7 +13,20 @@ export default class MensajeRepository {
 
   getByIdAsync = async (id) => {
     console.log(`MensajeRepository.getByIdAsync(${id})`);
-    const sql = `SELECT id, id_chat, id_usuario_emisor, id_tipo_mensaje, contenido, fecha_envio, eliminado FROM mensajes WHERE id = $1`;
+    const sql = `
+      SELECT m.id, m.id_chat, m.id_usuario_emisor, m.id_tipo_mensaje, m.contenido, m.fecha_envio, m.eliminado,
+        COALESCE(
+          json_agg(
+            json_build_object('id', a.id, 'url', a.url, 'nombre_archivo', a.nombre_archivo)
+          ) FILTER (WHERE a.id IS NOT NULL),
+          '[]'
+        ) AS archivos
+      FROM mensajes m
+      LEFT JOIN mensajes_archivos ma ON ma.id_mensaje = m.id
+      LEFT JOIN archivos a ON a.id = ma.id_archivo
+      WHERE m.id = $1
+      GROUP BY m.id, m.id_chat, m.id_usuario_emisor, m.id_tipo_mensaje, m.contenido, m.fecha_envio, m.eliminado
+    `;
     return await BD.queryOne(sql, [id]);
   };
 
@@ -34,17 +47,49 @@ export default class MensajeRepository {
   getByChatForParticipantAsync = async (idChat, idUsuario, limit = 30, beforeId = null) => {
     console.log(`MensajeRepository.getByChatForParticipantAsync(${idChat}, ${idUsuario}, ${limit}, ${beforeId})`);
     const sql = `
-      SELECT m.id, m.id_chat, m.id_usuario_emisor, m.id_tipo_mensaje, m.contenido, m.fecha_envio, m.eliminado
-      FROM mensajes m
-      INNER JOIN participantes_chats pc ON pc.id_chat = m.id_chat AND pc.id_usuario = $2
+      SELECT m.id, m.id_chat, m.id_usuario_emisor, m.id_tipo_mensaje, m.contenido, m.fecha_envio, m.eliminado,
+        COALESCE(
+          json_agg(
+          json_build_object('id', a.id, 'url', a.url, 'nombre_archivo', a.nombre_archivo)
+        ) FILTER (WHERE a.id IS NOT NULL),
+        '[]'
+      ) AS archivos
+    FROM mensajes m
+    INNER JOIN participantes_chats pc ON pc.id_chat = m.id_chat AND pc.id_usuario = $2
+      LEFT JOIN mensajes_archivos ma ON ma.id_mensaje = m.id
+      LEFT JOIN archivos a ON a.id = ma.id_archivo
       WHERE m.id_chat = $1
         AND ($4::int IS NULL OR m.id < $4)
         AND m.eliminado = false
         AND (pc.oculto_desde IS NULL OR m.fecha_envio >= pc.oculto_desde)
+      GROUP BY m.id, m.id_chat, m.id_usuario_emisor, m.id_tipo_mensaje, m.contenido, m.fecha_envio, m.eliminado
       ORDER BY m.id DESC
       LIMIT $3
     `;
     return await BD.query(sql, [idChat, idUsuario, limit, beforeId]);
+  };
+
+  getByChatIdAsync = async (idChat, limit = 30, beforeId = null) => {
+    console.log(`MensajeRepository.getByChatIdAsync(${idChat}, ${limit}, ${beforeId})`);
+    const sql = `
+      SELECT m.id, m.id_chat, m.id_usuario_emisor, m.id_tipo_mensaje, m.contenido, m.fecha_envio, m.eliminado,
+        COALESCE(
+          json_agg(
+          json_build_object('id', a.id, 'url', a.url, 'nombre_archivo', a.nombre_archivo)
+        ) FILTER (WHERE a.id IS NOT NULL),
+        '[]'
+      ) AS archivos
+    FROM mensajes m
+    LEFT JOIN mensajes_archivos ma ON ma.id_mensaje = m.id
+    LEFT JOIN archivos a ON a.id = ma.id_archivo
+      WHERE m.id_chat = $1
+        AND ($3::int IS NULL OR m.id < $3)
+        AND m.eliminado = false
+      GROUP BY m.id, m.id_chat, m.id_usuario_emisor, m.id_tipo_mensaje, m.contenido, m.fecha_envio, m.eliminado
+      ORDER BY m.id DESC
+      LIMIT $2
+    `;
+    return await BD.query(sql, [idChat, limit, beforeId]);
   };
 
   createAsync = async (entity) => {
