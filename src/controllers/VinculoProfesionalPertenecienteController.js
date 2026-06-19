@@ -3,6 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 import VinculoProfesionalPertenecienteService from '../services/VinculoProfesionalPertenecienteService.js';
 import VinculoProfesionalPerteneciente from '../entities/VinculoProfesionalPerteneciente.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { inviteRateLimiter } from '../middlewares/rate-limit.middleware.js';
 import { emitToUser } from '../realtime/realtime.js';
 
 const router = Router();
@@ -39,7 +40,7 @@ router.post('', async (req, res) => {
   }
 });
 
-router.post('/invite/generate', authMiddleware, async (req, res, next) => {
+router.post('/invite/generate', inviteRateLimiter, authMiddleware, async (req, res, next) => {
   try {
     const data = await currentService.generateProfessionalInviteByTutorAsync({
       idUsuarioTutor: req.user.id,
@@ -53,7 +54,7 @@ router.post('/invite/generate', authMiddleware, async (req, res, next) => {
   }
 });
 
-router.post('/invite/join', authMiddleware, async (req, res, next) => {
+router.post('/invite/join', inviteRateLimiter, authMiddleware, async (req, res, next) => {
   try {
     const data = await currentService.joinProfessionalInviteAsync({
       idUsuarioProfesional: req.user.id,

@@ -32,6 +32,7 @@ export const corsOptions = {
 
     callback(new Error(`Origen no permitido por CORS: ${origin}`));
   },
+  credentials: true,
 };
 
 export const socketCorsOptions = {

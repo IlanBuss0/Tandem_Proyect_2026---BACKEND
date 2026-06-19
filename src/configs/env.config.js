@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
+dotenv.config({ path: '.env.local', override: true });
 
 function parseCsv(value) {
   return String(value || '')
@@ -14,7 +15,8 @@ export const envConfig = {
   databaseUrl: process.env.DATABASE_URL,
   databasePoolMax: Number.parseInt(process.env.DATABASE_POOL_MAX || '5', 10),
   jwtSecret: process.env.JWT_SECRET,
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '2h',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
+  refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
   corsOrigins: parseCsv(process.env.CORS_ORIGINS),
   redisUrl: process.env.REDIS_URL || null,
   arasaacApiBaseUrl: process.env.ARASAAC_API_BASE_URL || 'https://api.arasaac.org/api',
@@ -26,3 +28,15 @@ export const envConfig = {
   notificationWorkerConcurrency: Number.parseInt(process.env.NOTIFICATION_WORKER_CONCURRENCY || '5', 10),
   startNotificationWorker: process.env.START_NOTIFICATION_WORKER !== 'false',
 };
+
+export function validateEnvConfig() {
+  const missing = [];
+
+  if (!envConfig.jwtSecret) missing.push('JWT_SECRET');
+  if (!envConfig.databaseUrl) missing.push('DATABASE_URL');
+  if (envConfig.nodeEnv === 'production' && !envConfig.corsOrigins.length) missing.push('CORS_ORIGINS');
+
+  if (missing.length) {
+    throw new Error(`Variables de entorno obligatorias faltantes: ${missing.join(', ')}`);
+  }
+}

@@ -26,7 +26,7 @@ function timingSafeEqual(a, b) {
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
-function parseExpiresIn(value) {
+export function parseExpiresIn(value) {
   const match = String(value || '').trim().match(/^(\d+)([smhd])$/i);
   if (!match) return 2 * 60 * 60;
 
@@ -49,6 +49,11 @@ export function signJwt(payload) {
   const encodedBody = b64url(body);
   const tokenBody = `${encodedHeader}.${encodedBody}`;
   return `${tokenBody}.${sign(tokenBody)}`;
+}
+
+export function getJwtExpiresAt() {
+  const now = Math.floor(Date.now() / 1000);
+  return new Date((now + parseExpiresIn(envConfig.jwtExpiresIn)) * 1000).toISOString();
 }
 
 export function verifyJwt(token) {

@@ -27,6 +27,10 @@ class AuthRepository {
   findSafeById(id) {
     return BD.queryOne('SELECT id, id_tipo_usuario, nombre_usuario, nombre, apellido, correo, telefono, fecha_nacimiento, fecha_ingreso, activo FROM usuarios WHERE id = $1', [id]);
   }
+
+  updatePasswordHash(id, contrasenaHash) {
+    return BD.execute('UPDATE usuarios SET contrasena_hash = $2 WHERE id = $1', [id, contrasenaHash]);
+  }
 }
 
 export default new AuthRepository();

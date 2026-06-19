@@ -35,16 +35,23 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-router.get('/favorites', async (req, res) => {
+router.get('/favorites', authMiddleware, async (req, res) => {
   try {
+    const userId = req.query.userId || req.query.id_usuario;
+    await AuthorizationService.assertCanUsePertenecienteFeatureByUsuarioId(
+      req.user.id,
+      Number(userId),
+      PERTENECIENTE_PERMISSIONS.USAR_PICTOGRAMAS,
+    );
+
     const favorites = await currentService.getFavoritesAsync(
-      req.query.userId || req.query.id_usuario,
+      userId,
       req.query.language || req.query.lang,
     );
     res.status(StatusCodes.OK).json(favorites);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_REQUEST).json({ message: error.message });
+    res.status(error.statusCode ?? StatusCodes.BAD_REQUEST).json({ message: error.message });
   }
 });
 

@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import path from 'path';
 import { createServer } from 'http';
 import { fileURLToPath } from 'url';
@@ -85,7 +87,8 @@ import VinculoProfesionalPertenecienteController from './controllers/VinculoProf
 import VinculoTutorPertenecienteController from './controllers/VinculoTutorPertenecienteController.js';
 import { authMiddleware } from './middlewares/auth.middleware.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
-import { envConfig } from './configs/env.config.js';
+import { authRateLimiter, inviteRateLimiter } from './middlewares/rate-limit.middleware.js';
+import { envConfig, validateEnvConfig } from './configs/env.config.js';
 import { corsOptions } from './configs/cors.config.js';
 import BD from './db/BD.js';
 import { setupRealtime } from './realtime/socket.js';
@@ -99,7 +102,14 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const httpServer = createServer(app);
 
+validateEnvConfig();
+
+app.use(helmet({
+  contentSecurityPolicy: false,
+  referrerPolicy: { policy: 'no-referrer' },
+}));
 app.use(cors(corsOptions));
+app.use(cookieParser());
 app.use(express.json());
 
 // Documentación Interactiva con Swagger (Solo disponible en Desarrollo)
@@ -135,6 +145,8 @@ app.get('/', (req, res) => {
   });
 });
 
+app.use('/api/auth/login', authRateLimiter);
+app.use('/api/auth/register', authRateLimiter);
 app.use('/api/auth', AuthController);
 app.use('/api/pictograms', PictogramaController);
 app.use('/api/pictogramas', PictogramaController);
@@ -216,7 +228,7 @@ app.use('/api/tipos-usuarios', TipoUsuarioController);
 app.use('/api/validaciones-profesionales', ValidacionProfesionalController);
 app.use('/api/vinculos-profesionales-pertenecientes', VinculoProfesionalPertenecienteController);
 app.use('/api/vinculos-tutor-pertenecientes', VinculoTutorPertenecienteController);
-app.use('/api/vinculos/invite', InviteVinculoController);
+app.use('/api/vinculos/invite', inviteRateLimiter, InviteVinculoController);
 
 app.use(errorMiddleware);
 
