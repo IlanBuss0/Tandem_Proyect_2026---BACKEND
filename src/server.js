@@ -86,6 +86,7 @@ import ValidacionProfesionalController from './controllers/ValidacionProfesional
 import VinculoProfesionalPertenecienteController from './controllers/VinculoProfesionalPertenecienteController.js';
 import VinculoTutorPertenecienteController from './controllers/VinculoTutorPertenecienteController.js';
 import { authMiddleware } from './middlewares/auth.middleware.js';
+import { csrfMiddleware } from './middlewares/csrf.middleware.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { authRateLimiter, inviteRateLimiter, refreshRateLimiter } from './middlewares/rate-limit.middleware.js';
 import { envConfig, validateEnvConfig } from './configs/env.config.js';
@@ -153,6 +154,7 @@ app.use('/api/pictograms', PictogramaController);
 app.use('/api/pictogramas', PictogramaController);
 app.use('/pictograms', PictogramaController);
 app.use('/api', authMiddleware);
+app.use('/api', csrfMiddleware);
 app.use('/api/usuarios', UsuarioController);
 app.use('/api/pertenecientes', PertenecienteController);
 app.use('/api/tutores', TutorController);

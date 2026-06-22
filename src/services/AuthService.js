@@ -1,4 +1,5 @@
 import AppError from '../modules/errors/AppError.js';
+import crypto from 'crypto';
 import BD from '../db/BD.js';
 import AuthRepository from '../repositories/AuthRepository.js';
 import RefreshTokenRepository from '../repositories/RefreshTokenRepository.js';
@@ -33,6 +34,7 @@ class AuthService {
       token: accessToken,
       accessToken,
       expiresAt: getJwtExpiresAt(),
+      csrfToken: crypto.randomBytes(32).toString('base64url'),
       refreshToken,
       refreshExpiresAt: refreshExpiresAt.toISOString(),
     };

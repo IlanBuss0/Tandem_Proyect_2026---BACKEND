@@ -9,7 +9,7 @@ servers:
     description: 'Servidor Principal'
 security:
   -
-    BearerAuth: []
+    CookieAuth: []
 tags:
   -
     name: Autenticación
@@ -33,10 +33,10 @@ tags:
     name: 'Sistema y Auditoría'
 components:
   securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: tandem_access_token
   schemas:
     Usuario:
       type: object

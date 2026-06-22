@@ -2,25 +2,49 @@ import { Router } from 'express';
 import AuthService from '../services/AuthService.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { envConfig } from '../configs/env.config.js';
+import { ACCESS_COOKIE_NAME, CSRF_COOKIE_NAME, REFRESH_COOKIE_NAME } from '../configs/auth-cookies.config.js';
 
 const router = Router();
 
-const REFRESH_COOKIE_NAME = 'tandem_refresh_token';
 const isProduction = envConfig.nodeEnv === 'production';
+
+function baseCookieOptions(path = '/') {
+  return {
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    path,
+  };
+}
+
+function accessCookieOptions(expiresAt) {
+  return {
+    ...baseCookieOptions('/'),
+    httpOnly: true,
+    expires: new Date(expiresAt),
+  };
+}
 
 function refreshCookieOptions(refreshExpiresAt) {
   return {
+    ...baseCookieOptions('/api/auth'),
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
-    path: '/api/auth',
     expires: new Date(refreshExpiresAt),
   };
 }
 
+function csrfCookieOptions(expiresAt) {
+  return {
+    ...baseCookieOptions('/'),
+    httpOnly: false,
+    expires: new Date(expiresAt),
+  };
+}
+
 function sendSession(res, status, session) {
-  const { refreshToken, refreshExpiresAt, ...data } = session;
+  const { accessToken, token, refreshToken, refreshExpiresAt, csrfToken, ...data } = session;
+  res.cookie(ACCESS_COOKIE_NAME, accessToken || token, accessCookieOptions(data.expiresAt));
   res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions(refreshExpiresAt));
+  res.cookie(CSRF_COOKIE_NAME, csrfToken, csrfCookieOptions(refreshExpiresAt));
   res.status(status).json({ ok: true, data });
 }
 
@@ -30,6 +54,23 @@ function clearRefreshCookie(res) {
     secure: isProduction,
     sameSite: isProduction ? 'none' : 'lax',
     path: '/api/auth',
+  });
+}
+
+function clearAccessCookie(res) {
+  res.clearCookie(ACCESS_COOKIE_NAME, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    path: '/',
+  });
+}
+
+function clearCsrfCookie(res) {
+  res.clearCookie(CSRF_COOKIE_NAME, {
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    path: '/',
   });
 }
 
@@ -53,7 +94,9 @@ router.post('/refresh', async (req, res, next) => {
   try {
     sendSession(res, 200, await AuthService.refresh(req.cookies?.[REFRESH_COOKIE_NAME]));
   } catch (e) {
+    clearAccessCookie(res);
     clearRefreshCookie(res);
+    clearCsrfCookie(res);
     next(e);
   }
 });
@@ -61,7 +104,9 @@ router.post('/refresh', async (req, res, next) => {
 router.post('/logout', async (req, res, next) => {
   try {
     const data = await AuthService.logout(req.cookies?.[REFRESH_COOKIE_NAME]);
+    clearAccessCookie(res);
     clearRefreshCookie(res);
+    clearCsrfCookie(res);
     res.status(200).json({ ok: true, data });
   } catch (e) {
     next(e);

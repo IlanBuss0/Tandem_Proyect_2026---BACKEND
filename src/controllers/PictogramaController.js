@@ -4,6 +4,7 @@ import { StatusCodes } from 'http-status-codes';
 import PictogramaService from '../services/PictogramaService.js';
 import AuthorizationService from '../services/AuthorizationService.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { csrfMiddleware } from '../middlewares/csrf.middleware.js';
 import { PERTENECIENTE_PERMISSIONS } from '../modules/security/permissions.constants.js';
 
 const router = Router();
@@ -81,7 +82,7 @@ router.get('/:id/download', async (req, res) => {
   }
 });
 
-router.post('/:id/save', authMiddleware, async (req, res) => {
+router.post('/:id/save', authMiddleware, csrfMiddleware, async (req, res) => {
   try {
     const userId = req.body?.userId || req.body?.id_usuario || req.query.userId || req.query.id_usuario;
     await AuthorizationService.assertCanUsePertenecienteFeatureByUsuarioId(
@@ -107,7 +108,7 @@ router.post('/:id/save', authMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/:id/save', authMiddleware, async (req, res) => {
+router.delete('/:id/save', authMiddleware, csrfMiddleware, async (req, res) => {
   try {
     const userId = req.body?.userId || req.body?.id_usuario || req.query.userId || req.query.id_usuario;
     await AuthorizationService.assertCanUsePertenecienteFeatureByUsuarioId(
@@ -129,7 +130,7 @@ router.delete('/:id/save', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/sync', authMiddleware, async (req, res) => {
+router.post('/sync', authMiddleware, csrfMiddleware, async (req, res) => {
   try {
     const result = await currentService.syncFromArasaacAsync({
       language: req.body?.language || req.query.language || req.query.lang,

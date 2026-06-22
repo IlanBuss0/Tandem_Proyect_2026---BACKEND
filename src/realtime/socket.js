@@ -7,19 +7,35 @@ import { chatRoom, userRoom } from './rooms.js';
 import { setRealtimeServer } from './realtime.js';
 import { connectRedisClient, createRedisConnection, isRedisEnabled } from '../redis/redisClient.js';
 import { socketCorsOptions } from '../configs/cors.config.js';
+import { ACCESS_COOKIE_NAME } from '../configs/auth-cookies.config.js';
 
 const mensajeService = new MensajeService();
 const participanteChatService = new ParticipanteChatService();
 
+function parseCookieHeader(cookieHeader = '') {
+  return Object.fromEntries(
+    String(cookieHeader)
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const separatorIndex = part.indexOf('=');
+        if (separatorIndex === -1) return [part, ''];
+
+        const key = part.slice(0, separatorIndex);
+        const value = part.slice(separatorIndex + 1);
+        try {
+          return [key, decodeURIComponent(value)];
+        } catch {
+          return [key, value];
+        }
+      }),
+  );
+}
+
 function getTokenFromSocket(socket) {
-  const authToken = socket.handshake.auth?.token;
-  if (authToken) return authToken;
-
-  const authorization = socket.handshake.headers?.authorization;
-  if (!authorization) return null;
-
-  const [type, token] = authorization.split(' ');
-  return type === 'Bearer' ? token : null;
+  const cookies = parseCookieHeader(socket.handshake.headers?.cookie);
+  return cookies[ACCESS_COOKIE_NAME] || null;
 }
 
 function parsePositiveInt(value) {
