@@ -4,6 +4,8 @@ import ChatService from '../services/ChatService.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { emitToUser } from '../realtime/realtime.js';
 import ParticipanteChatService from '../services/ParticipanteChatService.js';
+import { upload, validateMagicBytes } from '../middlewares/upload.middleware.js';
+import { isImageMime } from '../services/ImageProcessingService.js';
 
 const router = Router();
 const currentService = new ChatService();
@@ -128,6 +130,55 @@ router.patch('/:id/manage', authMiddleware, async (req, res) => {
     });
 
     res.status(StatusCodes.OK).json(r);
+  } catch (error) {
+    console.log(error);
+    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
+router.post('/:id/avatar', authMiddleware, (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      const message = err.code === 'LIMIT_FILE_SIZE'
+        ? 'La imagen excede el limite de 10MB.'
+        : `Imagen no valida: ${err.message}`;
+      return res.status(StatusCodes.BAD_REQUEST).send(message);
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!req.file) {
+      return res.status(StatusCodes.BAD_REQUEST).send('No se envio ninguna imagen.');
+    }
+    if (!isImageMime(req.file.mimetype)) {
+      return res.status(StatusCodes.BAD_REQUEST).send('La foto del chat debe ser una imagen.');
+    }
+    if (!validateMagicBytes(req.file.buffer, req.file.mimetype)) {
+      return res.status(StatusCodes.BAD_REQUEST).send('El contenido de la imagen no coincide con el tipo declarado.');
+    }
+
+    const r = await currentService.setAvatarForUserAsync(id, req.user.id, req.file);
+
+    r.participantes.forEach((participante) => {
+      emitToUser(participante.id_usuario, 'chat:updated', {
+        chat: r.chat,
+        participantes: r.participantes,
+      });
+      emitToUser(participante.id_usuario, 'chat:new', {
+        chat: r.chat,
+        participantes: r.participantes,
+      });
+    });
+
+    res.status(StatusCodes.OK).json({
+      avatar_url: r.chat.avatar_url,
+      avatar_content_type: r.chat.avatar_content_type,
+      avatar_actualizada_en: r.chat.avatar_actualizada_en,
+      chat: r.chat,
+      participantes: r.participantes,
+    });
   } catch (error) {
     console.log(error);
     res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);

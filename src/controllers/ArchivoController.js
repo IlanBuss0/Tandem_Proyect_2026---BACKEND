@@ -5,6 +5,7 @@ import FileStorageService from '../services/FileStorageService.js';
 import Archivo from '../entities/Archivo.js';
 import { upload, validateMagicBytes } from '../middlewares/upload.middleware.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { compressImageAsync, isImageMime } from '../services/ImageProcessingService.js';
 
 const router = Router();
 const currentService = new ArchivoService();
@@ -65,7 +66,7 @@ router.post('/upload', authMiddleware, (req, res, next) => {
       return res.status(StatusCodes.BAD_REQUEST).send('No se envio ningun archivo.');
     }
 
-    const { buffer, originalname, mimetype, size } = req.file;
+    const { buffer, originalname, mimetype } = req.file;
     const userId = req.user?.id;
     if (!userId) {
       return res.status(StatusCodes.UNAUTHORIZED).send('Usuario no autenticado.');
@@ -76,19 +77,39 @@ router.post('/upload', authMiddleware, (req, res, next) => {
     }
 
     const idTipoArchivo = inferIdTipoArchivo(mimetype, req.body.id_tipo_archivo);
+    let uploadBuffer = buffer;
+    let uploadContentType = mimetype;
+    let storedName = originalname;
+
+    if (isImageMime(mimetype)) {
+      try {
+        const compressed = await compressImageAsync(buffer, {
+          maxDimension: 1280,
+          quality: 78,
+          format: 'webp',
+        });
+        uploadBuffer = compressed.buffer;
+        uploadContentType = compressed.contentType;
+        storedName = `${originalname.replace(/\.[^.]+$/, '')}.${compressed.extension}`;
+      } catch (error) {
+        console.warn(`No se pudo comprimir la imagen ${originalname}; se sube original: ${error.message}`);
+      }
+    }
 
     const result = await fileStorage.uploadAsync({
-      buffer,
-      contentType: mimetype,
-      fileName: originalname,
+      buffer: uploadBuffer,
+      contentType: uploadContentType,
+      fileName: storedName,
       userId,
     });
 
     const entity = new Archivo({
       id_usuario_creador: userId,
       id_tipo_archivo: idTipoArchivo,
-      nombre_archivo: originalname,
+      nombre_archivo: storedName,
       url: result.url,
+      content_type: uploadContentType,
+      peso_bytes: uploadBuffer.length,
       fecha_subida: new Date(),
       activo: true,
     });
@@ -98,13 +119,13 @@ router.post('/upload', authMiddleware, (req, res, next) => {
     res.status(StatusCodes.CREATED).json({
       id: newId,
       url: result.url,
-      nombre_archivo: originalname,
-      content_type: mimetype,
-      peso_bytes: size,
+      nombre_archivo: storedName,
+      content_type: uploadContentType,
+      peso_bytes: uploadBuffer.length,
     });
   } catch (error) {
     console.error('ArchivoController.upload', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error al subir el archivo.');
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error al subir el archivo: ${error.message}`);
   }
 });
 

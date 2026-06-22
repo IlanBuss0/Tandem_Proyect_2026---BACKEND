@@ -7,6 +7,8 @@ import UsuarioRepository from '../repositories/UsuarioRepository.js';
 import VinculoProfesionalPertenecienteRepository from '../repositories/VinculoProfesionalPertenecienteRepository.js';
 import AuthorizationService from './AuthorizationService.js';
 import { AUTH_ACTIONS } from '../modules/security/permissions.constants.js';
+import FileStorageService from './FileStorageService.js';
+import { compressImageAsync } from './ImageProcessingService.js';
 
 export default class ChatService {
   constructor() {
@@ -17,6 +19,7 @@ export default class ChatService {
     this.TipoChatRepository = new TipoChatRepository();
     this.UsuarioRepository = new UsuarioRepository();
     this.VinculoProfesionalPertenecienteRepository = new VinculoProfesionalPertenecienteRepository();
+    this.FileStorageService = new FileStorageService();
   }
 
   getAllAsync = async () => { console.log('ChatService.getAllAsync()'); const r = await this.ChatRepository.getAllAsync(); if (r == null) return null; return r; };
@@ -150,7 +153,6 @@ export default class ChatService {
         .filter((participante) => participante.es_admin && participantIds.includes(participante.id_usuario))
         .map((participante) => participante.id_usuario);
 
-    if (!adminIds.includes(idUsuario)) adminIds.push(idUsuario);
     if (adminIds.length < 1) throw new Error('El grupo necesita al menos un administrador.');
 
     if (Array.isArray(payload?.participantes) || Array.isArray(payload?.administradores)) {
@@ -165,6 +167,59 @@ export default class ChatService {
     const updatedChat = await this.ChatRepository.getByIdAsync(idChat);
     const participantes = await this.ChatRepository.getActiveParticipantsAsync(idChat);
     return { chat: updatedChat, participantes };
+  };
+
+  setAvatarForUserAsync = async (idChat, idUsuario, file) => {
+    console.log(`ChatService.setAvatarForUserAsync(${idChat}, ${idUsuario})`);
+    if (!idChat || Number.isNaN(idChat)) throw new Error('El id del chat es invalido.');
+    if (!idUsuario || Number.isNaN(idUsuario)) throw new Error('El usuario es invalido.');
+    if (!file?.buffer) throw new Error('La imagen del chat es obligatoria.');
+
+    const participantes = await this.ChatRepository.getActiveParticipantsAsync(idChat);
+    if (participantes.length <= 2) throw new Error('Solo los grupos pueden tener foto de chat.');
+
+    const solicitante = participantes.find((participante) => participante.id_usuario === idUsuario);
+    if (!solicitante?.es_admin) throw new Error('Solo un administrador puede cambiar la foto del grupo.');
+
+    const chat = await this.ChatRepository.getByIdAsync(idChat);
+    if (!chat?.activo) throw new Error('No se encontro el chat activo.');
+
+    let avatarBuffer = file.buffer;
+    let avatarContentType = file.mimetype;
+    let avatarExtension = file.originalname?.split('.').pop()?.toLowerCase() || 'jpg';
+
+    try {
+      const compressed = await compressImageAsync(file.buffer, {
+        maxDimension: 512,
+        quality: 80,
+        format: 'webp',
+      });
+      avatarBuffer = compressed.buffer;
+      avatarContentType = compressed.contentType;
+      avatarExtension = compressed.extension;
+    } catch (error) {
+      console.warn(`No se pudo comprimir el avatar del chat ${idChat}; se sube original: ${error.message}`);
+    }
+
+    const result = await this.FileStorageService.uploadAsync({
+      buffer: avatarBuffer,
+      contentType: avatarContentType,
+      fileName: `chat-${idChat}-avatar.${avatarExtension}`,
+      userId: idUsuario,
+      path: `chats/${idChat}/avatar.${avatarExtension}`,
+      upsert: true,
+    });
+
+    await this.ChatRepository.updateAvatarAsync(idChat, {
+      avatar_url: result.url,
+      avatar_path: result.path,
+      avatar_content_type: avatarContentType,
+    });
+
+    return {
+      chat: await this.ChatRepository.getByIdAsync(idChat),
+      participantes: await this.ChatRepository.getActiveParticipantsAsync(idChat),
+    };
   };
 
   validarChatParaCrear = (entity) => {

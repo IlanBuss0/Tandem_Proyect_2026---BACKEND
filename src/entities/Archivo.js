@@ -5,6 +5,8 @@ class Archivo {
     id_tipo_archivo = null,
     nombre_archivo = null,
     url = null,
+    content_type = null,
+    peso_bytes = null,
     fecha_subida = null,
     activo = true,
   } = {}) {
@@ -13,6 +15,8 @@ class Archivo {
     this.id_tipo_archivo = id_tipo_archivo;
     this.nombre_archivo = nombre_archivo;
     this.url = url;
+    this.content_type = content_type;
+    this.peso_bytes = peso_bytes;
     this.fecha_subida = fecha_subida;
     this.activo = activo;
   }

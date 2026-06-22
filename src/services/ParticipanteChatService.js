@@ -66,6 +66,15 @@ export default class ParticipanteChatService {
   leaveForUserAsync = async (idChat, idUsuario) => {
     console.log(`ParticipanteChatService.leaveForUserAsync(${idChat}, ${idUsuario})`);
     await this.ensureActiveParticipantAsync(idChat, idUsuario);
+    const participantes = await this.ParticipanteChatRepository.getByChatIdAsync(idChat);
+    const activos = participantes.filter((participante) => !participante.fecha_salida);
+    const solicitante = activos.find((participante) => participante.id_usuario === idUsuario);
+    const adminsActivos = activos.filter((participante) => participante.es_admin);
+
+    if (activos.length > 2 && solicitante?.es_admin && adminsActivos.length <= 1) {
+      throw new Error('El grupo necesita al menos un administrador antes de que puedas salir.');
+    }
+
     return await this.ParticipanteChatRepository.leaveForUserAsync(idChat, idUsuario);
   };
 

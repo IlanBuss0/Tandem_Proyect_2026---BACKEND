@@ -3,7 +3,26 @@ import BD from '../db/BD.js';
 export default class MensajeRepository {
   constructor() {
     console.log('Estoy en: MensajeRepository.constructor()');
+    this.fileMetadataColumnsReady = false;
   }
+
+  ensureFileMetadataColumnsAsync = async () => {
+    if (this.fileMetadataColumnsReady) return;
+    try {
+      await BD.execute(`ALTER TABLE archivos ADD COLUMN IF NOT EXISTS content_type TEXT`);
+      await BD.execute(`ALTER TABLE archivos ADD COLUMN IF NOT EXISTS peso_bytes INTEGER`);
+      this.fileMetadataColumnsReady = true;
+    } catch (error) {
+      console.warn(`No se pudieron preparar columnas de metadata de mensajes: ${error.message}`);
+      this.fileMetadataColumnsReady = false;
+    }
+  };
+
+  archivoJsonExpression = () => (
+    this.fileMetadataColumnsReady
+      ? `json_build_object('id', a.id, 'url', a.url, 'nombre_archivo', a.nombre_archivo, 'content_type', a.content_type, 'peso_bytes', a.peso_bytes)`
+      : `json_build_object('id', a.id, 'url', a.url, 'nombre_archivo', a.nombre_archivo)`
+  );
 
   getAllAsync = async () => {
     console.log('MensajeRepository.getAllAsync()');
@@ -13,11 +32,12 @@ export default class MensajeRepository {
 
   getByIdAsync = async (id) => {
     console.log(`MensajeRepository.getByIdAsync(${id})`);
+    await this.ensureFileMetadataColumnsAsync();
     const sql = `
       SELECT m.id, m.id_chat, m.id_usuario_emisor, m.id_tipo_mensaje, m.contenido, m.fecha_envio, m.eliminado,
         COALESCE(
           json_agg(
-            json_build_object('id', a.id, 'url', a.url, 'nombre_archivo', a.nombre_archivo)
+            ${this.archivoJsonExpression()}
           ) FILTER (WHERE a.id IS NOT NULL),
           '[]'
         ) AS archivos
@@ -46,11 +66,12 @@ export default class MensajeRepository {
 
   getByChatForParticipantAsync = async (idChat, idUsuario, limit = 30, beforeId = null) => {
     console.log(`MensajeRepository.getByChatForParticipantAsync(${idChat}, ${idUsuario}, ${limit}, ${beforeId})`);
+    await this.ensureFileMetadataColumnsAsync();
     const sql = `
       SELECT m.id, m.id_chat, m.id_usuario_emisor, m.id_tipo_mensaje, m.contenido, m.fecha_envio, m.eliminado,
         COALESCE(
           json_agg(
-          json_build_object('id', a.id, 'url', a.url, 'nombre_archivo', a.nombre_archivo)
+          ${this.archivoJsonExpression()}
         ) FILTER (WHERE a.id IS NOT NULL),
         '[]'
       ) AS archivos
@@ -71,11 +92,12 @@ export default class MensajeRepository {
 
   getByChatIdAsync = async (idChat, limit = 30, beforeId = null) => {
     console.log(`MensajeRepository.getByChatIdAsync(${idChat}, ${limit}, ${beforeId})`);
+    await this.ensureFileMetadataColumnsAsync();
     const sql = `
       SELECT m.id, m.id_chat, m.id_usuario_emisor, m.id_tipo_mensaje, m.contenido, m.fecha_envio, m.eliminado,
         COALESCE(
           json_agg(
-          json_build_object('id', a.id, 'url', a.url, 'nombre_archivo', a.nombre_archivo)
+          ${this.archivoJsonExpression()}
         ) FILTER (WHERE a.id IS NOT NULL),
         '[]'
       ) AS archivos

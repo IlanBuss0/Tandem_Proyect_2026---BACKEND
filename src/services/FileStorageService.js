@@ -19,7 +19,7 @@ const REQUEST_TIMEOUT_DELETE = 15000;
 const HTTPS_AGENT = new https.Agent({ rejectUnauthorized: false });
 
 export default class FileStorageService {
-  uploadAsync = async ({ buffer, contentType, fileName, userId }) => {
+  uploadAsync = async ({ buffer, contentType, fileName, userId, path: requestedPath = null, upsert = false }) => {
     if (!isConfigured()) {
       throw new Error('FileStorageService no configurado.');
     }
@@ -36,11 +36,14 @@ export default class FileStorageService {
       throw new Error('userId es obligatorio.');
     }
 
-    const timestamp = Date.now();
-    const ext = fileName.split('.').pop()?.toLowerCase() || '';
-    const baseName = fileName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 100);
-    const safeName = ext ? `${baseName}.${ext}` : baseName;
-    const path = `usuarios/${userId}/${timestamp}-${safeName}`;
+    let path = requestedPath;
+    if (!path) {
+      const timestamp = Date.now();
+      const ext = fileName.split('.').pop()?.toLowerCase() || '';
+      const baseName = fileName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 100);
+      const safeName = ext ? `${baseName}.${ext}` : baseName;
+      path = `usuarios/${userId}/${timestamp}-${safeName}`;
+    }
 
     await axios.put(buildStorageUrl(path), buffer, {
       httpsAgent: HTTPS_AGENT,
@@ -49,6 +52,7 @@ export default class FileStorageService {
         apikey: envConfig.supabaseServiceRoleKey,
         Authorization: `Bearer ${envConfig.supabaseServiceRoleKey}`,
         'Content-Type': contentType,
+        ...(upsert ? { 'x-upsert': 'true' } : {}),
       },
     });
 
