@@ -20,6 +20,31 @@ async function emitMessageToParticipants(message) {
   });
 }
 
+async function emitMessageUpdateToParticipants(message) {
+  emitToChat(message.id_chat, 'message:updated', message);
+
+  const participantes = await chatRepository.getActiveParticipantsAsync(message.id_chat);
+  console.log(`[HTTP chat] message:updated chat:${message.id_chat} message:${message.id} participantes:${participantes.map((p) => p.id_usuario).join(',')}`);
+  participantes.forEach((participante) => {
+    emitToUser(participante.id_usuario, 'message:updated', message);
+  });
+}
+
+async function emitMessageDeletedToParticipants(message) {
+  const payload = {
+    id: message.id,
+    id_chat: message.id_chat,
+  };
+
+  emitToChat(message.id_chat, 'message:deleted', payload);
+
+  const participantes = await chatRepository.getActiveParticipantsAsync(message.id_chat);
+  console.log(`[HTTP chat] message:deleted chat:${message.id_chat} message:${message.id} participantes:${participantes.map((p) => p.id_usuario).join(',')}`);
+  participantes.forEach((participante) => {
+    emitToUser(participante.id_usuario, 'message:deleted', payload);
+  });
+}
+
 router.get('', authMiddleware, async (req, res) => {
   try {
     console.log(`MensajeController.getAllBlocked(${req.user.id})`);
@@ -92,7 +117,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const rowsAffected = await currentService.updateFromUserAsync(entity, req.user.id);
     if (rowsAffected !== 0) {
       const message = await currentService.getByIdAsync(id);
-      if (message) emitToChat(message.id_chat, 'message:updated', message);
+      if (message) await emitMessageUpdateToParticipants(message);
       res.status(StatusCodes.OK).json({ message: `Se actualizo el mensaje con id: ${id}`, rowsAffected });
     } else {
       res.status(StatusCodes.NOT_FOUND).send(`No se encontro el mensaje con id: ${id}.`);
@@ -110,12 +135,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const message = await currentService.getByIdAsync(id);
     const rowCount = await currentService.deleteFromUserAsync(id, req.user.id);
     if (rowCount !== 0) {
-      if (message) {
-        emitToChat(message.id_chat, 'message:deleted', {
-          id: message.id,
-          id_chat: message.id_chat,
-        });
-      }
+      if (message) await emitMessageDeletedToParticipants(message);
       res.status(StatusCodes.OK).json({ message: `Se elimino el mensaje con id: ${id}`, rowsAffected: rowCount });
     } else {
       res.status(StatusCodes.NOT_FOUND).send(`No se encontro el mensaje con id: ${id}.`);

@@ -8,6 +8,8 @@ export default class ParticipanteChatRepository {
 
   ensureExtraColumnsAsync = async () => {
     if (this.extraColumnsReady) return;
+    await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS ultimo_mensaje_leido_id INT REFERENCES mensajes(id)`);
+    await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS fecha_ultima_lectura TIMESTAMP`);
     await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS oculto_desde TIMESTAMP`);
     await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS es_admin BOOLEAN DEFAULT false`);
     this.extraColumnsReady = true;
@@ -44,10 +46,23 @@ export default class ParticipanteChatRepository {
   marcarComoLeidoAsync = async (idChat, idUsuario, idMensaje) => {
     console.log(`ParticipanteChatRepository.marcarComoLeidoAsync(${idChat}, ${idUsuario}, ${idMensaje})`);
     const sql = `
-      UPDATE participantes_chats 
-      SET ultimo_mensaje_leido_id = $3, 
-          fecha_ultima_lectura = NOW() 
-      WHERE id_chat = $1 AND id_usuario = $2
+      WITH target AS (
+        SELECT COALESCE($3, (
+          SELECT id FROM mensajes WHERE id_chat = $1 AND eliminado = false ORDER BY id DESC LIMIT 1
+        )) AS id_mensaje
+      )
+      UPDATE participantes_chats
+      SET ultimo_mensaje_leido_id = target.id_mensaje,
+          fecha_ultima_lectura = NOW()
+      FROM target
+      WHERE id_chat = $1
+        AND id_usuario = $2
+        AND fecha_salida IS NULL
+        AND target.id_mensaje IS NOT NULL
+        AND (
+          ultimo_mensaje_leido_id IS NULL
+          OR ultimo_mensaje_leido_id < target.id_mensaje
+        )
     `;
     return await BD.execute(sql, [idChat, idUsuario, idMensaje]);
   };

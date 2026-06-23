@@ -1,5 +1,4 @@
 import ParticipanteChatRepository from '../repositories/ParticipanteChatRepository.js';
-import BD from '../db/BD.js';
 import {
   addCachedChatMember,
   hydrateCachedChatMembers,
@@ -44,16 +43,8 @@ export default class ParticipanteChatService {
     console.log(`ParticipanteChatService.marcarComoLeidoAsync(${idChat}, ${idUsuario}, ${idMensaje})`);
     if (!idChat) throw new Error('idChat es obligatorio.');
     if (!idUsuario) throw new Error('idUsuario es obligatorio.');
-    
-    // Si no mandan idMensaje, buscamos el ultimo mensaje del chat
-    let mensajeId = idMensaje;
-    if (!mensajeId) {
-        const sql = 'SELECT id FROM mensajes WHERE id_chat = $1 ORDER BY id DESC LIMIT 1';
-        const lastMsg = await BD.queryOne(sql, [idChat]); // Necesitaria importar BD o hacerlo en repo
-        // Mejor lo dejamos que el repo o controller maneje esto. 
-        // Por ahora asumimos que el frontend manda el id del ultimo mensaje que vio.
-    }
 
+    await this.ensureActiveParticipantAsync(idChat, idUsuario);
     return await this.ParticipanteChatRepository.marcarComoLeidoAsync(idChat, idUsuario, idMensaje);
   };
 
