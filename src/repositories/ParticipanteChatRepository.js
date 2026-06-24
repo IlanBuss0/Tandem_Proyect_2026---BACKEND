@@ -7,11 +7,6 @@ export default class ParticipanteChatRepository {
   }
 
   ensureExtraColumnsAsync = async () => {
-    if (this.extraColumnsReady) return;
-    await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS ultimo_mensaje_leido_id INT REFERENCES mensajes(id)`);
-    await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS fecha_ultima_lectura TIMESTAMP`);
-    await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS oculto_desde TIMESTAMP`);
-    await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS es_admin BOOLEAN DEFAULT false`);
     this.extraColumnsReady = true;
   };
 

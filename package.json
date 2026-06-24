@@ -19,6 +19,7 @@
     "db:invites-vinculo": "node scripts/create-invites-vinculo-table.mjs",
     "db:invites-vinculo-profesional": "node scripts/create-invites-vinculo-profesional-table.mjs",
     "db:refresh-tokens": "node scripts/create-refresh-tokens-table.mjs",
+    "db:chat-schema": "node scripts/migrate-chat-schema.mjs",
     "db:avatar-images": "node scripts/create-avatar-image-columns.mjs",
     "cache:avatar-images": "node scripts/cache-existing-avatar-images.mjs",
     "db:pictograms": "node scripts/create-pictograms-table.mjs",

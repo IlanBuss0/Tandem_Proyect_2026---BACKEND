@@ -3,19 +3,11 @@ import BD from '../db/BD.js';
 export default class MensajeRepository {
   constructor() {
     console.log('Estoy en: MensajeRepository.constructor()');
-    this.fileMetadataColumnsReady = false;
+    this.fileMetadataColumnsReady = true;
   }
 
   ensureFileMetadataColumnsAsync = async () => {
-    if (this.fileMetadataColumnsReady) return;
-    try {
-      await BD.execute(`ALTER TABLE archivos ADD COLUMN IF NOT EXISTS content_type TEXT`);
-      await BD.execute(`ALTER TABLE archivos ADD COLUMN IF NOT EXISTS peso_bytes INTEGER`);
-      this.fileMetadataColumnsReady = true;
-    } catch (error) {
-      console.warn(`No se pudieron preparar columnas de metadata de mensajes: ${error.message}`);
-      this.fileMetadataColumnsReady = false;
-    }
+    this.fileMetadataColumnsReady = true;
   };
 
   archivoJsonExpression = () => (

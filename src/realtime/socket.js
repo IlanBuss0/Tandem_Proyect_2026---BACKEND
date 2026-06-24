@@ -135,7 +135,6 @@ export async function setupRealtime(httpServer) {
           fecha_envio: payload?.fecha_envio ?? new Date(),
         });
 
-        io.to(chatRoom(idChat)).emit('message:new', message);
         const participantes = await participanteChatService.getByChatIdAsync(idChat);
         console.log(`[Socket.io] message:new chat:${idChat} message:${message.id} participantes:${participantes.map((p) => p.id_usuario).join(',')}`);
         participantes

@@ -3,7 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 import MensajeService from '../services/MensajeService.js';
 import Mensaje from '../entities/Mensaje.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
-import { emitToChat, emitToUser } from '../realtime/realtime.js';
+import { emitToUser } from '../realtime/realtime.js';
 import ChatRepository from '../repositories/ChatRepository.js';
 
 const router = Router();
@@ -11,8 +11,6 @@ const currentService = new MensajeService();
 const chatRepository = new ChatRepository();
 
 async function emitMessageToParticipants(message) {
-  emitToChat(message.id_chat, 'message:new', message);
-
   const participantes = await chatRepository.getActiveParticipantsAsync(message.id_chat);
   console.log(`[HTTP chat] message:new chat:${message.id_chat} message:${message.id} participantes:${participantes.map((p) => p.id_usuario).join(',')}`);
   participantes.forEach((participante) => {
@@ -21,8 +19,6 @@ async function emitMessageToParticipants(message) {
 }
 
 async function emitMessageUpdateToParticipants(message) {
-  emitToChat(message.id_chat, 'message:updated', message);
-
   const participantes = await chatRepository.getActiveParticipantsAsync(message.id_chat);
   console.log(`[HTTP chat] message:updated chat:${message.id_chat} message:${message.id} participantes:${participantes.map((p) => p.id_usuario).join(',')}`);
   participantes.forEach((participante) => {
@@ -35,8 +31,6 @@ async function emitMessageDeletedToParticipants(message) {
     id: message.id,
     id_chat: message.id_chat,
   };
-
-  emitToChat(message.id_chat, 'message:deleted', payload);
 
   const participantes = await chatRepository.getActiveParticipantsAsync(message.id_chat);
   console.log(`[HTTP chat] message:deleted chat:${message.id_chat} message:${message.id} participantes:${participantes.map((p) => p.id_usuario).join(',')}`);

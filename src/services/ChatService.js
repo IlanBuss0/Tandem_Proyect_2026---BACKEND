@@ -27,21 +27,27 @@ export default class ChatService {
   getByUsuarioIdAsync = async (idUsuario) => { console.log(`ChatService.getByUsuarioIdAsync(${idUsuario})`); if (!idUsuario || Number.isNaN(idUsuario)) { throw new Error('El id del usuario es invalido.'); } return await this.ChatRepository.getByUsuarioIdAsync(idUsuario); };
   createAsync = async (entity) => { console.log(`ChatService.createAsync(${JSON.stringify(entity)})`); this.validarChatParaCrear(entity); return await this.ChatRepository.createAsync(entity); };
 
-  createDirectChatAsync = async (idUsuarioA, idUsuarioB, idTipoChat = 1, nombre = null) => {
+  createDirectChatAsync = async (idUsuarioA, idUsuarioB, idTipoChat = 1, nombre = null, options = {}) => {
     console.log(`ChatService.createDirectChatAsync(${idUsuarioA}, ${idUsuarioB})`);
+
+    const usuarioA = parseInt(idUsuarioA);
+    const usuarioB = parseInt(idUsuarioB);
+    const tipoChat = parseInt(idTipoChat);
+
+    await this.validarChatDirectoAsync(usuarioA, usuarioB, tipoChat, options);
     
     // 1. Verificar si ya existe un chat activo entre ambos
-    const existente = await this.ChatRepository.getActiveBetweenUsersAsync(idUsuarioA, idUsuarioB, idTipoChat);
+    const existente = await this.ChatRepository.getActiveBetweenUsersAsync(usuarioA, usuarioB, tipoChat);
     if (existente) {
         return { chat: existente, participantes: await this.ChatRepository.getActiveParticipantsAsync(existente.id), created: false };
     }
 
     // 2. Crear chat con ambos participantes en una sola transaccion
     const chat = await this.ChatRepository.createWithParticipantsAsync({
-        id_tipo_chat: idTipoChat,
+        id_tipo_chat: tipoChat,
         nombre: nombre,
         fecha_creacion: new Date(),
-        participantes: [idUsuarioA, idUsuarioB],
+        participantes: [usuarioA, usuarioB],
         administradores: [],
     });
 
@@ -107,7 +113,10 @@ export default class ChatService {
     });
 
     const idTipoChat = await this.resolveTipoChatProfesionalPertenecienteAsync(id_tipo_chat);
-    return await this.createDirectChatAsync(id_usuario_profesional, perteneciente.id_usuario, idTipoChat, nombre);
+    return await this.createDirectChatAsync(id_usuario_profesional, perteneciente.id_usuario, idTipoChat, nombre, {
+      skipTipoChatValidation: true,
+      skipRelationshipValidation: true,
+    });
   };
   
   updateAsync = async (entity) => { console.log(`ChatService.updateAsync(${JSON.stringify(entity)})`); if (!entity?.id || Number.isNaN(entity.id)) { throw new Error('El id del chat es obligatorio para actualizar.'); } const prev = await this.ChatRepository.getByIdAsync(entity.id); if (prev == null) return 0; return await this.ChatRepository.updateAsync(entity); };
@@ -226,6 +235,100 @@ export default class ChatService {
     if (!entity) throw new Error('El chat es obligatorio.');
     if (!entity.id_tipo_chat) throw new Error('id_tipo_chat es obligatorio.');
     if (!entity.fecha_creacion) throw new Error('fecha_creacion es obligatorio.');
+  };
+
+  validarChatDirectoAsync = async (idUsuarioA, idUsuarioB, idTipoChat, options = {}) => {
+    if (!idUsuarioA || Number.isNaN(idUsuarioA)) throw new Error('El usuario origen es invalido.');
+    if (!idUsuarioB || Number.isNaN(idUsuarioB)) throw new Error('El usuario destino es invalido.');
+    if (!idTipoChat || Number.isNaN(idTipoChat)) throw new Error('El tipo de chat es invalido.');
+    if (idUsuarioA === idUsuarioB) throw new Error('No se puede crear un chat directo con el mismo usuario.');
+
+    const [usuarioA, usuarioB] = await Promise.all([
+      this.UsuarioRepository.getByIdAsync(idUsuarioA),
+      this.UsuarioRepository.getByIdAsync(idUsuarioB),
+    ]);
+
+    if (!usuarioA?.activo) throw new Error('El usuario origen no existe o no esta activo.');
+    if (!usuarioB?.activo) throw new Error('El usuario destino no existe o no esta activo.');
+
+    if (!options.skipTipoChatValidation) {
+      await this.validarTipoChatDirectoAsync(idTipoChat);
+    }
+
+    if (!options.skipRelationshipValidation) {
+      await this.validarRelacionDirectaPermitidaAsync(idUsuarioA, idUsuarioB);
+    }
+  };
+
+  validarTipoChatDirectoAsync = async (idTipoChat) => {
+    const tipo = await this.TipoChatRepository.getByIdAsync(idTipoChat);
+    if (!tipo) throw new Error('El tipo de chat no existe.');
+
+    const nombre = String(tipo.nombre ?? '').trim().toLowerCase();
+    if (!['directo', 'direct', 'individual'].includes(nombre)) {
+      throw new Error('Usa el endpoint especifico para chats que no sean directos.');
+    }
+  };
+
+  validarRelacionDirectaPermitidaAsync = async (idUsuarioA, idUsuarioB) => {
+    const menor = Math.min(idUsuarioA, idUsuarioB);
+    const mayor = Math.max(idUsuarioA, idUsuarioB);
+
+    const relacion = await BD.queryOne(
+      `
+        SELECT 1
+        FROM contactos c
+        INNER JOIN estados_contactos ec ON ec.id = c.id_estado_contacto
+        WHERE c.id_usuario_menor = $1
+          AND c.id_usuario_mayor = $2
+          AND LOWER(ec.nombre) IN ('aceptado', 'aceptada', 'activo', 'activa')
+        LIMIT 1
+      `,
+      [menor, mayor],
+    );
+
+    if (relacion) return;
+
+    const vinculoTutor = await BD.queryOne(
+      `
+        SELECT 1
+        FROM vinculos_tutor_pertenecientes vtp
+        INNER JOIN estados_vinculos ev ON ev.id = vtp.id_estado_vinculo
+        INNER JOIN tutores t ON t.id = vtp.id_tutor
+        INNER JOIN pertenecientes p ON p.id = vtp.id_perteneciente
+        WHERE vtp.fecha_fin IS NULL
+          AND LOWER(ev.nombre) IN ('activo', 'activa', 'aprobado', 'aprobada', 'aceptado', 'aceptada')
+          AND (
+            (t.id_usuario = $1 AND p.id_usuario = $2)
+            OR (t.id_usuario = $2 AND p.id_usuario = $1)
+          )
+        LIMIT 1
+      `,
+      [idUsuarioA, idUsuarioB],
+    );
+
+    if (vinculoTutor) return;
+
+    const vinculoProfesional = await BD.queryOne(
+      `
+        SELECT 1
+        FROM vinculos_profesional_pertenecientes vpp
+        INNER JOIN estados_vinculos ev ON ev.id = vpp.id_estado_vinculo
+        INNER JOIN profesionales prof ON prof.id = vpp.id_profesional
+        INNER JOIN pertenecientes p ON p.id = vpp.id_perteneciente
+        WHERE LOWER(ev.nombre) IN ('activo', 'activa', 'aprobado', 'aprobada', 'aceptado', 'aceptada')
+          AND (
+            (prof.id_usuario = $1 AND p.id_usuario = $2)
+            OR (prof.id_usuario = $2 AND p.id_usuario = $1)
+          )
+        LIMIT 1
+      `,
+      [idUsuarioA, idUsuarioB],
+    );
+
+    if (vinculoProfesional) return;
+
+    throw new Error('No existe una relacion activa que permita crear este chat directo.');
   };
 
   validarProfesionalValidadoAsync = async (idProfesional) => {

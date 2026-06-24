@@ -2,19 +2,22 @@
 
 ## Autenticacion
 
-Los endpoints nuevos y los sockets usan el mismo JWT que `/api/auth/login`.
+Los endpoints nuevos y los sockets usan la sesion creada por `/api/auth/login` en cookies HTTP-only.
 
 REST:
 
-```http
-Authorization: Bearer <token>
+```js
+fetch(`${API_URL}/api/chats/me`, {
+  credentials: 'include',
+});
 ```
 
 Socket.io:
 
 ```js
 io(API_URL, {
-  auth: { token },
+  withCredentials: true,
+  transports: ['websocket', 'polling'],
 });
 ```
 
