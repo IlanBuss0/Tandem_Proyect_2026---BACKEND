@@ -4,6 +4,7 @@ import { StatusCodes } from 'http-status-codes';
 import VinculoTutorPertenecienteService from '../services/VinculoTutorPertenecienteService.js';
 import VinculoTutorPerteneciente from '../entities/VinculoTutorPerteneciente.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
+import AuthorizationService from '../services/AuthorizationService.js';
 
 const router = Router();
 const currentService = new VinculoTutorPertenecienteService();
@@ -83,6 +84,7 @@ router.post('', async (req, res) => {
     const newId = await currentService.createAsync(entity);
 
     if (newId > 0) {
+      await AuthorizationService.invalidateAllForUser();
       res.status(StatusCodes.CREATED).json({
         message: `Se creo el vinculo tutor-perteneciente con id: ${newId}`,
         id: newId,
@@ -116,6 +118,7 @@ router.put('/:id', async (req, res) => {
     const rowsAffected = await currentService.updateAsync(entity);
 
     if (rowsAffected !== 0) {
+      await AuthorizationService.invalidateAllForUser();
       res.status(StatusCodes.OK).json({
         message: `Se actualizo el vinculo con id: ${id}`,
         rowsAffected,
@@ -138,6 +141,7 @@ router.delete('/:id', async (req, res) => {
     const rowCount = await currentService.deleteByIdAsync(id);
 
     if (rowCount !== 0) {
+      await AuthorizationService.invalidateAllForUser();
       res.status(StatusCodes.OK).json({
         message: `Se finalizo el vinculo con id: ${id}`,
         rowsAffected: rowCount,
@@ -158,6 +162,7 @@ router.delete('/tutor/:id', authMiddleware, async (req, res, next) => {
       idVinculo: req.params.id,
     });
 
+    await AuthorizationService.invalidateAllForUser();
     res.status(StatusCodes.OK).json({ ok: true, data });
   } catch (error) {
     next(error);

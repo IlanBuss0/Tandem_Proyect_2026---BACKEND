@@ -1,0 +1,2240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tándem 2026 - Documentación de Arquitectura</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js">
+    </script>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #818cf8;
+            --sidebar-bg: #0f172a;
+            --sidebar-text: #cbd5e1;
+            --sidebar-active: #4f46e5;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --blue: #2563eb;
+            --blue-bg: #eff6ff;
+            --blue-border: #bfdbfe;
+            --amber: #d97706;
+            --amber-bg: #fffbeb;
+            --amber-border: #fde68a;
+            --purple: #9333ea;
+            --purple-bg: #faf5ff;
+            --purple-border: #d8b4fe;
+            --green: #16a34a;
+            --green-bg: #f0fdf4;
+            --green-border: #bbf7d0;
+            --section-gap: 2.5rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        #sidebar {
+            width: 260px;
+            min-width: 260px;
+            background: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            padding: 1.5rem 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+        #sidebar .sidebar-header {
+            padding: 0 1.25rem 1rem;
+            border-bottom: 1px solid #1e293b;
+            margin-bottom: 1rem;
+        }
+        #sidebar .sidebar-header h2 {
+            font-size: 1.25rem;
+            color: #fff;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+        #sidebar .sidebar-header p {
+            font-size: 0.8rem;
+            color: var(--primary-light);
+            margin-top: 2px;
+        }
+        #sidebar ul {
+            list-style: none;
+            flex: 1;
+        }
+        #sidebar ul li a {
+            display: block;
+            padding: 0.55rem 1.25rem;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            font-size: 0.83rem;
+            border-left: 3px solid transparent;
+            transition: all 0.15s;
+        }
+        #sidebar ul li a:hover,
+        #sidebar ul li a.active {
+            background: rgba(79, 70, 229, 0.1);
+            color: #fff;
+            border-left-color: var(--sidebar-active);
+        }
+        #sidebar ul li .sub-link {
+            padding-left: 2.2rem;
+            font-size: 0.78rem;
+        }
+        #sidebar .sidebar-footer {
+            padding: 1rem 1.25rem;
+            border-top: 1px solid #1e293b;
+        }
+        #sidebar .sidebar-footer a {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--primary-light);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        #sidebar .sidebar-footer a:hover {
+            color: #fff;
+        }
+
+        main {
+            margin-left: 260px;
+            padding: 2rem 2.5rem 4rem;
+            max-width: 1100px;
+            width: 100%;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 3rem 1rem 2rem;
+            margin-bottom: 2rem;
+        }
+        .hero h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--text);
+        }
+        .hero p {
+            color: var(--text-muted);
+            max-width: 650px;
+            margin: 0.5rem auto 0;
+            font-size: 1.05rem;
+        }
+
+        section {
+            margin-bottom: var(--section-gap);
+            scroll-margin-top: 1rem;
+        }
+        section h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            padding-bottom: 0.5rem;
+            border-bottom: 3px solid var(--primary);
+            display: inline-block;
+            margin-bottom: 0.25rem;
+        }
+        section .subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.25rem;
+            margin-top: 0.25rem;
+        }
+        section h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+        section h4 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+            color: var(--text);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+        .card p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 0.6rem;
+        }
+        .card p:last-child {
+            margin-bottom: 0;
+        }
+
+        .callout {
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .callout strong {
+            display: block;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.3rem;
+        }
+        .callout p {
+            margin-bottom: 0.3rem;
+        }
+        .callout p:last-child {
+            margin-bottom: 0;
+        }
+        .callout-how {
+            background: var(--blue-bg);
+            border-left: 4px solid var(--blue);
+        }
+        .callout-how strong {
+            color: var(--blue);
+        }
+        .callout-why {
+            background: var(--amber-bg);
+            border-left: 4px solid var(--amber);
+        }
+        .callout-why strong {
+            color: var(--amber);
+        }
+        .callout-connect {
+            background: var(--purple-bg);
+            border-left: 4px solid var(--purple);
+        }
+        .callout-connect strong {
+            color: var(--purple);
+        }
+
+        .diagram-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            overflow-x: auto;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+        .diagram-container .mermaid {
+            text-align: center;
+        }
+
+        .file-ref {
+            display: inline-block;
+            background: #eef2ff;
+            color: var(--primary);
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 0.78rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid #c7d2fe;
+        }
+
+        .code-block {
+            background: var(--code-bg);
+            color: var(--code-text);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 0.78rem;
+            overflow-x: auto;
+            line-height: 1.5;
+            margin: 0.5rem 0;
+        }
+        .code-block .comment {
+            color: #94a3b8;
+            font-style: italic;
+        }
+        .code-block .keyword {
+            color: #818cf8;
+        }
+        .code-block .string {
+            color: #34d399;
+        }
+        .code-block .func {
+            color: #f472b6;
+        }
+        .code-block .const {
+            color: #fbbf24;
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .three-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.83rem;
+            margin: 0.5rem 0;
+        }
+        table th {
+            background: #f8fafc;
+            text-align: left;
+            padding: 0.5rem 0.75rem;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+        table td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        table tr:hover td {
+            background: #fafafa;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-size: 0.68rem;
+            font-weight: 600;
+        }
+        .badge-get {
+            background: #eff6ff;
+            color: #2563eb;
+        }
+        .badge-post {
+            background: #f0fdf4;
+            color: #16a34a;
+        }
+        .badge-put {
+            background: #fffbeb;
+            color: #d97706;
+        }
+        .badge-delete {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+        .badge-socket {
+            background: #faf5ff;
+            color: #9333ea;
+        }
+
+        .step-list {
+            padding-left: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .step-list li {
+            margin-bottom: 0.5rem;
+        }
+        .step-list li strong {
+            color: var(--text);
+        }
+
+        .file-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 0.5rem;
+        }
+
+        .flow-arrow {
+            text-align: center;
+            font-size: 1.2rem;
+            color: var(--primary);
+            padding: 0.25rem 0;
+        }
+
+        .sub-section {
+            margin-bottom: 1.5rem;
+        }
+        .sub-section:last-child {
+            margin-bottom: 0;
+        }
+
+        /* --- Interactive Diagrams (zoom/pan) --- */
+        .diagram-container {
+            position: relative;
+            overflow: hidden;
+        }
+        .diagram-container .mermaid {
+            overflow: visible;
+        }
+        .diagram-container .mermaid svg {
+            cursor: grab;
+            transform-origin: 0 0;
+            will-change: transform;
+            max-width: none;
+            max-height: none;
+        }
+        .diagram-container .mermaid svg.dragging {
+            cursor: grabbing;
+        }
+        .zoom-controls {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            gap: 4px;
+            z-index: 10;
+            opacity: 0.3;
+            transition: opacity 0.2s;
+        }
+        .diagram-container:hover .zoom-controls {
+            opacity: 1;
+        }
+        .zoom-controls button {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            color: var(--text);
+            font-size: 16px;
+            font-family: inherit;
+            font-weight: 600;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .zoom-controls button:hover {
+            background: var(--bg);
+            border-color: var(--primary);
+        }
+        .zoom-controls .zoom-level {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            padding: 0 4px;
+            min-width: 36px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- Better text readability --- */
+        .card p,
+        .callout p {
+            margin-bottom: 0.5rem;
+            line-height: 1.75;
+        }
+        .card p:last-child,
+        .callout p:last-child {
+            margin-bottom: 0;
+        }
+        section p {
+            line-height: 1.75;
+        }
+        .step-list li {
+            margin-bottom: 0.6rem;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            #sidebar {
+                width: 100%;
+                min-width: unset;
+                position: relative;
+                height: auto;
+                padding: 1rem;
+            }
+            main {
+                margin-left: 0;
+                padding: 1.5rem 1rem;
+            }
+            .two-col,
+            .three-col {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============= SIDEBAR ============= -->
+    <nav id="sidebar">
+        <div class="sidebar-header">
+            <h2>Tándem 2026</h2>
+            <p>Documentación de Arquitectura</p>
+        </div>
+        <ul>
+            <li><a href="#db-schema">Base de Datos</a></li>
+            <li><a href="#db-schema-how" class="sub-link">¿Cómo funciona?</a></li>
+            <li><a href="#db-schema-why" class="sub-link">¿Por qué así?</a></li>
+            <li><a href="#auth-flow">Autenticación</a></li>
+            <li><a href="#auth-flow-how" class="sub-link">¿Cómo funciona?</a></li>
+            <li><a href="#auth-flow-why" class="sub-link">¿Por qué así?</a></li>
+            <li><a href="#chat-realtime">Chat Realtime</a></li>
+            <li><a href="#chat-realtime-how" class="sub-link">¿Cómo funciona?</a></li>
+            <li><a href="#chat-realtime-why" class="sub-link">¿Por qué así?</a></li>
+            <li><a href="#redis">Redis & Caché</a></li>
+            <li><a href="#redis-how" class="sub-link">¿Cómo funciona?</a></li>
+            <li><a href="#external-apis">APIs Externas</a></li>
+            <li><a href="#permissions">Permisos</a></li>
+            <li><a href="#architecture">Arquitectura</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/api-docs" target="_blank">Ir a Swagger &rarr;</a>
+        </div>
+    </nav>
+
+    <!-- ============= MAIN ============= -->
+    <main>
+
+        <!-- HERO -->
+        <section class="hero">
+            <h1>Tándem 2026</h1>
+            <p>Documentación visual de la arquitectura del backend.</p>
+            <p>Cada sección explica <strong>qué</strong> hace cada componente,
+                <strong>cómo</strong> funciona internamente y <strong>por qué</strong> se tomó cada decisión técnica.</p>
+            <p>También muestra cómo se conecta cada pieza con el resto del sistema.</p>
+        </section>
+
+        <!-- ====================================================== -->
+        <!-- 1. DB SCHEMA -->
+        <!-- ====================================================== -->
+        <section id="db-schema">
+            <h2>Base de Datos</h2>
+            <p class="subtitle">PostgreSQL — 60+ tablas agrupadas por dominio funcional. Sin ORM.</p>
+
+            <!-- WHY -->
+            <div class="callout callout-why">
+                <strong>¿Por qué PostgreSQL sin ORM?</strong>
+                <p>Las consultas del negocio tienen JOINs complejos:
+                    <code>usuarios → pertenecientes → vinculos → permisos</code>.</p>
+                <p>Un ORM como Sequelize o TypeORM vuelve esas queries más difíciles de leer y optimizar.</p>
+                <p>Con SQL crudo tenés control total de cada query.</p>
+                <p>Podés hacer <code>FOR UPDATE</code> en refresh tokens,
+                    window functions para puntos, y transacciones sin magia.</p>
+                <p>Las entidades (78 clases) son objetos planos
+                    que se arman desde el constructor del PG result.
+                    Sin decoradores, sin mapeo automático, sin sorpresas.</p>
+            </div>
+
+            <div class="sub-section" id="db-schema-how">
+                <h3>Conexión a la DB</h3>
+                <div class="two-col">
+                    <div class="card">
+                        <h4>El Pool</h4>
+                        <p>Usamos <code>pg.Pool</code> que mantiene N conexiones abiertas (default 5) y las reusa.</p>
+                        <p>Cada request obtiene una conexión del pool, ejecuta la query y la devuelve.</p>
+                        <p>SSL está forzado con <code>rejectUnauthorized: false</code>
+                            tanto en producción como en desarrollo.</p>
+                        <p><span class="file-ref">src/db/BD.js</span></p>
+                    </div>
+                    <div class="card">
+                        <h4>Transacciones</h4>
+                        <p>Para operaciones que tocan múltiples tablas (ej: crear chat + participantes).</p>
+                        <p>El método <code>transaction(callback)</code> obtiene un cliente dedicado,
+                            hace BEGIN / COMMIT / ROLLBACK y libera el cliente al final.</p>
+                        <p><span class="file-ref">src/db/BD.js</span> (método <code>transaction</code>)</p>
+                    </div>
+                </div>
+                <div class="code-block">
+                    <span class="keyword">import</span> pg <span class="keyword">from</span> <span class="string">'pg'</span>;
+                    <span class="keyword">const</span> { Pool } = pg;
+
+                    <span class="keyword">class</span> <span class="func">BD</span> {
+                    &nbsp;&nbsp;<span class="keyword">constructor</span>() {
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this</span>.pool = <span class="keyword">new</span> <span class="func">Pool</span>({
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;connectionString: envConfig.databaseUrl,
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;max: envConfig.databasePoolMax,
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ssl: { rejectUnauthorized: <span class="keyword">false</span> },
+                    &nbsp;&nbsp;&nbsp;&nbsp;});
+                    &nbsp;&nbsp;}
+
+                    &nbsp;&nbsp;<span class="func">query</span>(sql, params) {
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return</span> <span class="keyword">this</span>.pool.<span class="func">query</span>(sql, params);
+                    &nbsp;&nbsp;}
+
+                    &nbsp;&nbsp;<span class="func">transaction</span>(callback) {
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">const</span> client = <span class="keyword">await</span> <span class="keyword">this</span>.pool.<span class="func">connect</span>();
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">try</span> {
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">await</span> client.<span class="func">query</span>(<span class="string">'BEGIN'</span>);
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">const</span> result = <span class="keyword">await</span> <span class="func">callback</span>(client);
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">await</span> client.<span class="func">query</span>(<span class="string">'COMMIT'</span>);
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return</span> result;
+                    &nbsp;&nbsp;&nbsp;&nbsp;} <span class="keyword">catch</span> (error) {
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">await</span> client.<span class="func">query</span>(<span class="string">'ROLLBACK'</span>);
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">throw</span> error;
+                    &nbsp;&nbsp;&nbsp;&nbsp;} <span class="keyword">finally</span> {
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;client.<span class="func">release</span>();
+                    &nbsp;&nbsp;&nbsp;&nbsp;}
+                    &nbsp;&nbsp;}
+                    }
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <h3>Cómo se estructura una entidad</h3>
+                <div class="two-col">
+                    <div class="card">
+                        <h4>Entidad (camelCase)</h4>
+                        <p>Clase plana que recibe un objeto y asigna propiedades.</p>
+                        <p>Sin lógica — solo datos.</p>
+                        <div class="code-block">
+                            <span class="keyword">class</span> <span class="func">Usuario</span> {
+                            &nbsp;&nbsp;<span class="func">constructor</span>({ id, id_tipo_usuario, nombre_usuario,
+                            &nbsp;&nbsp;&nbsp;&nbsp;contrasena_hash, nombre, apellido, correo }) {
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this</span>.id = id;
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this</span>.id_tipo_usuario = id_tipo_usuario;
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this</span>.nombre_usuario = nombre_usuario;
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this</span>.contrasena_hash = contrasena_hash;
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this</span>.nombre = nombre;
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this</span>.apellido = apellido;
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this</span>.correo = correo;
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this</span>.activo = <span class="keyword">true</span>;
+                            &nbsp;&nbsp;}
+                            }
+                        </div>
+                        <p><span class="file-ref">src/entities/Usuario.js</span></p>
+                    </div>
+                    <div class="card">
+                        <h4>Repositorio (SQL crudo)</h4>
+                        <p>Cada repositorio recibe <code>BD</code> por dependencia.</p>
+                        <p>Ejecuta SQL con parámetros <code>$1, $2, ...</code> para evitar inyección.</p>
+                        <div class="code-block">
+                            <span class="keyword">class</span> <span class="func">UsuarioRepository</span> {
+                            &nbsp;&nbsp;<span class="func">constructor</span>(bd) { <span class="keyword">this</span>.bd
+                            = bd; }
+
+                            &nbsp;&nbsp;<span class="keyword">async</span> <span class="func">findByEmail</span>(correo) {
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">const</span> sql = <span class="string">`SELECT
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;id, id_tipo_usuario, nombre_usuario, correo,
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;contrasena_hash, activo
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FROM usuarios WHERE LOWER(correo) = LOWER($1)`</span>;
+                            &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return</span> <span class="keyword">this</span>.bd.<span class="func">queryOne</span>(sql,
+                            [correo]);
+                            &nbsp;&nbsp;}
+                            }
+                        </div>
+                        <p><span class="file-ref">src/repositories/AuthRepository.js</span></p>
+                    </div>
+                </div>
+                <div class="callout callout-how">
+                    <strong>¿Cómo se conecta la entidad con la DB?</strong>
+                    <p><strong>Repository</strong> ejecuta SQL y recibe filas del pool.</p>
+                    <p>Cada fila la pasa al constructor de la <strong>Entity</strong>
+                        (o la devuelve como objeto plano si es una proyección).</p>
+                    <p><strong>Service</strong> orquesta la lógica entre repositorios,
+                        validaciones y otras dependencias.</p>
+                    <p><strong>Controller</strong> recibe el request HTTP,
+                        llama al service y devuelve la respuesta JSON.</p>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <h3>Diagrama Entidad-Relación (núcleo)</h3>
+                <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:0.75rem;">
+                    Las tablas clave del sistema.
+                </p>
+                <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:0.75rem;">
+                    Las flechas indican claves foráneas:
+                    <code>USUARIOS ||--o{ PERTENECIENTES</code>
+                    = un usuario puede tener muchos pertenecientes.
+                </p>
+                <div class="diagram-container">
+                    <div class="mermaid">
+                        erDiagram
+                        USUARIOS {
+                        int id PK
+                        int id_tipo_usuario FK
+                        string nombre_usuario
+                        string contrasena_hash
+                        string nombre
+                        string apellido
+                        string correo
+                        bool activo
+                        }
+
+                        TIPOS_USUARIOS {
+                        int id PK
+                        string nombre
+                        }
+
+                        PERTENECIENTES {
+                        int id PK
+                        int id_usuario FK
+                        int id_nivel_apoyo FK
+                        int id_autonomia_operativa FK
+                        bool puede_autogestionarse
+                        }
+
+                        TUTORES {
+                        int id PK
+                        int id_usuario FK
+                        string parentesco
+                        }
+
+                        PROFESIONALES {
+                        int id PK
+                        int id_usuario FK
+                        int id_estado_validacion FK
+                        string matricula
+                        }
+
+                        VINCULOS_TUTOR_PERTENECIENTES {
+                        int id PK
+                        int id_tutor FK
+                        int id_perteneciente FK
+                        int id_estado_vinculo FK
+                        bool es_tutor_principal
+                        }
+
+                        VINCULOS_PROFESIONAL_PERTENECIENTES {
+                        int id PK
+                        int id_profesional FK
+                        int id_perteneciente FK
+                        int id_estado_vinculo FK
+                        bool requiere_aprobacion_tutor
+                        bool fue_aprobado_por_tutor
+                        int id_tutor_aprobador FK
+                        }
+
+                        CHATS {
+                        int id PK
+                        int id_tipo_chat FK
+                        string nombre
+                        }
+
+                        PARTICIPANTES_CHATS {
+                        int id PK
+                        int id_chat FK
+                        int id_usuario FK
+                        bool es_admin
+                        datetime fecha_ingreso
+                        datetime fecha_salida
+                        }
+
+                        MENSAJES {
+                        int id PK
+                        int id_chat FK
+                        int id_usuario_emisor FK
+                        int id_tipo_mensaje FK
+                        string contenido
+                        datetime fecha_envio
+                        bool eliminado
+                        }
+
+                        ARCHIVOS {
+                        int id PK
+                        int id_usuario_creador FK
+                        string url
+                        }
+
+                        REFRESH_TOKENS {
+                        int id PK
+                        int id_usuario FK
+                        string token_hash
+                        uuid family_id
+                        datetime expires_at
+                        datetime revoked_at
+                        }
+
+                        AVATARES {
+                        int id PK
+                        int id_perteneciente FK
+                        int nivel
+                        int experiencia
+                        string avatar_imagen_url
+                        }
+
+                        ACTIVIDADES {
+                        int id PK
+                        int id_tipo_actividad FK
+                        string titulo
+                        bool activa
+                        }
+
+                        ACTIVIDADES_ASIGNADAS {
+                        int id PK
+                        int id_actividad FK
+                        int id_perteneciente FK
+                        int id_estado_actividad FK
+                        }
+
+                        DISPOSITIVOS {
+                        int id PK
+                        int id_usuario FK
+                        string nombre
+                        bool activo
+                        }
+
+                        UBICACIONES_ACTUALES {
+                        int id PK
+                        int id_dispositivo FK
+                        float latitud
+                        float longitud
+                        }
+
+                        ZONAS_SEGURAS {
+                        int id PK
+                        int id_perteneciente FK
+                        int id_tutor_creador FK
+                        string nombre
+                        float latitud
+                        float longitud
+                        int radio_metro
+                        }
+
+                        TIPOS_USUARIOS ||--o{ USUARIOS : "id_tipo_usuario"
+                        USUARIOS ||--o{ PERTENECIENTES : "id_usuario"
+                        USUARIOS ||--o{ TUTORES : "id_usuario"
+                        USUARIOS ||--o{ PROFESIONALES : "id_usuario"
+                        USUARIOS ||--o{ REFRESH_TOKENS : "id_usuario"
+                        USUARIOS ||--o{ PARTICIPANTES_CHATS : "id_usuario"
+                        USUARIOS ||--o{ MENSAJES : "id_usuario_emisor"
+                        USUARIOS ||--o{ ARCHIVOS : "id_usuario_creador"
+                        USUARIOS ||--o{ DISPOSITIVOS : "id_usuario"
+                        PERTENECIENTES ||--o{ AVATARES : "id_perteneciente"
+                        PERTENECIENTES ||--o{ VINCULOS_TUTOR_PERTENECIENTES : "id_perteneciente"
+                        PERTENECIENTES ||--o{ VINCULOS_PROFESIONAL_PERTENECIENTES : "id_perteneciente"
+                        PERTENECIENTES ||--o{ ACTIVIDADES_ASIGNADAS : "id_perteneciente"
+                        PERTENECIENTES ||--o{ ZONAS_SEGURAS : "id_perteneciente"
+                        TUTORES ||--o{ VINCULOS_TUTOR_PERTENECIENTES : "id_tutor"
+                        TUTORES ||--o{ ZONAS_SEGURAS : "id_tutor_creador"
+                        PROFESIONALES ||--o{ VINCULOS_PROFESIONAL_PERTENECIENTES : "id_profesional"
+                        CHATS ||--o{ PARTICIPANTES_CHATS : "id_chat"
+                        CHATS ||--o{ MENSAJES : "id_chat"
+                        DISPOSITIVOS ||--o{ UBICACIONES_ACTUALES : "id_dispositivo"
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Conexión con el resto del sistema</h3>
+                <table>
+                    <tr>
+                        <th>Tabla</th>
+                        <th>La usa</th>
+                        <th>Para qué</th>
+                    </tr>
+                    <tr>
+                        <td><code>usuarios</code></td>
+                        <td>Auth, Chat, Permisos, Socket.io</td>
+                        <td>Identificar quién hace cada acción</td>
+                    </tr>
+                    <tr>
+                        <td><code>mensajes</code></td>
+                        <td>Socket.io, Notificaciones (BullMQ)</td>
+                        <td>Persistir y emitir mensajes en tiempo real</td>
+                    </tr>
+                    <tr>
+                        <td><code>permisos_otorgados_*</code></td>
+                        <td>AuthorizationService</td>
+                        <td>Decidir si una acción está permitida</td>
+                    </tr>
+                    <tr>
+                        <td><code>refresh_tokens</code></td>
+                        <td>AuthService</td>
+                        <td>Rotación segura de sesiones</td>
+                    </tr>
+                    <tr>
+                        <td><code>pictograms</code></td>
+                        <td>PictogramaService (ARASAAC)</td>
+                        <td>Cache local de pictogramas externos</td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- ====================================================== -->
+        <!-- 2. AUTH FLOW -->
+        <!-- ====================================================== -->
+        <section id="auth-flow">
+            <h2>Autenticación</h2>
+            <p class="subtitle">JWT custom HMAC-SHA256 + Refresh Token con rotación + CSRF double-submit cookie</p>
+
+            <div class="callout callout-why" id="auth-flow-why">
+                <strong>¿Por qué JWT custom sin librerías?</strong>
+                <p>Firmar un HMAC-SHA256 es trivial con el módulo <code>crypto</code> de Node.</p>
+                <p>No vale la pena agregar una dependencia como <code>jsonwebtoken</code>
+                    para algo tan simple.</p>
+                <p>Esto nos da control total sobre el formato
+                    y evita vulnerabilidades de librerías de terceros.</p>
+                <p>El access token expira en 15 minutos.
+                    Incluso si se filtra, el daño es limitado.</p>
+                <p>La <strong>rotación de refresh tokens</strong> permite detectar robos:</p>
+                <p>Cada vez que se usa un refresh token,
+                    se crea uno nuevo y se revoca el anterior.</p>
+                <p>Si alguien usa un token ya revocado,
+                    la API invalida <strong>toda la familia</strong> y fuerza un relogin.</p>
+            </div>
+
+            <div class="sub-section" id="auth-flow-how">
+                <h3>¿Cómo funciona el login?</h3>
+                <div class="card">
+                    <h4>Paso a paso</h4>
+                    <ol class="step-list">
+                        <li><strong>1.</strong> El frontend envía <code>POST /api/auth/login</code>
+                            con <code>{ correo, contrasena }</code>.</li>
+                        <li><strong>2.</strong> AuthController llama a AuthService.login().</li>
+                        <li><strong>3.</strong> AuthRepository busca el usuario por correo en la DB.</li>
+                        <li><strong>4.</strong> AuthService verifica la contraseña con <code>argon2.verify()</code>.
+                            <br>Si el hash es SHA256 legacy (versión anterior),
+                            hace <strong>auto-upgrade</strong> a Argon2id en ese mismo login.</li>
+                        <li><strong>5.</strong> Si las credenciales son válidas,
+                            llama a <code>createSession()</code>.</li>
+                        <li><strong>6.</strong> <code>createSession()</code> hace tres cosas:
+                            <ul>
+                                <li>Firma un JWT con HMAC-SHA256 con <code>{ id, id_tipo_usuario }</code>
+                                    y expiración de 15 minutos.</li>
+                                <li>Genera un refresh token aleatorio de 64 bytes en base64url.</li>
+                                <li>Guarda el SHA256 del refresh token en la tabla
+                                    <code>refresh_tokens</code> con un <code>family_id</code> UUID.</li>
+                            </ul>
+                        </li>
+                        <li><strong>7.</strong> El controlador setea tres cookies en la respuesta:
+                            <br><code>tandem_access_token</code> (HttpOnly),
+                            <br><code>tandem_refresh_token</code> (HttpOnly),
+                            <br><code>tandem_csrf_token</code> (no HttpOnly, accesible por JS).</li>
+                        <li><strong>8.</strong> La respuesta JSON vuelve con <code>{ ok: true, usuario }</code>.</li>
+                    </ol>
+                    <p><span class="file-ref">src/services/AuthService.js</span> &middot;
+                        <span class="file-ref">src/modules/security/jwt.helper.js</span></p>
+                </div>
+
+                <div class="diagram-container">
+                    <h4>Diagrama de secuencia del login</h4>
+                    <div class="mermaid">
+                        sequenceDiagram
+                        participant F as Frontend
+                        participant C as AuthController
+                        participant S as AuthService
+                        participant R as AuthRepository
+                        participant DB as PostgreSQL
+
+                        F->>C: POST /login { correo, contrasena }
+                        C->>S: login(correo, contrasena)
+                        S->>R: findByEmail(correo)
+                        R->>DB: SELECT * FROM usuarios WHERE correo = ?
+                        DB-->>R: usuario row
+                        R-->>S: Usuario entity
+                        S->>S: argon2.verify(hash, contrasena)
+                        Note over S: Si es hash SHA256 legacy → auto-upgrade a Argon2
+                        S->>S: signJwt({ id, id_tipo_usuario }) → JWT
+                        S->>S: crypto.randomBytes(64) → refresh token
+                        S->>DB: INSERT refresh_tokens (SHA256(token), family_id)
+                        S-->>C: { jwt, refreshToken, csrfToken }
+                        C->>F: Set-Cookie (3 cookies) + JSON response
+                    </div>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <h3>¿Cómo se protege cada request?</h3>
+                <div class="two-col">
+                    <div class="card">
+                        <h4>authMiddleware</h4>
+                        <p>Se aplica a todas las rutas <code>/api/*</code>
+                            excepto auth y pictogramas.</p>
+                        <ol class="step-list">
+                            <li><strong>1.</strong> Lee <code>tandem_access_token</code>
+                                de <code>req.cookies</code>.</li>
+                            <li><strong>2.</strong> Verifica la firma HMAC-SHA256
+                                con <code>timingSafeEqual</code>.</li>
+                            <li><strong>3.</strong> Verifica que <code>exp</code> no haya expirado.</li>
+                            <li><strong>4.</strong> Inyecta <code>req.user = payload</code>.</li>
+                            <li><strong>5.</strong> Si algo falla, responde 401.</li>
+                        </ol>
+                        <p><span class="file-ref">src/middlewares/auth.middleware.js</span></p>
+                    </div>
+                    <div class="card">
+                        <h4>csrfMiddleware</h4>
+                        <p>Protege contra ataques CSRF.
+                            Se aplica después del authMiddleware.</p>
+                        <ol class="step-list">
+                            <li><strong>1.</strong> GET, HEAD, OPTIONS pasan sin check.</li>
+                            <li><strong>2.</strong> Para otros métodos, lee <code>x-csrf-token</code>
+                                del header y <code>tandem_csrf_token</code> de la cookie.</li>
+                            <li><strong>3.</strong> Si no coinciden, responde 403.</li>
+                        </ol>
+                        <p>Esto funciona porque la cookie <code>tandem_csrf_token</code>
+                            es accesible por JS pero un sitio malicioso no puede leer cookies de otro dominio.</p>
+                        <p>El frontend envía el token como header personalizado,
+                            que un atacante no puede replicar.</p>
+                        <p><span class="file-ref">src/middlewares/csrf.middleware.js</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <h3>Refresh Token — detección de robo</h3>
+                <div class="callout callout-how">
+                    <strong>¿Cómo funciona la rotación?</strong>
+                    <p>Cada vez que el frontend llama a <code>POST /api/auth/refresh</code>:</p>
+                    <ol class="step-list">
+                        <li><strong>1.</strong> Lee <code>tandem_refresh_token</code> de la cookie.</li>
+                        <li><strong>2.</strong> Busca el SHA256 del token en la tabla
+                            <code>refresh_tokens</code>.</li>
+                        <li><strong>3.</strong> Si el token fue <strong>revocado</strong>
+                            (tiene <code>replaced_by_token_hash</code>),
+                            significa que alguien lo está reutilizando.
+                            <br>La API revoca <strong>toda la familia</strong>
+                            (todos los tokens con el mismo <code>family_id</code>)
+                            y responde 401 — el usuario debe reloguear.</li>
+                        <li><strong>4.</strong> Si el token es válido, crea uno nuevo,
+                            marca el anterior como revocado y responde con nuevas cookies.</li>
+                    </ol>
+                    <p>Esto es el patrón <strong>Refresh Token Rotation</strong> de OWASP.</p>
+                </div>
+                <div class="diagram-container">
+                    <div class="mermaid">
+                        sequenceDiagram
+                        participant C as Cliente
+                        participant A as API
+                        participant DB as PostgreSQL
+
+                        C->>A: POST /auth/refresh (cookie incluida)
+                        A->>A: SHA256(cookie) → token_hash
+                        A->>DB: SELECT * FROM refresh_tokens WHERE token_hash = ?
+                        DB-->>A: { family_id, expires_at, replaced_by }
+
+                        alt Token revocado (replaced_by IS NOT NULL)
+                        A->>DB: UPDATE refresh_tokens SET revoked_at=NOW() WHERE family_id = ?
+                        Note over A: ¡Ataque detectado! Revocar toda la familia
+                        A-->>C: 401 → Forzar relogin
+
+                        else Token expirado
+                        A-->>C: 401 Expirado
+
+                        else Token válido
+                        A->>A: Firmar nuevo JWT + nuevo refresh token
+                        A->>DB: Revocar anterior + INSERT nuevo
+                        A->>C: Set-Cookie: nuevas cookies
+                        A-->>C: { ok: true }
+                        end
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Conexión con el resto del sistema</h3>
+                <table>
+                    <tr>
+                        <th>Componente</th>
+                        <th>¿Cómo usa la autenticación?</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Socket.io</strong></td>
+                        <td>El middleware <code>io.use()</code> extrae el JWT de la cookie
+                            <code>tandem_access_token</code> y verifica con <code>verifyJwt()</code> antes de permitir
+                            la conexión. El payload queda en <code>socket.data.user</code>.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Permisos</strong></td>
+                        <td><code>req.user</code> (del authMiddleware) contiene <code>id</code> e
+                            <code>id_tipo_usuario</code>, que AuthorizationService usa para determinar roles y
+                            permisos.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Rate Limiting</strong></td>
+                        <td>Los endpoints de login/register tienen un rate limiter de 10 requests / 15 min. El de
+                            refresh tiene 60 / 15 min. Esto mitiga ataques de fuerza bruta.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Chat</strong></td>
+                        <td>El ChatService usa <code>req.user.id</code> para saber quién envía el mensaje y validar
+                            que sea participante del chat.</td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- ====================================================== -->
+        <!-- 3. CHAT REALTIME -->
+        <!-- ====================================================== -->
+        <section id="chat-realtime">
+            <h2>Chat Realtime</h2>
+            <p class="subtitle">Socket.io con autenticación JWT, rooms, Redis adapter y cola de notificaciones BullMQ</p>
+
+            <div class="callout callout-why" id="chat-realtime-why">
+                <strong>¿Por qué Socket.io y no WebSocket plano?</strong>
+                <p>Socket.io nos da <strong>rooms</strong>
+                    (agrupar sockets por chat o por usuario).</p>
+                <p><strong>Fallback a polling</strong> — si WebSocket no anda, cae a HTTP long-polling.</p>
+                <p><strong>Reconexión automática</strong> — no hay que implementarla a mano.</p>
+                <p><strong>Middleware de autenticación</strong> — se integra con el JWT de cookie.</p>
+                <p><strong>Adapter de Redis</strong> — para escalar horizontalmente entre instancias.</p>
+                <p>Todo eso hecho a mano con <code>ws</code> raw lleva mucho más código y testing.</p>
+                <p>Además, Socket.io tiene <code>connectionStateRecovery</code>
+                    que permite recuperar mensajes perdidos durante una desconexión de hasta 2 minutos.</p>
+            </div>
+
+            <div class="sub-section" id="chat-realtime-how">
+                <h3>¿Cómo se conecta un usuario?</h3>
+                <div class="card">
+                    <h4>Paso a paso</h4>
+                    <ol class="step-list">
+                        <li><strong>1.</strong> El frontend se conecta a Socket.io
+                            con <code>{ withCredentials: true }</code>.
+                            <br>Esto envía las cookies automáticamente.</li>
+                        <li><strong>2.</strong> El middleware <code>io.use()</code> intercepta la conexión.
+                            <br>Extrae <code>tandem_access_token</code> de la cookie,
+                            verifica el JWT y si es válido, guarda
+                            <code>{ id, id_tipo_usuario }</code> en <code>socket.data.user</code>.</li>
+                        <li><strong>3.</strong> El handler <code>io.on('connection')</code>
+                            une automáticamente el socket al room <code>user:{id}</code>.
+                            <br>Este room se usa para notificaciones personalizadas.</li>
+                        <li><strong>4.</strong> El frontend emite <code>chat:join</code>
+                            para cada chat que el usuario quiera escuchar.</li>
+                        <li><strong>5.</strong> El servidor verifica que el usuario sea
+                            <strong>participante activo</strong> del chat
+                            (contra DB o cache Redis) y une el socket al room
+                            <code>chat:{id_chat}</code>.</li>
+                    </ol>
+                    <p><span class="file-ref">src/realtime/socket.js</span> &middot;
+                        <span class="file-ref">src/realtime/rooms.js</span></p>
+                </div>
+
+                <div class="diagram-container">
+                    <h4>Conexión y autenticación Socket.io</h4>
+                    <div class="mermaid">
+                        flowchart TD
+                        A[Frontend: io(API_URL, {withCredentials})] --> B[io.use auth middleware]
+                        B --> C{Leer tandem_access_token<br>de cookie}
+                        C -->|No existe| D[Error: Token requerido]
+                        C -->|Existe| E{verifyJwt(token)}
+                        E -->|Inválido| F[Error: Token invalido]
+                        E -->|Válido| G[socket.data.user = payload]
+                        G --> H[auto-join user:{id}]
+
+                        H --> I[Frontend: emit chat:join]
+                        I --> J{Es participante activo?}
+                        J -->|No| K[Error: Sin permisos]
+                        J -->|Sí| L[join chat:{id_chat}]
+                        L --> M[Listo para recibir mensajes]
+
+                        subgraph "Rooms automáticos"
+                        N[user:{idUsuario} - notificaciones]
+                        O[chat:{idChat} - mensajes del chat]
+                        end
+                    </div>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <h3>¿Cómo se envía un mensaje?</h3>
+                <div class="diagram-container">
+                    <div class="mermaid">
+                        sequenceDiagram
+                        participant E as Emisor (socket)
+                        participant S as Socket.io Server
+                        participant R as Redis Adapter
+                        participant DB as PostgreSQL
+                        participant B as BullMQ
+                        participant D as Destinatarios
+
+                        E->>S: message:send { id_chat, id_tipo_mensaje, contenido }
+
+                        S->>DB: Validar participante activo (SELECT en participantes_chats)
+                        S->>DB: INSERT INTO mensajes (id_chat, id_usuario_emisor, contenido, ...)
+                        DB-->>S: mensaje creado
+
+                        S->>S: EMIT message:new a room chat:{id_chat}
+                        S-->>E: callback({ ok: true, message })
+
+                        alt Redis HABILITADO
+                        S->>R: PUB a otras instancias
+                        R-->>D: message:new (en otras instancias)
+
+                        S->>B: Enqueue job de notificación
+                        B->>DB: Bulk INSERT de notificaciones
+                        B->>D: EMIT notification:new a user:{id_destino}
+                        else Redis DESHABILITADO
+                        S->>S: Procesar notificaciones en el mismo proceso
+                        end
+                    </div>
+                </div>
+
+                <div class="callout callout-how">
+                    <strong>¿Cómo se decide si el usuario puede enviar?</strong>
+                    <p>El server valida dos cosas antes de insertar el mensaje:</p>
+                    <p><strong>1)</strong> Que el usuario sea participante activo del chat
+                        (contra DB o Redis cache).</p>
+                    <p><strong>2)</strong> Si el perteneciente es tutelado y el chat es con un profesional,
+                        verifica el permiso <code>EnviarMensajes</code>
+                        o <code>ChatearConProfesional</code> según corresponda.</p>
+                    <p>Todo esto pasa antes de INSERTAR el mensaje en la DB.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Eventos Socket.io — referencia rápida</h3>
+                <table>
+                    <tr>
+                        <th>Evento</th>
+                        <th>Dirección</th>
+                        <th>Payload</th>
+                        <th>¿Qué hace el server?</th>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-socket">chat:join</span></td>
+                        <td>Cliente → Servidor</td>
+                        <td><code>{ id_chat }</code></td>
+                        <td>Verifica membresía y une al room <code>chat:{id}</code></td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-socket">chat:leave</span></td>
+                        <td>Cliente → Servidor</td>
+                        <td><code>{ id_chat }</code></td>
+                        <td>Saca el socket del room</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-socket">message:send</span></td>
+                        <td>Cliente → Servidor</td>
+                        <td><code>{ id_chat, contenido, id_tipo_mensaje }</code></td>
+                        <td>Valida, persiste en DB, emite <code>message:new</code> a todo el room, encola
+                            notificación</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-socket">message:new</span></td>
+                        <td>Servidor → Cliente</td>
+                        <td><code>{ id, contenido, usuario, fecha }</code></td>
+                        <td>Broadcast a todos en el room del chat</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-socket">message:typing</span></td>
+                        <td>Cliente → Servidor</td>
+                        <td><code>{ id_chat, escribiendo: bool }</code></td>
+                        <td>Reenvía a los demás sockets en el room (no al emisor)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-socket">notification:new</span></td>
+                        <td>Servidor → Cliente</td>
+                        <td><code>{ titulo, cuerpo, tipo }</code></td>
+                        <td>Se emite al room <code>user:{id}</code> del destinatario</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Conexión con el resto del sistema</h3>
+                <table>
+                    <tr>
+                        <th>Componente</th>
+                        <th>¿Cómo se conecta con Chat?</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Autenticación</strong></td>
+                        <td>Socket.io usa el mismo JWT de cookie. No hay un segundo login.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Redis</strong></td>
+                        <td>Como <strong>adapter</strong> (PUB/SUB entre instancias) y como <strong>cache de
+                                membresía</strong> (evita consultar DB en cada mensaje).</td>
+                    </tr>
+                    <tr>
+                        <td><strong>BullMQ</strong></td>
+                        <td>Al enviar un mensaje, se encola un job para crear notificaciones en batch.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Permisos</strong></td>
+                        <td>Al crear un chat profesional-perteneciente, se validan permisos y vínculos activos.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Base de Datos</strong></td>
+                        <td>Todos los mensajes se persisten en <code>mensajes</code>. Los chats y participantes en
+                            sus tablas correspondientes.</td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- ====================================================== -->
+        <!-- 4. REDIS -->
+        <!-- ====================================================== -->
+        <section id="redis">
+            <h2>Redis & Caché</h2>
+            <p class="subtitle">Opcional — ioredis para Socket.io adapter, BullMQ, caché de consultas y rate limiting</p>
+
+            <div class="callout callout-why" id="redis-why">
+                <strong>¿Por qué Redis es opcional?</strong>
+                <p>En desarrollo no queremos depender de tener Redis instalado.</p>
+                <p>Si <code>REDIS_URL</code> no está configurado, todo funciona igual:</p>
+                <p>Socket.io no usa adapter (sirve para 1 instancia).</p>
+                <p>Las notificaciones se procesan en el mismo proceso sin BullMQ.</p>
+                <p>El cacheo simplemente no ocurre.</p>
+                <p>En producción, activás Redis y obtenés:</p>
+                <p><strong>Escalado horizontal</strong> — múltiples instancias
+                    comparten estado via Redis adapter.</p>
+                <p><strong>Colas persistentes</strong> — BullMQ no pierde jobs.</p>
+                <p><strong>Caché de consultas</strong> — menos carga en PostgreSQL.</p>
+            </div>
+
+            <div class="sub-section" id="redis-how">
+                <h3>¿Cómo se conecta Redis?</h3>
+                <div class="two-col">
+                    <div class="card">
+                        <h4>Conexión factory</h4>
+                        <p><code>createRedisConnection()</code> devuelve una instancia de ioredis
+                            con nombre descriptivo.</p>
+                        <p>Ej: <code>tandem:socket-io-pub</code>, <code>tandem:bullmq</code>, etc.</p>
+                        <p>Usa <code>lazyConnect: true</code> para no bloquear el startup
+                            si Redis no está disponible.</p>
+                        <p><span class="file-ref">src/redis/redisClient.js</span></p>
+                    </div>
+                    <div class="card">
+                        <h4>Configuración</h4>
+                        <p>En <code>.env</code>:</p>
+                        <div class="code-block">
+                            <span class="comment"># Opcional — si no está, Redis se desactiva</span>
+                            REDIS_URL=redis://localhost:6379
+                            START_NOTIFICATION_WORKER=<span class="keyword">true</span>
+                            NOTIFICATION_WORKER_CONCURRENCY=5
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <h3>Los 4 usos de Redis</h3>
+                <div class="diagram-container">
+                    <div class="mermaid">
+                        flowchart TD
+                        A[Redis] --> B[CacheService]
+                        A --> C[Socket.io Adapter]
+                        A --> D[BullMQ Queue]
+                        A --> E[Rate Limiting Store]
+
+                        subgraph "1. CacheService — cache-aside"
+                        F[Pedido con clave] --> G{Está en Redis?}
+                        G -->|Sí| H[Return valor cachead]
+                        G -->|No| I[Query a PostgreSQL]
+                        I --> J[Guardar en Redis con TTL]
+                        J --> H
+                        end
+
+                        subgraph "2. Socket.io Adapter"
+                        K[Instancia A emite evento] --> L[Redis PUBLISH]
+                        L --> M[Instancia B recibe SUBSCRIBE]
+                        L --> N[Instancia C recibe SUBSCRIBE]
+                        end
+
+                        subgraph "3. BullMQ — Notificaciones"
+                        O[Mensaje enviado] --> P[Enqueue job en Redis]
+                        P --> Q[Worker toma el job]
+                        Q --> R[Bulk INSERT notificaciones]
+                        R --> S[EMIT notification:new]
+                        end
+
+                        subgraph "4. Rate Limiting"
+                        T[Request a /auth/login] --> U[express-rate-limit + Redis]
+                        U --> V{Contador &lt; 10?}
+                        V -->|Sí| W[Permitir]
+                        V -->|No| X[429 Too Many Requests]
+                        end
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>CacheService — patrón cache-aside</h3>
+                <p><code>getOrSet(key, fetchFn, ttl)</code>:
+                    si la clave está en Redis la devuelve;
+                    si no, ejecuta <code>fetchFn</code>, guarda el resultado y lo devuelve.</p>
+                <p><code>delByPattern(pattern)</code>: limpia caché por patrón
+                    (ej: <code>"permisos:*"</code>) usando <code>scanStream</code>.</p>
+                <div class="code-block">
+                    <span class="keyword">class</span> <span class="func">CacheService</span> {
+                    &nbsp;&nbsp;<span class="keyword">constructor</span>(redisClient) {
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this</span>.client = redisClient;
+                    &nbsp;&nbsp;}
+
+                    &nbsp;&nbsp;<span class="keyword">async</span> <span class="func">getOrSet</span>(key, fetchFn, ttl = 300) {
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">const</span> cached = <span class="keyword">await</span>
+                    <span class="keyword">this</span>.<span class="func">get</span>(key);
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if</span> (cached !== <span class="keyword">null</span>)
+                    <span class="keyword">return</span> cached;
+
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">const</span> data = <span class="keyword">await</span>
+                    <span class="func">fetchFn</span>();
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">await</span> <span class="keyword">this</span>.<span class="func">set</span>(key, data, ttl);
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return</span> data;
+                    &nbsp;&nbsp;}
+
+                    &nbsp;&nbsp;<span class="keyword">async</span> <span class="func">delByPattern</span>(pattern) {
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">const</span> stream = <span class="keyword">this</span>.client.<span class="func">scanStream</span>({
+                    match: pattern });
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">for await</span> (<span class="keyword">const</span> keys
+                    <span class="keyword">of</span> stream) {
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if</span> (keys.length) <span class="keyword">await</span>
+                    <span class="keyword">this</span>.client.<span class="func">del</span>(keys);
+                    &nbsp;&nbsp;&nbsp;&nbsp;}
+                    &nbsp;&nbsp;}
+                    }
+                </div>
+                <p><span class="file-ref">src/services/CacheService.js</span></p>
+            </div>
+
+            <div class="card">
+                <h3>Conexión con el resto del sistema</h3>
+                <table>
+                    <tr>
+                        <th>Lo usa</th>
+                        <th>Para qué</th>
+                        <th>TTL</th>
+                    </tr>
+                    <tr>
+                        <td><strong>AuthorizationService</strong></td>
+                        <td>Cachear contexto de permisos (<code>permisos:contexto:{id}</code>)</td>
+                        <td>60 segundos</td>
+                    </tr>
+                    <tr>
+                        <td><strong>ChatMembershipCache</strong></td>
+                        <td>Cachear participantes de chats (<code>chat:{id}:members</code>)</td>
+                        <td>Sin expiración (SET)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>PictogramaService</strong></td>
+                        <td>Cachear respuestas de ARASAAC (<code>arasaac:{query}</code>)</td>
+                        <td>1h - 24h</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Rate Limiting</strong></td>
+                        <td>Contador de requests por IP (<code>rate:auth:{ip}</code>)</td>
+                        <td>15 minutos</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Socket.io</strong></td>
+                        <td>PUB/SUB entre instancias para escalado horizontal</td>
+                        <td>—</td>
+                    </tr>
+                    <tr>
+                        <td><strong>BullMQ</strong></td>
+                        <td>Cola persistente de notificaciones</td>
+                        <td>—</td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- ====================================================== -->
+        <!-- 5. EXTERNAL APIS -->
+        <!-- ====================================================== -->
+        <section id="external-apis">
+            <h2>APIs Externas</h2>
+            <p class="subtitle">Axios para integración con ARASAAC, DiceBear y Supabase Storage</p>
+
+            <div class="callout callout-why">
+                <strong>¿Por qué Axios y no fetch nativo?</strong>
+                <p>Axios nos da <strong>timeout global</strong> (10s).</p>
+                <p><strong>Interceptors</strong> para logging y manejo de errores centralizado.</p>
+                <p><strong>Transformación automática</strong> de JSON.</p>
+                <p>Maneja mejor los errores de red:
+                    <code>fetch</code> no tira error en 4xx/5xx,
+                    hay que checkear <code>response.ok</code> a mano.</p>
+            </div>
+
+            <div class="sub-section" id="external-apis-how">
+                <h3>Cliente compartido</h3>
+                <div class="code-block">
+                    <span class="keyword">import</span> axios <span class="keyword">from</span> <span class="string">'axios'</span>;
+
+                    <span class="keyword">const</span> axiosClient = axios.<span class="func">create</span>({
+                    &nbsp;&nbsp;timeout: <span class="const">10000</span>,
+                    &nbsp;&nbsp;headers: { <span class="string">'User-Agent'</span>: <span class="string">'Tandem/1.0'</span>
+                    },
+                    });
+
+                    <span class="keyword">export default</span> axiosClient;
+                </div>
+                <p>Todos los servicios externos importan este cliente.</p>
+                <p>Si en el futuro necesitamos agregar un <strong>interceptor</strong>
+                    (log, retry, auth), se hace en un solo lugar.</p>
+                <p><span class="file-ref">src/modules/axios/axiosClient.js</span></p>
+            </div>
+
+            <div class="diagram-container">
+                <h3>Integraciones externas</h3>
+                <div class="mermaid">
+                    flowchart LR
+                    A[Tándem Backend] --> B[ARASAAC API]
+                    A --> C[DiceBear API]
+                    A --> D[Supabase Storage]
+
+                    subgraph "ARASAAC — Pictogramas"
+                    direction TB
+                    B1[Búsqueda: GET /pictograms/es/search/:query]
+                    B2[Detalle: GET /pictograms/es/:id]
+                    B3[Sincronización: GET /pictograms/es/all]
+                    B4[Imagen: static.arasaac.org/:id.png]
+
+                    B1 --> E[Redis cache 1h-24h]
+                    B2 --> E
+                    B3 --> F[Guardar en DB local]
+                    B4 --> G[Subir PNG a Supabase]
+                    end
+
+                    subgraph "DiceBear — Avatares"
+                    direction TB
+                    C1[Generar URL con params estéticos]
+                    C2[Descargar PNG]
+                    C3[Subir a Supabase Storage]
+                    end
+
+                    subgraph "Supabase — Storage"
+                    direction TB
+                    D1[PUT /storage/v1/object/:bucket/:path]
+                    D2[DELETE /storage/v1/object/:bucket/:path]
+                    end
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>1. ARASAAC — Pictogramas</h3>
+                <p><strong>¿Para qué?</strong> Los pictogramas son imágenes que representan conceptos,
+                    usadas por personas con TEA para comunicarse.</p>
+                <p>ARASAAC es el repositorio estándar en español.</p>
+                <p><strong>¿Cómo funciona?</strong></p>
+                <ol class="step-list">
+                    <li><strong>Búsqueda:</strong> el frontend busca pictogramas
+                        (<code>GET /api/pictograms/search?q=comer</code>).</li>
+                    <li><strong>Cache:</strong> PictogramaService primero revisa la <strong>cache de Redis</strong>.
+                        <br>Si está, devuelve directamente.
+                        <br>Si no, llama a la API de ARASAAC, cachea el resultado y lo devuelve.</li>
+                    <li><strong>Imágenes:</strong> cuando se necesita la imagen,
+                        se descarga desde <code>static.arasaac.org</code>
+                        y se <strong>sube a Supabase Storage</strong> para tenerla localmente.</li>
+                    <li><strong>Sincronización:</strong> un job programado
+                        (<span class="file-ref">src/jobs/pictogramaSyncJob.js</span>)
+                        sincroniza el catálogo completo periódicamente.</li>
+                </ol>
+                <p><span class="file-ref">src/services/PictogramaService.js</span></p>
+            </div>
+
+            <div class="card">
+                <h3>2. DiceBear — Avatares</h3>
+                <p><strong>¿Para qué?</strong> Generar avatares estilo ilustración
+                    para los perfiles de usuario.</p>
+                <p>Sin requerir que el usuario suba una foto.</p>
+                <p><strong>¿Cómo funciona?</strong></p>
+                <ol class="step-list">
+                    <li><strong>1.</strong> Se construye una URL con parámetros de apariencia
+                        (color de piel, peinado, ropa, accesorios) según las preferencias del usuario.</li>
+                    <li><strong>2.</strong> Se descarga el PNG con Axios.</li>
+                    <li><strong>3.</strong> Se sube a <strong>Supabase Storage</strong>
+                        para servirlo como imagen estática.</li>
+                </ol>
+                <p><span class="file-ref">src/services/AvatarImageStorageService.js</span></p>
+            </div>
+
+            <div class="card">
+                <h3>3. Supabase — File Storage</h3>
+                <p><strong>¿Para qué?</strong> Almacenar archivos que los usuarios suben
+                    (fotos, documentos, comprobantes).</p>
+                <p>También los generados por el sistema (avatares, pictogramas).</p>
+                <p><strong>¿Cómo funciona?</strong></p>
+                <ol class="step-list">
+                    <li><strong>1.</strong> Se usa la <strong>API REST de Supabase Storage</strong>
+                        (no el SDK).</li>
+                    <li><strong>2.</strong> Se autentica con <code>SUPABASE_URL</code> +
+                        <code>SUPABASE_SERVICE_KEY</code> (service role, no la anon key).</li>
+                </ol>
+                <p><strong>Buckets:</strong></p>
+                <ul style="font-size:0.9rem;color:var(--text-muted);padding-left:1.2rem;">
+                    <li><code>archivos</code> — uploads generales</li>
+                    <li><code>avatars</code> — imágenes de DiceBear</li>
+                    <li><code>chat-avatars</code> — avatares de grupo</li>
+                </ul>
+                <p><span class="file-ref">src/services/FileStorageService.js</span></p>
+            </div>
+
+            <div class="card">
+                <h3>Conexión con el resto del sistema</h3>
+                <table>
+                    <tr>
+                        <th>Componente</th>
+                        <th>¿Cómo se conecta?</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Redis</strong></td>
+                        <td>Cachea respuestas de ARASAAC. Sin Redis, cada búsqueda va a la API externa.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Supabase</strong></td>
+                        <td>Guarda imágenes descargadas de ARASAAC y DiceBear, más los archivos subidos por usuarios.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Multer (upload)</strong></td>
+                        <td>El middleware <code>upload.middleware.js</code> valida <strong>magic bytes</strong> (no
+                            confía en extensiones) antes de pasar el archivo a FileStorageService.</td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- ====================================================== -->
+        <!-- 6. PERMISOS -->
+        <!-- ====================================================== -->
+        <section id="permissions">
+            <h2>Permisos</h2>
+            <p class="subtitle">Modelo de autorización por roles con catálogos, defaults por modo y auditoría</p>
+
+            <div class="callout callout-why">
+                <strong>¿Por qué este modelo y no CASL o similar?</strong>
+                <p>El modelo de Tándem tiene particularidades:</p>
+                <p>Los <strong>pertenecientes</strong> pueden operar
+                    en dos modos (autogestionado / tutelado).</p>
+                <p>Los <strong>tutores</strong> autorizan sobre múltiples pertenecientes.</p>
+                <p>Los <strong>profesionales</strong> tienen permisos específicos por vínculo.</p>
+                <p>Una librería genérica como CASL requeriría adaptadores
+                    que al final hacen lo mismo que <code>AuthorizationService.can()</code>.</p>
+                <p>Además, necesitamos <strong>auditoría</strong> de cada cambio de permiso
+                    (quién, cuándo, valor anterior/nuevo).</p>
+                <p>Con el modelo actual, el histórico se guarda automáticamente
+                    en tablas separadas.</p>
+            </div>
+
+            <div class="sub-section" id="permissions-how">
+                <h3>¿Cómo funciona?</h3>
+                <div class="two-col">
+                    <div class="card">
+                        <h4>1. Roles</h4>
+                        <p>Cada usuario tiene un <code>id_tipo_usuario</code> que define su rol:</p>
+                        <ul style="font-size:0.9rem;color:var(--text-muted);padding-left:1.2rem;">
+                            <li><strong>Perteneciente</strong> — usa la app</li>
+                            <li><strong>Tutor</strong> — autoriza permisos</li>
+                            <li><strong>Profesional</strong> — trabaja con vinculados</li>
+                            <li><strong>Admin</strong> — herramientas internas</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <h4>2. Modos del Perteneciente</h4>
+                        <p>El campo <code>puede_autogestionarse</code> determina el modo:</p>
+                        <ul style="font-size:0.9rem;color:var(--text-muted);padding-left:1.2rem;">
+                            <li><strong>Autogestionado</strong> (true) — permisos default abiertos</li>
+                            <li><strong>Tutelado</strong> (false) — requiere autorización del tutor</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <h4>3. Catálogos y defaults</h4>
+                        <p>Dos catálogos definen los permisos disponibles:
+                            uno para pertenecientes y otro para profesionales.</p>
+                        <p>Cada permiso tiene un <strong>default</strong> según el modo.</p>
+                    </div>
+                    <div class="card">
+                        <h4>4. AuthorizationService</h4>
+                        <p>Service central que recibe
+                            <code>(usuario, accion, contexto)</code>
+                            y determina si la acción está permitida.</p>
+                        <p>Busca en <code>permisos_otorgados</code>.
+                            Si no encuentra, usa el default del catálogo.</p>
+                    </div>
+                </div>
+                <p><span class="file-ref">src/services/AuthorizationService.js</span> &middot;
+                    <span class="file-ref">src/controllers/PermisoController.js</span></p>
+            </div>
+
+            <div class="diagram-container">
+                <h4>Flujo de autorización</h4>
+                <div class="mermaid">
+                    flowchart TD
+                    A[Acción solicitada<br>ej: "enviar mensaje"] --> B{AuthorizationService.can}
+
+                    B --> C{Buscar en<br>permisos_otorgados}
+                    C -->|Tiene registro| D[Usar valor guardado]
+                    C -->|No tiene| E[Usar default del catálogo]
+
+                    D --> F{Permitido?}
+                    E --> F
+
+                    F -->|Sí| G[✅ Acción permitida]
+                    F -->|No| H[❌ Acción denegada]
+
+                    subgraph "Ejemplo: Chat"
+                    I[Perteneciente tutelado<br>quiere enviar mensaje]
+                    I --> J[Buscar permiso "EnviarMensajes"]
+                    J --> K{Está otorgado?}
+                    K -->|No| L[Default tutelado = false]
+                    L --> M[❌ Denegado]
+                    K -->|Sí| N[Usar valor otorgado]
+                    end
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Permisos del Perteneciente — defaults por modo</h3>
+                <table>
+                    <tr>
+                        <th>Permiso</th>
+                        <th>Autogestionado</th>
+                        <th>Tutelado</th>
+                        <th>¿Qué controla?</th>
+                    </tr>
+                    <tr>
+                        <td><code>EditarPerfil</code></td>
+                        <td>✅ true</td>
+                        <td>✅ true</td>
+                        <td>Editar avatar, preferencias</td>
+                    </tr>
+                    <tr>
+                        <td><code>EditarPerfilSensible</code></td>
+                        <td>✅ true</td>
+                        <td>❌ false</td>
+                        <td>Nombre legal, correo, fecha nac.</td>
+                    </tr>
+                    <tr>
+                        <td><code>CompletarActividades</code></td>
+                        <td>✅ true</td>
+                        <td>✅ true</td>
+                        <td>Ejecutar actividades asignadas</td>
+                    </tr>
+                    <tr>
+                        <td><code>EnviarMensajes</code></td>
+                        <td>✅ true</td>
+                        <td>❌ false</td>
+                        <td>Enviar en chats permitidos</td>
+                    </tr>
+                    <tr>
+                        <td><code>ChatearConProfesional</code></td>
+                        <td>✅ true*</td>
+                        <td>❌ false</td>
+                        <td>Chat con profesional vinculado</td>
+                    </tr>
+                    <tr>
+                        <td><code>CrearActividadesPropias</code></td>
+                        <td>✅ true</td>
+                        <td>❌ false</td>
+                        <td>Crear actividades personales</td>
+                    </tr>
+                    <tr>
+                        <td><code>CompartirUbicacion</code></td>
+                        <td>❌ false</td>
+                        <td>❌ false</td>
+                        <td>Compartir ubicación GPS</td>
+                    </tr>
+                    <tr>
+                        <td><code>GastarPuntos</code></td>
+                        <td>✅ true</td>
+                        <td>❌ false</td>
+                        <td>Gastar en tienda/avatar</td>
+                    </tr>
+                </table>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;">
+                    * <code>ChatearConProfesional</code> es true solo si existe
+                    un vínculo profesional aprobado.
+                </p>
+            </div>
+
+            <div class="card">
+                <h3>Conexión con el resto del sistema</h3>
+                <table>
+                    <tr>
+                        <th>Componente</th>
+                        <th>¿Cómo se conecta?</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Autenticación</strong></td>
+                        <td><code>req.user</code> contiene el usuario autenticado. AuthorizationService lo usa para
+                            identificar el rol y buscar permisos.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Chat</strong></td>
+                        <td>Al enviar mensajes, se valida <code>EnviarMensajes</code>. Al crear chat profesional, se
+                            valida <code>ChatearConProfesional</code>.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Actividades</strong></td>
+                        <td>Al completar/asignar actividades, se valida <code>CompletarActividades</code> y
+                            <code>AsignarActividades</code>.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Redis</strong></td>
+                        <td>El contexto de permisos se cachea en Redis con TTL 60s para no consultar DB en cada
+                            request.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Frontend</strong></td>
+                        <td>Endpoint <span class="badge badge-get">GET</span>
+                            <code>/api/permisos/contexto</code> para que la UI muestre/oculte acciones según permisos.</td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- ====================================================== -->
+        <!-- 7. ARQUITECTURA -->
+        <!-- ====================================================== -->
+        <section id="architecture">
+            <h2>Arquitectura en Capas</h2>
+            <p class="subtitle">Express 5 + capa de rutas, controladores, servicios, repositorios y base de datos</p>
+
+            <div class="callout callout-why">
+                <strong>¿Por qué esta separación en capas?</strong>
+                <p>Cada capa tiene una responsabilidad única
+                    y se puede testear de forma aislada:</p>
+                <ul style="font-size:0.9rem;color:var(--text-muted);padding-left:1.2rem;">
+                    <li><strong>Controller</strong> — solo maneja HTTP (req/res).
+                        No tiene lógica de negocio.</li>
+                    <li><strong>Service</strong> — orquesta la lógica,
+                        llama a repositorios, cache, APIs externas.</li>
+                    <li><strong>Repository</strong> — solo SQL.
+                        No sabe de HTTP ni de reglas de negocio.</li>
+                    <li><strong>Entity</strong> — define la forma de los datos.
+                        Sin comportamiento.</li>
+                </ul>
+            </div>
+
+            <div class="diagram-container">
+                <h4>Flujo de un request</h4>
+                <div class="mermaid">
+                    flowchart LR
+                    subgraph "Middlewares (se ejecutan en orden)"
+                    M1[helmet<br>seguridad HTTP]
+                    M2[cors<br>orígenes permitidos]
+                    M3[cookieParser<br>parsea cookies]
+                    M4[rateLimiter<br>límite de requests]
+                    M5[authMiddleware<br>verifica JWT]
+                    M6[csrfMiddleware<br>valida CSRF token]
+                    end
+
+                    subgraph "Capas de la app"
+                    C[Controller<br>recibe req, llama service]
+                    S[Service<br>orquesta lógica]
+                    R[Repository<br>ejecuta SQL]
+                    end
+
+                    subgraph "Almacenamiento / Salida"
+                    DB[(PostgreSQL)]
+                    RD[(Redis)]
+                    SK[Socket.io]
+                    EXT[APIs Externas<br>ARASAAC, DiceBear, Supabase]
+                    end
+
+                    REQ[Request HTTP] --> M1 --> M2 --> M3 --> M4 --> M5 --> M6
+                    M6 --> C
+                    C --> S
+                    S --> R
+                    R --> DB
+                    S -.-> RD
+                    S -.-> SK
+                    S -.-> EXT
+                    C --> RES[Response JSON]
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <h3>Ejemplo real: listar mensajes de un chat</h3>
+                <div class="card">
+                    <div class="code-block">
+                        <span class="comment">// server.js — monta el controlador en una ruta</span>
+                        app.<span class="func">use</span>(<span class="string">'/api/mensajes'</span>, MensajeController);
+
+                        <span class="comment">// MensajeController.js — solo maneja HTTP</span>
+                        router.<span class="func">get</span>(<span class="string">'/chat/:idChat'</span>,
+                        <span class="keyword">async</span> (req, res, next) =&gt; {
+                        &nbsp;&nbsp;<span class="keyword">try</span> {
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">const</span> messages = <span class="keyword">await</span>
+                        mensajeService
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.<span class="func">getMessagesByChat</span>(req.params.idChat,
+                        req.user.id);
+                        &nbsp;&nbsp;&nbsp;&nbsp;res.<span class="func">json</span>({ ok: <span class="keyword">true</span>,
+                        data: messages });
+                        &nbsp;&nbsp;} <span class="keyword">catch</span> (error) {
+                        &nbsp;&nbsp;&nbsp;&nbsp;next(error);
+                        &nbsp;&nbsp;}
+                        });
+
+                        <span class="comment">// MensajeService.js — orquesta validaciones + datos</span>
+                        <span class="keyword">async</span> <span class="func">getMessagesByChat</span>(idChat,
+                        idUsuario) {
+                        &nbsp;&nbsp;<span class="comment">// Validar que sea participante activo</span>
+                        &nbsp;&nbsp;<span class="keyword">await</span> <span class="keyword">this</span>.participanteService
+                        &nbsp;&nbsp;&nbsp;&nbsp;.<span class="func">assertActiveParticipant</span>(idChat, idUsuario);
+
+                        &nbsp;&nbsp;<span class="comment">// Traer mensajes desde el repo</span>
+                        &nbsp;&nbsp;<span class="keyword">return</span> <span class="keyword">this</span>.mensajeRepo
+                        &nbsp;&nbsp;&nbsp;&nbsp;.<span class="func">findByChat</span>(idChat);
+                        }
+
+                        <span class="comment">// MensajeRepository.js — solo SQL</span>
+                        <span class="keyword">async</span> <span class="func">findByChat</span>(idChat) {
+                        &nbsp;&nbsp;<span class="keyword">const</span> sql = <span class="string">`SELECT m.*, u.nombre_usuario
+                        &nbsp;&nbsp;&nbsp;&nbsp;FROM mensajes m
+                        &nbsp;&nbsp;&nbsp;&nbsp;INNER JOIN usuarios u ON u.id = m.id_usuario_emisor
+                        &nbsp;&nbsp;&nbsp;&nbsp;WHERE m.id_chat = $1 AND m.eliminado = false
+                        &nbsp;&nbsp;&nbsp;&nbsp;ORDER BY m.fecha_envio ASC`</span>;
+                        &nbsp;&nbsp;<span class="keyword">return</span> <span class="keyword">this</span>.bd.<span class="func">query</span>(sql,
+                        [idChat]);
+                        }
+                    </div>
+                    <p style="margin-top:0.5rem;">
+                        <span class="file-ref">src/controllers/MensajeController.js</span> &middot;
+                        <span class="file-ref">src/services/MensajeService.js</span> &middot;
+                        <span class="file-ref">src/repositories/MensajeRepository.js</span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Stack completo</h3>
+                <table>
+                    <tr>
+                        <th>Capa</th>
+                        <th>Tecnología</th>
+                        <th>Propósito</th>
+                        <th>¿Por qué esta?</th>
+                    </tr>
+                    <tr>
+                        <td>Framework web</td>
+                        <td>Express 5</td>
+                        <td>HTTP server, routing, middlewares</td>
+                        <td>Maduro, liviano, enorme ecosistema</td>
+                    </tr>
+                    <tr>
+                        <td>Base de datos</td>
+                        <td>PostgreSQL + pg</td>
+                        <td>Persistencia principal</td>
+                        <td>SQL crudo → control total, sin ORM</td>
+                    </tr>
+                    <tr>
+                        <td>Tiempo real</td>
+                        <td>Socket.io 4</td>
+                        <td>Chat + notificaciones en vivo</td>
+                        <td>Rooms, adapter, auto-reconexión</td>
+                    </tr>
+                    <tr>
+                        <td>Caché / Colas</td>
+                        <td>Redis + ioredis + BullMQ</td>
+                        <td>Caché, adapter Socket.io, cola de jobs</td>
+                        <td>Opcional, fallback sin Redis</td>
+                    </tr>
+                    <tr>
+                        <td>Autenticación</td>
+                        <td>JWT custom + Argon2id</td>
+                        <td>Login, sesiones, protección</td>
+                        <td>Sin deps externas, control total</td>
+                    </tr>
+                    <tr>
+                        <td>API externas</td>
+                        <td>Axios</td>
+                        <td>ARASAAC, DiceBear, Supabase</td>
+                        <td>Timeout, interceptors, manejo de errores</td>
+                    </tr>
+                    <tr>
+                        <td>Seguridad</td>
+                        <td>Helmet + CORS + CSRF + Rate Limit</td>
+                        <td>Headers, cookies, protección</td>
+                        <td>OWASP best practices</td>
+                    </tr>
+                    <tr>
+                        <td>Documentación</td>
+                        <td>Swagger UI + OpenAPI 3</td>
+                        <td>Docs interactivas + testing</td>
+                        <td>Estándar de la industria</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Estructura de carpetas</h3>
+                <div class="code-block">
+                    src/
+                    ├── server.js                  <span class="comment"># Entry point: middlewares + rutas + startup</span>
+                    ├── configs/                   <span class="comment"># swagger.yaml, env.validation, cors, cookies</span>
+                    ├── db/                        <span class="comment"># BD.js — pool de PostgreSQL</span>
+                    ├── entities/                  <span class="comment"># 78 clases planas (Usuario, Chat, Mensaje...)</span>
+                    ├── repositories/              <span class="comment"># 81 archivos de SQL crudo</span>
+                    ├── services/                  <span class="comment"># 85 servicios con lógica de negocio</span>
+                    ├── controllers/               <span class="comment"># 80 routers de Express</span>
+                    ├── middlewares/               <span class="comment"># auth, csrf, rate-limit, upload, error</span>
+                    ├── modules/                   <span class="comment"># axios, security (jwt, hash), errors, helpers</span>
+                    ├── realtime/                  <span class="comment"># socket.js, rooms.js, realtime.js</span>
+                    ├── redis/                     <span class="comment"># redisClient.js — factory de ioredis</span>
+                    ├── cache/                     <span class="comment"># chatMembershipCache.js</span>
+                    ├── queues/                    <span class="comment"># notificationQueue.js (BullMQ)</span>
+                    ├── workers/                   <span class="comment"># notificationWorker.js (procesa cola)</span>
+                    ├── jobs/                      <span class="comment"># pictogramaSyncJob.js (sincronización batch)</span>
+                    ├── dtos/                      <span class="comment"># request/response DTOs</span>
+                    └── public/                    <span class="comment"># docs.html (esta página)</span>
+                </div>
+
+                <div class="callout callout-connect" style="margin-top:1rem;">
+                    <strong>Conexión entre capas en cada request</strong>
+                    <p style="font-size:0.9rem;">
+                        <code>server.js</code> monta ruta
+                        → <code>Controller</code> recibe req
+                        → <code>Service</code> orquesta
+                        → <code>Repository</code> ejecuta SQL
+                        → <code>DB</code> responde
+                        → <code>Service</code> arma respuesta
+                        → <code>Controller</code> envía JSON.
+                    </p>
+                    <p style="font-size:0.9rem;">
+                        El <code>Service</code> también puede llamar a:
+                    </p>
+                    <ul style="font-size:0.9rem;color:var(--text-muted);padding-left:1.2rem;">
+                        <li><code>CacheService</code> (Redis)</li>
+                        <li><code>realtime.emitToChat()</code> (Socket.io)</li>
+                        <li><code>axiosClient</code> (APIs externas)</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <footer style="text-align:center;padding:2rem 0;color:var(--text-muted);font-size:0.8rem;border-top:1px solid var(--border);margin-top:2rem;">
+            Tándem 2026 &mdash; Documentación de Arquitectura &mdash;
+            <a href="/api-docs" style="color:var(--primary);">Swagger UI</a>
+        </footer>
+
+    </main>
+
+    <script>
+        // ——————————————————————————————————
+        // 1. Mermaid init
+        // ——————————————————————————————————
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'neutral',
+            themeVariables: {
+                primaryColor: '#4f46e5',
+                primaryTextColor: '#fff',
+                primaryBorderColor: '#3730a3',
+                lineColor: '#818cf8',
+                secondaryColor: '#f1f5f9',
+                tertiaryColor: '#ffffff',
+                clusterBkg: '#f8fafc',
+                clusterBorder: '#e2e8f0',
+                nodeBorder: '#cbd5e1',
+                nodeTextColor: '#1e293b',
+            },
+            er: { entityPadding: 10, useMaxWidth: false },
+            sequence: { actorFontSize: 12, messageFontSize: 11 },
+            flowchart: { nodeSpacing: 25, rankSpacing: 35, curve: 'basis' },
+        });
+
+        // ——————————————————————————————————
+        // 2. Diagram zoom / pan interactivo
+        // ——————————————————————————————————
+        function setupDiagramZoom() {
+            document.querySelectorAll('.diagram-container').forEach(container => {
+                const svg = container.querySelector('svg');
+                if (!svg) return;
+
+                // Crear controles de zoom
+                if (container.querySelector('.zoom-controls')) return;
+
+                const controls = document.createElement('div');
+                controls.className = 'zoom-controls';
+                controls.innerHTML =
+                    '<button class="zoom-out" title="Alejar">−</button>' +
+                    '<span class="zoom-level">100%</span>' +
+                    '<button class="zoom-in" title="Acercar">+</button>' +
+                    '<button class="zoom-reset" title="Restablecer">⟲</button>';
+                container.appendChild(controls);
+
+                let scale = 1;
+                let panX = 0;
+                let panY = 0;
+                let isPanning = false;
+                let startX, startY;
+
+                const zoomLevelEl = controls.querySelector('.zoom-level');
+
+                function applyTransform() {
+                    svg.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
+                    const pct = Math.round(scale * 100);
+                    if (zoomLevelEl) zoomLevelEl.textContent = pct + '%';
+                }
+
+                // — Mouse wheel zoom —
+                container.addEventListener('wheel', function (e) {
+                    e.preventDefault();
+                    const rect = container.getBoundingClientRect();
+                    const mx = e.clientX - rect.left;
+                    const my = e.clientY - rect.top;
+
+                    const delta = e.deltaY > 0 ? -0.12 : 0.12;
+                    const newScale = Math.max(0.15, Math.min(8, scale + delta));
+                    const ratio = newScale / scale;
+
+                    panX = mx - ratio * (mx - panX);
+                    panY = my - ratio * (my - panY);
+                    scale = newScale;
+                    applyTransform();
+                }, { passive: false });
+
+                // — Drag to pan (mouse) —
+                svg.addEventListener('mousedown', function (e) {
+                    if (e.button !== 0) return;
+                    isPanning = true;
+                    svg.classList.add('dragging');
+                    startX = e.clientX - panX;
+                    startY = e.clientY - panY;
+                });
+
+                window.addEventListener('mousemove', function (e) {
+                    if (!isPanning) return;
+                    panX = e.clientX - startX;
+                    panY = e.clientY - startY;
+                    applyTransform();
+                });
+
+                window.addEventListener('mouseup', function () {
+                    if (isPanning) {
+                        isPanning = false;
+                        svg.classList.remove('dragging');
+                    }
+                });
+
+                // — Touch support —
+                let lastTouchDist = 0;
+                let lastTouchX = 0;
+                let lastTouchY = 0;
+                let pinchStartScale = 1;
+                let pinchStartPanX = 0;
+                let pinchStartPanY = 0;
+
+                container.addEventListener('touchstart', function (e) {
+                    if (e.touches.length === 1) {
+                        isPanning = true;
+                        startX = e.touches[0].clientX - panX;
+                        startY = e.touches[0].clientY - panY;
+                    } else if (e.touches.length === 2) {
+                        isPanning = false;
+                        const dx = e.touches[0].clientX - e.touches[1].clientX;
+                        const dy = e.touches[0].clientY - e.touches[1].clientY;
+                        lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+                        lastTouchX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                        lastTouchY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                        pinchStartScale = scale;
+                        pinchStartPanX = panX;
+                        pinchStartPanY = panY;
+                    }
+                }, { passive: true });
+
+                container.addEventListener('touchmove', function (e) {
+                    if (e.touches.length === 1 && isPanning) {
+                        panX = e.touches[0].clientX - startX;
+                        panY = e.touches[0].clientY - startY;
+                        applyTransform();
+                    } else if (e.touches.length === 2) {
+                        const dx = e.touches[0].clientX - e.touches[1].clientX;
+                        const dy = e.touches[0].clientY - e.touches[1].clientY;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                        const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+                        const newScale = Math.max(0.15, Math.min(8, pinchStartScale * (dist / lastTouchDist)));
+                        const ratio = newScale / pinchStartScale;
+                        panX = cx - ratio * (cx - pinchStartPanX);
+                        panY = cy - ratio * (cy - pinchStartPanY);
+                        scale = newScale;
+                        applyTransform();
+                    }
+                }, { passive: true });
+
+                container.addEventListener('touchend', function () {
+                    isPanning = false;
+                }, { passive: true });
+
+                // — Botones de zoom —
+                controls.querySelector('.zoom-in').addEventListener('click', function () {
+                    const rect = container.getBoundingClientRect();
+                    const cx = rect.width / 2;
+                    const cy = rect.height / 2;
+                    const newScale = Math.min(8, scale * 1.4);
+                    const ratio = newScale / scale;
+                    panX = cx - ratio * (cx - panX);
+                    panY = cy - ratio * (cy - panY);
+                    scale = newScale;
+                    applyTransform();
+                });
+
+                controls.querySelector('.zoom-out').addEventListener('click', function () {
+                    const rect = container.getBoundingClientRect();
+                    const cx = rect.width / 2;
+                    const cy = rect.height / 2;
+                    const newScale = Math.max(0.15, scale / 1.4);
+                    const ratio = newScale / scale;
+                    panX = cx - ratio * (cx - panX);
+                    panY = cy - ratio * (cy - panY);
+                    scale = newScale;
+                    applyTransform();
+                });
+
+                controls.querySelector('.zoom-reset').addEventListener('click', function () {
+                    scale = 1;
+                    panX = 0;
+                    panY = 0;
+                    applyTransform();
+                });
+            });
+        }
+
+        // Esperar a que Mermaid termine de renderizar
+        mermaid.run({ nodes: document.querySelectorAll('.mermaid') }).then(function () {
+            setupDiagramZoom();
+        }).catch(function (err) {
+            console.warn('Mermaid error:', err);
+            // Igual intentar setup por si algunos diagramas sí andan
+            setTimeout(setupDiagramZoom, 500);
+        });
+
+        // ——————————————————————————————————
+        // 3. Scroll spy para sidebar
+        // ——————————————————————————————————
+        const sections = document.querySelectorAll('section[id]');
+        const navLinks = document.querySelectorAll('#sidebar ul li a');
+
+        function updateActiveLink() {
+            let current = '';
+            sections.forEach(function (section) {
+                var top = section.offsetTop - 120;
+                if (window.scrollY >= top) {
+                    current = section.getAttribute('id');
+                }
+            });
+            navLinks.forEach(function (link) {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + current) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        window.addEventListener('scroll', updateActiveLink);
+        window.addEventListener('load', updateActiveLink);
+    </script>
+
+</body>
+</html>

@@ -10,11 +10,17 @@ export function isRedisEnabled() {
 export function createRedisConnection(name = 'default') {
   if (!envConfig.redisUrl) return null;
 
-  return new Redis(envConfig.redisUrl, {
+  const client = new Redis(envConfig.redisUrl, {
     connectionName: `tandem:${name}`,
     lazyConnect: true,
     maxRetriesPerRequest: null,
+    retryStrategy() {
+      return null;
+    },
+    enableReadyCheck: false,
   });
+  client.on('error', () => {});
+  return client;
 }
 
 export async function connectRedisClient(client, name = 'redis') {
@@ -25,7 +31,7 @@ export async function connectRedisClient(client, name = 'redis') {
     return client;
   } catch (error) {
     console.error(`[Redis] No se pudo conectar ${name}:`, error.message);
-    throw error;
+    return null;
   }
 }
 

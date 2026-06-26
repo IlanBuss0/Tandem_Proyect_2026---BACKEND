@@ -1,5 +1,6 @@
 import AppError from '../modules/errors/AppError.js';
 import AuthorizationRepository from '../repositories/AuthorizationRepository.js';
+import { cacheService } from './CacheService.js';
 import {
   AUTH_ACTIONS,
   PERTENECIENTE_DEFAULTS,
@@ -23,6 +24,10 @@ class AuthorizationService {
   }
 
   async getEffectivePertenecientePermissions(idPerteneciente) {
+    const cacheKey = `auth.permisos.pert.${idPerteneciente}`;
+    const cached = await cacheService.get(cacheKey);
+    if (cached) return cached;
+
     const perteneciente = await AuthorizationRepository.getPertenecienteById(idPerteneciente);
     if (!perteneciente?.usuario_activo) throw new AppError('Perteneciente no encontrado o inactivo', 404);
 
@@ -38,15 +43,22 @@ class AuthorizationService {
       };
     }
 
-    return {
+    const result = {
       id_perteneciente: idPerteneciente,
       puede_autogestionarse: perteneciente.puede_autogestionarse,
       mode,
       permisos,
     };
+
+    await cacheService.set(cacheKey, result, 60);
+    return result;
   }
 
   async getEffectiveProfesionalPermissions(idVinculoProfesionalPerteneciente) {
+    const cacheKey = `auth.permisos.prof.${idVinculoProfesionalPerteneciente}`;
+    const cached = await cacheService.get(cacheKey);
+    if (cached) return cached;
+
     const vinculo = await AuthorizationRepository.getVinculoProfesionalById(idVinculoProfesionalPerteneciente);
     if (!vinculo) throw new AppError('Vinculo profesional-perteneciente no encontrado', 404);
 
@@ -60,14 +72,21 @@ class AuthorizationService {
       };
     }
 
-    return {
+    const result = {
       id_vinculo_profesional_perteneciente: idVinculoProfesionalPerteneciente,
       vinculo_aprobado: this.isProfessionalLinkApproved(vinculo),
       permisos,
     };
+
+    await cacheService.set(cacheKey, result, 60);
+    return result;
   }
 
   async getPermissionContext(idUsuario) {
+    const cacheKey = `auth.context.${idUsuario}`;
+    const cached = await cacheService.get(cacheKey);
+    if (cached) return cached;
+
     const userContext = await this.getUserContext(idUsuario);
     if (!userContext) throw new AppError('Usuario no encontrado o inactivo', 404);
 
@@ -128,6 +147,7 @@ class AuthorizationService {
       })));
     }
 
+    await cacheService.set(cacheKey, data, 60);
     return data;
   }
 
@@ -494,6 +514,23 @@ class AuthorizationService {
 
   deny(reason) {
     return { allowed: false, reason };
+  }
+
+  async invalidateUserContext(idUsuario) {
+    await cacheService.delByPattern(`auth.context.${idUsuario}`);
+  }
+
+  async invalidatePertenecientePermissions(idPerteneciente) {
+    await cacheService.delByPattern(`auth.permisos.pert.${idPerteneciente}`);
+  }
+
+  async invalidateProfesionalPermissions(idVinculo) {
+    await cacheService.delByPattern(`auth.permisos.prof.${idVinculo}`);
+  }
+
+  async invalidateAllForUser(idUsuario) {
+    await cacheService.delByPattern(`auth.context.${idUsuario}`);
+    await cacheService.delByPattern(`auth.permisos.*`);
   }
 
   actionForPertenecientePermission(permissionName) {

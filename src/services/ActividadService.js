@@ -1,4 +1,5 @@
 import ActividadRepository from '../repositories/ActividadRepository.js';
+import { cacheService } from './CacheService.js';
 
 export default class ActividadService {
   constructor() {
@@ -8,8 +9,12 @@ export default class ActividadService {
 
   getAllAsync = async () => {
     console.log('ActividadService.getAllAsync()');
+    const cacheKey = 'actividad.catalog';
+    const cached = await cacheService.get(cacheKey);
+    if (cached) return cached;
     const returnArray = await this.ActividadRepository.getAllAsync();
     if (returnArray == null) return null;
+    await cacheService.set(cacheKey, returnArray, 1800);
     return returnArray;
   };
 
@@ -18,7 +23,11 @@ export default class ActividadService {
     if (!id || Number.isNaN(id)) {
       throw new Error('El id de la actividad es invalido.');
     }
+    const cacheKey = `actividad.${id}`;
+    const cached = await cacheService.get(cacheKey);
+    if (cached) return cached;
     const returnEntity = await this.ActividadRepository.getByIdAsync(id);
+    if (returnEntity) await cacheService.set(cacheKey, returnEntity, 1800);
     return returnEntity;
   };
 
@@ -26,6 +35,7 @@ export default class ActividadService {
     console.log(`ActividadService.createAsync(${JSON.stringify(entity)})`);
     this.validarActividadParaCrear(entity);
     const newId = await this.ActividadRepository.createAsync(entity);
+    await cacheService.delByPattern('actividad.*');
     return newId;
   };
 
@@ -37,6 +47,7 @@ export default class ActividadService {
     const previousEntity = await this.ActividadRepository.getByIdAsync(entity.id);
     if (previousEntity == null) return 0;
     const rowsAffected = await this.ActividadRepository.updateAsync(entity);
+    await cacheService.delByPattern('actividad.*');
     return rowsAffected;
   };
 
@@ -46,6 +57,7 @@ export default class ActividadService {
       throw new Error('El id de la actividad es invalido.');
     }
     const rowsAffected = await this.ActividadRepository.deleteByIdAsync(id);
+    await cacheService.delByPattern('actividad.*');
     return rowsAffected;
   };
 

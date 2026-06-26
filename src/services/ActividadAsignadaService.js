@@ -1,4 +1,5 @@
 import ActividadAsignadaRepository from '../repositories/ActividadAsignadaRepository.js';
+import { cacheService } from './CacheService.js';
 
 export default class ActividadAsignadaService {
   constructor() {
@@ -18,7 +19,11 @@ export default class ActividadAsignadaService {
     if (!id || Number.isNaN(id)) {
       throw new Error('El id de la actividad asignada es invalido.');
     }
+    const cacheKey = `actividad-asignada.${id}`;
+    const cached = await cacheService.get(cacheKey);
+    if (cached) return cached;
     const returnEntity = await this.ActividadAsignadaRepository.getByIdAsync(id);
+    if (returnEntity) await cacheService.set(cacheKey, returnEntity, 300);
     return returnEntity;
   };
 
@@ -27,13 +32,19 @@ export default class ActividadAsignadaService {
     if (!idPerteneciente || Number.isNaN(idPerteneciente)) {
       throw new Error('El id del perteneciente es invalido.');
     }
-    return await this.ActividadAsignadaRepository.getByPertenecienteIdAsync(idPerteneciente);
+    const cacheKey = `actividad-asignada.perteneciente.${idPerteneciente}`;
+    const cached = await cacheService.get(cacheKey);
+    if (cached) return cached;
+    const result = await this.ActividadAsignadaRepository.getByPertenecienteIdAsync(idPerteneciente);
+    if (result) await cacheService.set(cacheKey, result, 300);
+    return result;
   };
 
   createAsync = async (entity) => {
     console.log(`ActividadAsignadaService.createAsync(${JSON.stringify(entity)})`);
     this.validarActividadAsignadaParaCrear(entity);
     const newId = await this.ActividadAsignadaRepository.createAsync(entity);
+    await cacheService.delByPattern(`actividad-asignada.perteneciente.${entity.id_perteneciente}`);
     return newId;
   };
 
@@ -45,6 +56,7 @@ export default class ActividadAsignadaService {
     const previousEntity = await this.ActividadAsignadaRepository.getByIdAsync(entity.id);
     if (previousEntity == null) return 0;
     const rowsAffected = await this.ActividadAsignadaRepository.updateAsync(entity);
+    await cacheService.delByPattern('actividad-asignada.*');
     return rowsAffected;
   };
 
@@ -54,6 +66,7 @@ export default class ActividadAsignadaService {
       throw new Error('El id de la actividad asignada es invalido.');
     }
     const rowsAffected = await this.ActividadAsignadaRepository.deleteByIdAsync(id);
+    await cacheService.delByPattern('actividad-asignada.*');
     return rowsAffected;
   };
 

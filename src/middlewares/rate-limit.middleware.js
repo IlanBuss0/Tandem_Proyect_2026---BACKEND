@@ -23,3 +23,25 @@ export const inviteRateLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Demasiadas solicitudes. Probá nuevamente en unos minutos.' },
 });
+
+export async function setupRedisRateLimit() {
+  const { isRedisEnabled } = await import('../redis/redisClient.js');
+  if (!isRedisEnabled()) return;
+
+  try {
+    const { default: RedisStore } = await import('rate-limit-redis');
+    const { createRedisConnection, connectRedisClient } = await import('../redis/redisClient.js');
+    const client = createRedisConnection('rate-limit');
+    if (!client) return;
+    client.on('error', () => {});
+    const connected = await connectRedisClient(client, 'rate-limit');
+    if (!connected) return;
+    const store = new RedisStore({ sendCommand: (...args) => client.call(...args) });
+    authRateLimiter.store = store;
+    refreshRateLimiter.store = store;
+    inviteRateLimiter.store = store;
+    console.log('[RateLimit] Redis store activado.');
+  } catch (error) {
+    console.error('[RateLimit] No se pudo activar Redis store, usando memoria:', error.message);
+  }
+}

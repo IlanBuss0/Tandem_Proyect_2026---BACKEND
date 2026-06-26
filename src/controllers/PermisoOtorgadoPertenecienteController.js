@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import PermisoOtorgadoPertenecienteService from '../services/PermisoOtorgadoPertenecienteService.js';
 import PermisoOtorgadoPerteneciente from '../entities/PermisoOtorgadoPerteneciente.js';
+import AuthorizationService from '../services/AuthorizationService.js';
 
 const router = Router();
 const currentService = new PermisoOtorgadoPertenecienteService();
@@ -30,8 +31,10 @@ router.post('', async (req, res) => {
   try {
     const entity = new PermisoOtorgadoPerteneciente(req.body);
     const newId = await currentService.createAsync(entity);
-    if (newId > 0) res.status(StatusCodes.CREATED).json({ id: newId });
-    else res.status(StatusCodes.BAD_REQUEST).send('No se pudo crear.');
+    if (newId > 0) {
+      await AuthorizationService.invalidatePertenecientePermissions(entity.id_perteneciente);
+      res.status(StatusCodes.CREATED).json({ id: newId });
+    } else res.status(StatusCodes.BAD_REQUEST).send('No se pudo crear.');
   } catch (error) {
     res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
@@ -43,8 +46,10 @@ router.put('/:id', async (req, res) => {
     const entity = new PermisoOtorgadoPerteneciente(req.body);
     entity.id = id;
     const rowsAffected = await currentService.updateAsync(entity);
-    if (rowsAffected !== 0) res.status(StatusCodes.OK).json({ rowsAffected });
-    else res.status(StatusCodes.NOT_FOUND).send('No encontrado.');
+    if (rowsAffected !== 0) {
+      await AuthorizationService.invalidatePertenecientePermissions(entity.id_perteneciente);
+      res.status(StatusCodes.OK).json({ rowsAffected });
+    } else res.status(StatusCodes.NOT_FOUND).send('No encontrado.');
   } catch (error) {
     res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
@@ -54,8 +59,10 @@ router.delete('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const rowCount = await currentService.deleteByIdAsync(id);
-    if (rowCount !== 0) res.status(StatusCodes.OK).json({ rowsAffected: rowCount });
-    else res.status(StatusCodes.NOT_FOUND).send('No encontrado.');
+    if (rowCount !== 0) {
+      await AuthorizationService.invalidateAllForUser();
+      res.status(StatusCodes.OK).json({ rowsAffected: rowCount });
+    } else res.status(StatusCodes.NOT_FOUND).send('No encontrado.');
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
   }

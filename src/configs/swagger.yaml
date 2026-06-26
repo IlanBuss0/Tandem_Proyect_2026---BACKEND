@@ -2,35 +2,76 @@ openapi: 3.0.3
 info:
   title: 'Tandem Proyect 2026 - API Backend'
   version: 1.0.0
-  description: 'Documentación completa de la API del proyecto Tandem 2026. Provee servicios para la gestión de usuarios, actividades, gamificación y seguimiento.'
+  description: |
+    # Tándem 2026 — API Backend
+
+    API del proyecto Tándem, una plataforma de apoyo para personas con TEA (Trastorno del Espectro Autista) que integra
+    gestión de usuarios, actividades, gamificación, comunicación en tiempo real y seguimiento de ubicación.
+
+    ## Stack principal
+    - **Runtime:** Node.js + Express 5
+    - **Base de datos:** PostgreSQL con SQL crudo (sin ORM)
+    - **Tiempo real:** Socket.io 4 (chat y notificaciones)
+    - **Caché / Colas:** Redis + ioredis + BullMQ (opcional)
+    - **Autenticación:** JWT custom HMAC-SHA256 + Refresh Tokens + CSRF double-submit cookie
+    - **APIs externas:** ARASAAC (pictogramas), DiceBear (avatares), Supabase Storage
+
+    ## Arquitectura
+    ```
+    Controller → Service → Repository → DB (PostgreSQL)
+                    ↓
+          CacheService (Redis) / Socket.io / APIs externas
+    ```
+
+    Middleware chain: `helmet → cors → cookieParser → rate-limit → authMiddleware (JWT) → csrfMiddleware → Controller`
+
+    ## Documentación visual de arquitectura
+    Visitá [/docs](/docs) para ver diagramas interactivos de la base de datos, flujo de autenticación,
+    chat realtime, Redis, APIs externas y modelo de permisos.
 servers:
   -
     url: /api
-    description: 'Servidor Principal'
+    description: 'Servidor API'
+  -
+    url: http://localhost:3000/api
+    description: 'Servidor de Desarrollo Local'
+externalDocs:
+  url: /docs
+  description: 'Documentación de arquitectura con diagramas interactivos'
 security:
   -
     CookieAuth: []
 tags:
   -
     name: Autenticación
+    description: 'Registro, inicio de sesión, renovación de tokens y cierre de sesión. Usa JWT custom HMAC-SHA256 + Refresh Tokens en cookies HttpOnly.'
   -
     name: 'Gestión de Usuarios'
+    description: 'CRUD de usuarios del sistema. Cada usuario tiene un rol (perteneciente, tutor, profesional o administrador) definido por `id_tipo_usuario`.'
   -
     name: 'Módulo Perteneciente'
+    description: 'Gestión de pertenecientes (personas con TEA). Incluye niveles de apoyo, autonomía operativa y modo autogestionado/tutelado.'
   -
     name: 'Módulo Tutor'
+    description: 'Gestión de tutores y sus vínculos con pertenecientes. Los tutores autorizan permisos y aprueban vínculos profesionales.'
   -
     name: 'Módulo Profesional'
+    description: 'Gestión de profesionales (terapeutas, docentes) con validación de matrícula. Pueden asignar actividades y seguir pertenecientes vinculados.'
   -
     name: 'Actividades y Seguimiento'
+    description: 'Catálogo de actividades, actividades personalizadas y asignación a pertenecientes. Incluye calificaciones, favoritos y gamificación por puntos.'
   -
     name: 'Comunicación y Social'
+    description: 'Chat en tiempo real con Socket.io, contactos, bloqueos y notificaciones. Los mensajes se persisten en PostgreSQL y se emiten vía WebSocket.'
   -
     name: 'Archivos y Multimedia'
+    description: 'Subida y gestión de archivos con multer, validación de magic bytes y almacenamiento en Supabase Storage. Incluye avatares y pictogramas.'
   -
     name: 'Finanzas y Suscripciones'
+    description: 'Sistema de puntos, compras de paquetes, suscripciones y pagos. Los pertenecientes ganan puntos al completar actividades y pueden gastarlos en la tienda de avatares.'
   -
     name: 'Sistema y Auditoría'
+    description: 'Catálogos del sistema, tipos, estados, roles de administración y registros de auditoría para trazabilidad de cambios.'
 components:
   securitySchemes:
     CookieAuth:
@@ -574,28 +615,29 @@ components:
           example: '2026-05-26T19:00:00Z'
     Notificacion:
       type: object
+      description: 'Notificación enviada a un usuario. Se crea al enviar mensajes (si el destinatario no está conectado) o por eventos del sistema.'
       properties:
         id:
           type: integer
-          example: 5
+          example: 101
         id_usuario_destino:
           type: integer
-          example: 4
+          example: 5
         id_usuario_actor:
           type: integer
-          example: 1
+          example: 3
         id_tipo_notificacion:
           type: integer
-          example: 9
+          example: 1
         titulo:
           type: string
-          example: 'Título de Ejemplo'
+          example: 'Nuevo mensaje de María'
         cuerpo:
           type: string
-          example: string
+          example: 'Te envió un mensaje en el chat "Seguimiento semanal"'
         leida:
-          type: string
-          example: string
+          type: boolean
+          example: false
         fecha_creacion:
           type: string
           format: date-time
@@ -603,25 +645,27 @@ components:
         fecha_lectura:
           type: string
           format: date-time
-          example: '2026-05-26T19:00:00Z'
+          nullable: true
+          example: null
     Contacto:
       type: object
+      description: 'Relación de contacto entre dos usuarios. Los contactos permiten iniciar chats y compartir actividades.'
       properties:
         id:
           type: integer
-          example: 3
+          example: 1
         id_usuario_menor:
           type: integer
-          example: 4
+          example: 3
         id_usuario_mayor:
           type: integer
-          example: 10
+          example: 5
         id_usuario_solicitante:
           type: integer
-          example: 5
+          example: 3
         id_estado_contacto:
           type: integer
-          example: 1
+          example: 2
         fecha_solicitud:
           type: string
           format: date-time
@@ -629,19 +673,24 @@ components:
         fecha_resolucion:
           type: string
           format: date-time
-          example: '2026-05-26T19:00:00Z'
+          nullable: true
+          example: null
     Chat:
       type: object
+      description: 'Representa un chat entre dos o más usuarios. Puede ser individual (tipo 1) o grupal (tipo 2).'
       properties:
         id:
           type: integer
-          example: 5
+          example: 1
         id_tipo_chat:
           type: integer
           example: 1
         nombre:
           type: string
-          example: 'Lucia Fernandez'
+          example: 'Seguimiento semanal'
+        descripcion:
+          type: string
+          example: 'Chat de seguimiento entre profesional y perteneciente'
         fecha_creacion:
           type: string
           format: date-time
@@ -651,16 +700,20 @@ components:
           example: true
     ParticipanteChat:
       type: object
+      description: 'Relación entre un usuario y un chat. Define si es administrador y su estado de membresía.'
       properties:
         id:
           type: integer
-          example: 9
+          example: 1
         id_chat:
           type: integer
-          example: 10
+          example: 1
         id_usuario:
           type: integer
-          example: 4
+          example: 3
+        es_admin:
+          type: boolean
+          example: false
         fecha_ingreso:
           type: string
           format: date-time
@@ -668,32 +721,34 @@ components:
         fecha_salida:
           type: string
           format: date-time
-          example: '2026-05-26T19:00:00Z'
+          nullable: true
+          example: null
     Mensaje:
       type: object
+      description: 'Mensaje enviado dentro de un chat. Se persiste en PostgreSQL y se emite en tiempo real vía Socket.io.'
       properties:
         id:
           type: integer
-          example: 8
+          example: 42
         id_chat:
           type: integer
-          example: 6
+          example: 1
         id_usuario_emisor:
           type: integer
-          example: 4
+          example: 3
         id_tipo_mensaje:
           type: integer
-          example: 3
+          example: 1
         contenido:
           type: string
-          example: string
+          example: '¡Hola! ¿Cómo estás? La actividad de hoy fue muy divertida.'
         fecha_envio:
           type: string
           format: date-time
           example: '2026-05-26T19:00:00Z'
         eliminado:
-          type: string
-          example: string
+          type: boolean
+          example: false
     BloqueoUsuario:
       type: object
       properties:

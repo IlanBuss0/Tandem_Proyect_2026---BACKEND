@@ -88,7 +88,7 @@ import VinculoTutorPertenecienteController from './controllers/VinculoTutorPerte
 import { authMiddleware } from './middlewares/auth.middleware.js';
 import { csrfMiddleware } from './middlewares/csrf.middleware.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
-import { authRateLimiter, inviteRateLimiter, refreshRateLimiter } from './middlewares/rate-limit.middleware.js';
+import { authRateLimiter, inviteRateLimiter, refreshRateLimiter, setupRedisRateLimit } from './middlewares/rate-limit.middleware.js';
 import { envConfig, validateEnvConfig } from './configs/env.config.js';
 import { corsOptions } from './configs/cors.config.js';
 import BD from './db/BD.js';
@@ -144,6 +144,10 @@ app.get('/', (req, res) => {
     ok: true,
     message: 'API Backend TANDEM funcionando',
   });
+});
+
+app.get('/docs', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'docs.html'));
 });
 
 app.use('/api/auth/login', authRateLimiter);
@@ -241,6 +245,8 @@ async function startServer() {
   try {
     await BD.testConnection();
     console.log('Conexion a base de datos OK');
+
+    await setupRedisRateLimit();
 
     await setupRealtime(httpServer);
 

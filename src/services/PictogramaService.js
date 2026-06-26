@@ -1,6 +1,7 @@
 import axiosClient from '../modules/axios/axiosClient.js';
 import https from 'https';
 import PictogramaRepository from '../repositories/PictogramaRepository.js';
+import { cacheService } from './CacheService.js';
 
 const DEFAULT_ARASAAC_API_URL = 'https://api.arasaac.org/api';
 const DEFAULT_ARASAAC_STATIC_URL = 'https://static.arasaac.org/pictograms';
@@ -250,6 +251,10 @@ export default class PictogramaService {
     const normalizedLimit = normalizeLimit(limit);
     const searchText = String(search || category || '').trim();
 
+    const cacheKey = `pictogram.search.${locale}.${searchText}.${normalizedLimit}`;
+    const cachedResult = await cacheService.get(cacheKey);
+    if (cachedResult) return cachedResult;
+
     const cached = await this.PictogramaRepository.searchAsync({
       search,
       category,
@@ -257,7 +262,10 @@ export default class PictogramaService {
       limit: normalizedLimit,
     });
 
-    if (cached.length > 0) return cached;
+    if (cached.length > 0) {
+      await cacheService.set(cacheKey, cached, 3600);
+      return cached;
+    }
 
     const path = searchText
       ? `/pictograms/${encodeURIComponent(locale)}/search/${encodeURIComponent(searchText)}`
@@ -270,10 +278,12 @@ export default class PictogramaService {
 
     await this.PictogramaRepository.upsertManyAsync(normalized);
 
-    if (!category || category === 'todas' || searchText === category) return normalized;
+    const result = (!category || category === 'todas' || searchText === category)
+      ? normalized
+      : normalized.filter((pictogram) => pictogram.category === String(category).toLowerCase());
 
-    const categoryText = String(category).toLowerCase();
-    return normalized.filter((pictogram) => pictogram.category === categoryText);
+    await cacheService.set(cacheKey, result, 3600);
+    return result;
   }
 
   async getByIdAsync(id, language) {
@@ -284,19 +294,36 @@ export default class PictogramaService {
     await this.ensureSchemaAsync();
 
     const locale = normalizeLanguage(language);
+    const cacheKey = `pictogram.${id}.${locale}`;
+    const cachedResult = await cacheService.get(cacheKey);
+    if (cachedResult) return cachedResult;
+
     const cached = await this.PictogramaRepository.getByExternalIdAsync(id, locale);
-    if (cached) return cached;
+    if (cached) {
+      await cacheService.set(cacheKey, cached, 7200);
+      return cached;
+    }
 
     const path = `/pictograms/${encodeURIComponent(locale)}/${encodeURIComponent(id)}`;
     const pictogram = await this.fetchArasaacPictogram(path);
     const normalized = pictogram ? normalizePictogram(pictogram, locale) : null;
-    if (normalized) await this.PictogramaRepository.upsertManyAsync([normalized]);
+    if (normalized) {
+      await this.PictogramaRepository.upsertManyAsync([normalized]);
+      await cacheService.set(cacheKey, normalized, 7200);
+    }
     return normalized;
   }
 
   async getCategoriesAsync(language) {
     await this.ensureSchemaAsync();
-    return await this.PictogramaRepository.getCategoriesAsync(normalizeLanguage(language));
+    const locale = normalizeLanguage(language);
+    const cacheKey = `pictogram.categories.${locale}`;
+    const cached = await cacheService.get(cacheKey);
+    if (cached) return cached;
+
+    const categories = await this.PictogramaRepository.getCategoriesAsync(locale);
+    await cacheService.set(cacheKey, categories, 86400);
+    return categories;
   }
 
   async downloadAsync(id, language) {
@@ -383,6 +410,8 @@ export default class PictogramaService {
     const pictograms = await this.fetchArasaacCatalog(locale);
     const normalized = pictograms.map((pictogram) => normalizePictogram(pictogram, locale));
     const affected = await this.PictogramaRepository.upsertManyAsync(normalized);
+
+    await cacheService.delByPattern('pictogram.*');
 
     return {
       language: locale,

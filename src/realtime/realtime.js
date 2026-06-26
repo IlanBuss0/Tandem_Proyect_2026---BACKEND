@@ -29,7 +29,8 @@ async function getRedisEmitter() {
   if (!redisEmitterPromise) {
     redisEmitterPromise = (async () => {
       const redisClient = createRedisConnection('socket-io-emitter');
-      await connectRedisClient(redisClient, 'socket-io-emitter');
+      const connected = await connectRedisClient(redisClient, 'socket-io-emitter');
+      if (!connected) return null;
       return new Emitter(redisClient);
     })();
   }
