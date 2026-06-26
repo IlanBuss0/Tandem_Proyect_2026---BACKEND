@@ -10,6 +10,7 @@
     "server": "cls && node --watch src/server.js",
     "worker:notifications": "node src/workers/notification.worker.js",
     "test:chat-flow": "node scripts/test-chat-flow.mjs",
+    "test:chat-sync-flow": "node scripts/test-chat-sync-flow.mjs",
     "test:permission-upsert-flow": "node scripts/test-permission-upsert-flow.mjs",
     "test:permission-context-flow": "node scripts/test-permission-context-flow.mjs",
     "test:resource-authorization-flow": "node scripts/test-resource-authorization-flow.mjs",

@@ -17,6 +17,21 @@ export default class PermisoArchivoRepository {
     return await BD.queryOne(sql, [id]);
   };
 
+  hasAccessForUserOrChatAsync = async (idArchivo, idUsuario, idChat) => {
+    console.log(`PermisoArchivoRepository.hasAccessForUserOrChatAsync(${idArchivo}, ${idUsuario}, ${idChat})`);
+    const sql = `
+      SELECT id
+      FROM permisos_archivos
+      WHERE id_archivo = $1
+        AND (
+          id_usuario = $2
+          OR id_chat = $3
+        )
+      LIMIT 1
+    `;
+    return Boolean(await BD.queryOne(sql, [idArchivo, idUsuario, idChat]));
+  };
+
   createAsync = async (entity) => {
     console.log(`PermisoArchivoRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `INSERT INTO permisos_archivos (id_archivo, id_alcance_archivo, id_tipo_permiso_archivo, id_usuario, id_chat) VALUES ($1, $2, $3, $4, $5) RETURNING id`;

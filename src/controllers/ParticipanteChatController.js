@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import ParticipanteChatService from '../services/ParticipanteChatService.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { emitToUser } from '../realtime/realtime.js';
 
 const router = Router();
 const currentService = new ParticipanteChatService();
@@ -14,6 +15,17 @@ router.put('/leer/:idChat', async (req, res) => {
     const idMensaje = req.body.id_mensaje ? parseInt(req.body.id_mensaje) : null;
     console.log(`ParticipanteChatController.marcarComoLeido(${idChat}, ${req.user.id}, ${idMensaje})`);
     await currentService.marcarComoLeidoAsync(idChat, req.user.id, idMensaje);
+    const participantes = await currentService.getByChatIdAsync(idChat);
+    const lector = participantes.find((participante) => participante.id_usuario === req.user.id);
+    const payload = {
+      id_chat: idChat,
+      id_usuario: req.user.id,
+      id_mensaje: lector?.ultimo_mensaje_leido_id ?? idMensaje,
+      fecha_ultima_lectura: lector?.fecha_ultima_lectura ?? new Date(),
+    };
+    participantes
+      .filter((participante) => !participante.fecha_salida)
+      .forEach((participante) => emitToUser(participante.id_usuario, 'chat:read', payload));
     res.status(StatusCodes.OK).json({ ok: true });
   } catch (error) {
     console.log(error);

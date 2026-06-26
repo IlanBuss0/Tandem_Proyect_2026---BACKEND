@@ -33,6 +33,19 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/sync', authMiddleware, async (req, res) => {
+  try {
+    const since = req.query.since ? String(req.query.since) : null;
+    console.log(`ChatController.sync(${req.user.id}, since:${since})`);
+    const r = await currentService.syncByUsuarioIdAsync(req.user.id, since);
+    console.log(`[HTTP chat] sync user:${req.user.id} since:${since || 'full'} chats:${r.chats.length}`);
+    res.status(StatusCodes.OK).json(r);
+  } catch (error) {
+    console.log(error);
+    res.status(error.statusCode ?? StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+  }
+});
+
 router.get('/usuario/:idUsuario', authMiddleware, async (req, res) => {
   try {
     const idUsuario = parseInt(req.params.idUsuario);

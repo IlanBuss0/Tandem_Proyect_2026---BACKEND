@@ -7,25 +7,42 @@ export default class ChatRepository {
   }
 
   ensureDescriptionColumnAsync = async () => {
+    if (this.descriptionColumnReady) return;
+    await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS descripcion TEXT`);
+    await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS avatar_url TEXT`);
+    await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS avatar_path TEXT`);
+    await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS avatar_content_type TEXT`);
+    await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS avatar_actualizada_en TIMESTAMP`);
+    await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS actualizado_en TIMESTAMP`);
+    await BD.execute(`UPDATE chats SET actualizado_en = COALESCE(actualizado_en, fecha_creacion, NOW()) WHERE actualizado_en IS NULL`);
+    await BD.execute(`ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS fecha_edicion TIMESTAMP`);
+    await BD.execute(`ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS fecha_eliminacion TIMESTAMP`);
+    await BD.execute(`CREATE INDEX IF NOT EXISTS idx_chats_actualizado_en ON chats (actualizado_en)`);
+    await BD.execute(`CREATE INDEX IF NOT EXISTS idx_mensajes_chat_id ON mensajes (id_chat, id)`);
     this.descriptionColumnReady = true;
   };
 
   getAllAsync = async () => {
     console.log('ChatRepository.getAllAsync()');
     await this.ensureDescriptionColumnAsync();
-    const sql = `SELECT id, id_tipo_chat, nombre, descripcion, avatar_url, avatar_path, avatar_content_type, avatar_actualizada_en, fecha_creacion, activo FROM chats ORDER BY id DESC`;
+    const sql = `SELECT id, id_tipo_chat, nombre, descripcion, avatar_url, avatar_path, avatar_content_type, avatar_actualizada_en, actualizado_en, fecha_creacion, activo FROM chats ORDER BY id DESC`;
     return await BD.query(sql);
   };
 
   getByIdAsync = async (id) => {
     console.log(`ChatRepository.getByIdAsync(${id})`);
     await this.ensureDescriptionColumnAsync();
-    const sql = `SELECT id, id_tipo_chat, nombre, descripcion, avatar_url, avatar_path, avatar_content_type, avatar_actualizada_en, fecha_creacion, activo FROM chats WHERE id = $1`;
+    const sql = `SELECT id, id_tipo_chat, nombre, descripcion, avatar_url, avatar_path, avatar_content_type, avatar_actualizada_en, actualizado_en, fecha_creacion, activo FROM chats WHERE id = $1`;
     return await BD.queryOne(sql, [id]);
   };
 
   getByUsuarioIdAsync = async (idUsuario) => {
     console.log(`ChatRepository.getByUsuarioIdAsync(${idUsuario})`);
+    return await this.getByUsuarioIdSinceAsync(idUsuario, null);
+  };
+
+  getByUsuarioIdSinceAsync = async (idUsuario, since = null) => {
+    console.log(`ChatRepository.getByUsuarioIdSinceAsync(${idUsuario}, ${since})`);
     await this.ensureDescriptionColumnAsync();
     const sql = `
       SELECT 
@@ -37,6 +54,7 @@ export default class ChatRepository {
         c.avatar_path,
         c.avatar_content_type,
         c.avatar_actualizada_en,
+        c.actualizado_en,
         c.fecha_creacion, 
         c.activo,
         COUNT(DISTINCT pc_all.id)::int AS cantidad_participantes,
@@ -78,6 +96,30 @@ export default class ChatRepository {
         AND pc.fecha_salida IS NULL
         AND c.activo = true
         AND (
+          $2::timestamp IS NULL
+          OR c.actualizado_en >= $2::timestamp
+          OR pc.fecha_ultima_lectura >= $2::timestamp
+          OR EXISTS (
+            SELECT 1
+            FROM participantes_chats pc_changed
+            WHERE pc_changed.id_chat = c.id
+              AND (
+                pc_changed.fecha_ingreso >= $2::timestamp
+                OR pc_changed.fecha_salida >= $2::timestamp
+              )
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM mensajes m_changed
+            WHERE m_changed.id_chat = c.id
+              AND (
+                m_changed.fecha_envio >= $2::timestamp
+                OR m_changed.fecha_edicion >= $2::timestamp
+                OR m_changed.fecha_eliminacion >= $2::timestamp
+              )
+          )
+        )
+        AND (
           pc.oculto_desde IS NULL
           OR EXISTS (
             SELECT 1
@@ -88,10 +130,10 @@ export default class ChatRepository {
               AND m_visible.id_usuario_emisor != $1
           )
         )
-      GROUP BY c.id, c.id_tipo_chat, c.nombre, c.descripcion, c.avatar_url, c.avatar_path, c.avatar_content_type, c.avatar_actualizada_en, c.fecha_creacion, c.activo, pc.ultimo_mensaje_leido_id, m.contenido, m.fecha_envio, m.id_usuario_emisor
+      GROUP BY c.id, c.id_tipo_chat, c.nombre, c.descripcion, c.avatar_url, c.avatar_path, c.avatar_content_type, c.avatar_actualizada_en, c.actualizado_en, c.fecha_creacion, c.activo, pc.ultimo_mensaje_leido_id, pc.fecha_ultima_lectura, m.contenido, m.fecha_envio, m.id_usuario_emisor
       ORDER BY m.fecha_envio DESC NULLS LAST, c.fecha_creacion DESC
     `;
-    return await BD.query(sql, [idUsuario]);
+    return await BD.query(sql, [idUsuario, since]);
   };
 
   getActiveBetweenUsersAsync = async (idUsuarioA, idUsuarioB, idTipoChat = null) => {
@@ -197,6 +239,11 @@ export default class ChatRepository {
         `,
         [idChat, fecha, participantIds],
       );
+
+      await client.query(
+        `UPDATE chats SET actualizado_en = NOW() WHERE id = $1`,
+        [idChat],
+      );
     });
   };
 
@@ -204,7 +251,7 @@ export default class ChatRepository {
     await this.ensureDescriptionColumnAsync();
     return await BD.transaction(async (client) => {
       const chatResult = await client.query(
-        `INSERT INTO chats (id_tipo_chat, nombre, descripcion, fecha_creacion, activo) VALUES ($1, $2, $3, $4, true) RETURNING id, id_tipo_chat, nombre, descripcion, avatar_url, avatar_path, avatar_content_type, avatar_actualizada_en, fecha_creacion, activo`,
+        `INSERT INTO chats (id_tipo_chat, nombre, descripcion, fecha_creacion, actualizado_en, activo) VALUES ($1, $2, $3, $4, $4, true) RETURNING id, id_tipo_chat, nombre, descripcion, avatar_url, avatar_path, avatar_content_type, avatar_actualizada_en, actualizado_en, fecha_creacion, activo`,
         [id_tipo_chat, nombre ?? null, descripcion ?? null, fecha_creacion],
       );
 
@@ -223,7 +270,7 @@ export default class ChatRepository {
 
   createAsync = async (entity) => {
     await this.ensureDescriptionColumnAsync();
-    const sql = `INSERT INTO chats (id_tipo_chat, nombre, descripcion, fecha_creacion, activo) VALUES ($1, $2, $3, $4, COALESCE($5, true)) RETURNING id`;
+    const sql = `INSERT INTO chats (id_tipo_chat, nombre, descripcion, fecha_creacion, actualizado_en, activo) VALUES ($1, $2, $3, $4, $4, COALESCE($5, true)) RETURNING id`;
     const values = [entity?.id_tipo_chat, entity?.nombre ?? null, entity?.descripcion ?? null, entity?.fecha_creacion, entity?.activo ?? true];
     const result = await BD.queryOne(sql, values);
     return result?.id ?? 0;
@@ -233,7 +280,7 @@ export default class ChatRepository {
     const id = entity.id;
     const previousEntity = await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
-    const sql = `UPDATE chats SET id_tipo_chat = $2, nombre = $3, descripcion = $4, fecha_creacion = $5, activo = $6 WHERE id = $1`;
+    const sql = `UPDATE chats SET id_tipo_chat = $2, nombre = $3, descripcion = $4, fecha_creacion = $5, activo = $6, actualizado_en = NOW() WHERE id = $1`;
     const values = [id, entity?.id_tipo_chat ?? previousEntity.id_tipo_chat, entity?.nombre ?? previousEntity.nombre, entity?.descripcion ?? previousEntity.descripcion, entity?.fecha_creacion ?? previousEntity.fecha_creacion, entity?.activo ?? previousEntity.activo];
     return await BD.execute(sql, values);
   };
@@ -245,14 +292,15 @@ export default class ChatRepository {
       SET avatar_url = $2,
           avatar_path = $3,
           avatar_content_type = $4,
-          avatar_actualizada_en = NOW()
+          avatar_actualizada_en = NOW(),
+          actualizado_en = NOW()
       WHERE id = $1
     `;
     return await BD.execute(sql, [id, avatar_url, avatar_path, avatar_content_type]);
   };
 
   deleteByIdAsync = async (id) => {
-    const sql = `UPDATE chats SET activo = false WHERE id = $1`;
+    const sql = `UPDATE chats SET activo = false, actualizado_en = NOW() WHERE id = $1`;
     return await BD.execute(sql, [id]);
   };
 }

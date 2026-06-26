@@ -6,6 +6,11 @@ async function main() {
   await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS avatar_path TEXT`);
   await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS avatar_content_type TEXT`);
   await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS avatar_actualizada_en TIMESTAMP`);
+  await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS actualizado_en TIMESTAMP`);
+  await BD.execute(`UPDATE chats SET actualizado_en = COALESCE(actualizado_en, fecha_creacion, NOW()) WHERE actualizado_en IS NULL`);
+
+  await BD.execute(`ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS fecha_edicion TIMESTAMP`);
+  await BD.execute(`ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS fecha_eliminacion TIMESTAMP`);
 
   await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS ultimo_mensaje_leido_id INT REFERENCES mensajes(id)`);
   await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS fecha_ultima_lectura TIMESTAMP`);
@@ -14,6 +19,13 @@ async function main() {
 
   await BD.execute(`ALTER TABLE archivos ADD COLUMN IF NOT EXISTS content_type TEXT`);
   await BD.execute(`ALTER TABLE archivos ADD COLUMN IF NOT EXISTS peso_bytes INTEGER`);
+
+  await BD.execute(`CREATE INDEX IF NOT EXISTS idx_mensajes_chat_id ON mensajes (id_chat, id)`);
+  await BD.execute(`CREATE INDEX IF NOT EXISTS idx_mensajes_chat_fecha_envio ON mensajes (id_chat, fecha_envio)`);
+  await BD.execute(`CREATE INDEX IF NOT EXISTS idx_mensajes_chat_fecha_edicion ON mensajes (id_chat, fecha_edicion)`);
+  await BD.execute(`CREATE INDEX IF NOT EXISTS idx_mensajes_chat_fecha_eliminacion ON mensajes (id_chat, fecha_eliminacion)`);
+  await BD.execute(`CREATE INDEX IF NOT EXISTS idx_participantes_chats_sync ON participantes_chats (id_chat, fecha_ingreso, fecha_salida, fecha_ultima_lectura)`);
+  await BD.execute(`CREATE INDEX IF NOT EXISTS idx_chats_actualizado_en ON chats (actualizado_en)`);
 
   await BD.execute(`
     INSERT INTO tipos_chats (nombre, orden)

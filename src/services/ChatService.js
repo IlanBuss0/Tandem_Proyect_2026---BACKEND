@@ -25,6 +25,14 @@ export default class ChatService {
   getAllAsync = async () => { console.log('ChatService.getAllAsync()'); const r = await this.ChatRepository.getAllAsync(); if (r == null) return null; return r; };
   getByIdAsync = async (id) => { console.log(`ChatService.getByIdAsync(${id})`); if (!id || Number.isNaN(id)) { throw new Error('El id del chat es invalido.'); } return await this.ChatRepository.getByIdAsync(id); };
   getByUsuarioIdAsync = async (idUsuario) => { console.log(`ChatService.getByUsuarioIdAsync(${idUsuario})`); if (!idUsuario || Number.isNaN(idUsuario)) { throw new Error('El id del usuario es invalido.'); } return await this.ChatRepository.getByUsuarioIdAsync(idUsuario); };
+  syncByUsuarioIdAsync = async (idUsuario, since = null) => {
+    console.log(`ChatService.syncByUsuarioIdAsync(${idUsuario}, ${since})`);
+    if (!idUsuario || Number.isNaN(idUsuario)) { throw new Error('El id del usuario es invalido.'); }
+    if (since && Number.isNaN(new Date(since).getTime())) { throw new Error('El parametro since no es una fecha valida.'); }
+    const serverTime = new Date();
+    const chats = await this.ChatRepository.getByUsuarioIdSinceAsync(idUsuario, since);
+    return { serverTime: serverTime.toISOString(), chats };
+  };
   createAsync = async (entity) => { console.log(`ChatService.createAsync(${JSON.stringify(entity)})`); this.validarChatParaCrear(entity); return await this.ChatRepository.createAsync(entity); };
 
   createDirectChatAsync = async (idUsuarioA, idUsuarioB, idTipoChat = 1, nombre = null, options = {}) => {

@@ -52,10 +52,15 @@ router.get('', authMiddleware, async (req, res) => {
 router.get('/chat/:idChat', authMiddleware, async (req, res) => {
   try {
     const idChat = parseInt(req.params.idChat);
-    const limit = req.query.limit ? parseInt(req.query.limit) : 30;
+    const requestedLimit = req.query.limit ? parseInt(req.query.limit) : 30;
+    const limit = Math.min(Math.max(requestedLimit || 30, 1), 100);
     const beforeId = req.query.beforeId ? parseInt(req.query.beforeId) : null;
-    console.log(`MensajeController.getByChat(${idChat}) - limit: ${limit}, beforeId: ${beforeId}`);
-    const r = await currentService.getByChatForUserAsync(idChat, req.user.id, limit, beforeId);
+    const afterId = req.query.afterId ? parseInt(req.query.afterId) : null;
+    if (beforeId && afterId) {
+      return res.status(StatusCodes.BAD_REQUEST).send('Usa beforeId o afterId, no ambos.');
+    }
+    console.log(`MensajeController.getByChat(${idChat}) - limit: ${limit}, beforeId: ${beforeId}, afterId: ${afterId}`);
+    const r = await currentService.getByChatForUserAsync(idChat, req.user.id, limit, beforeId, afterId);
     res.status(StatusCodes.OK).json(r);
   } catch (error) {
     console.log(error);
@@ -67,13 +72,18 @@ router.get('/chat/:idChat/usuario/:idUsuario', authMiddleware, async (req, res) 
   try {
     const idChat = parseInt(req.params.idChat);
     const idUsuario = parseInt(req.params.idUsuario);
-    const limit = req.query.limit ? parseInt(req.query.limit) : 30;
+    const requestedLimit = req.query.limit ? parseInt(req.query.limit) : 30;
+    const limit = Math.min(Math.max(requestedLimit || 30, 1), 100);
     const beforeId = req.query.beforeId ? parseInt(req.query.beforeId) : null;
-    console.log(`MensajeController.getByChatForUsuario(${idChat}, ${idUsuario}) - limit: ${limit}, beforeId: ${beforeId}`);
+    const afterId = req.query.afterId ? parseInt(req.query.afterId) : null;
+    if (beforeId && afterId) {
+      return res.status(StatusCodes.BAD_REQUEST).send('Usa beforeId o afterId, no ambos.');
+    }
+    console.log(`MensajeController.getByChatForUsuario(${idChat}, ${idUsuario}) - limit: ${limit}, beforeId: ${beforeId}, afterId: ${afterId}`);
     if (idUsuario !== req.user.id) {
       return res.status(StatusCodes.FORBIDDEN).send('No autorizado para consultar mensajes de otro usuario.');
     }
-    const r = await currentService.getByChatForUserAsync(idChat, idUsuario, limit, beforeId);
+    const r = await currentService.getByChatForUserAsync(idChat, idUsuario, limit, beforeId, afterId);
     res.status(StatusCodes.OK).json(r);
   } catch (error) {
     console.log(error);
