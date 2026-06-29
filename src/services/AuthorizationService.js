@@ -517,19 +517,31 @@ class AuthorizationService {
   }
 
   async invalidateUserContext(idUsuario) {
+    if (!idUsuario) {
+      await cacheService.delByPattern('auth.context.*');
+      return;
+    }
+
     await cacheService.delByPattern(`auth.context.${idUsuario}`);
   }
 
   async invalidatePertenecientePermissions(idPerteneciente) {
     await cacheService.delByPattern(`auth.permisos.pert.${idPerteneciente}`);
+    await cacheService.delByPattern('auth.context.*');
   }
 
   async invalidateProfesionalPermissions(idVinculo) {
     await cacheService.delByPattern(`auth.permisos.prof.${idVinculo}`);
+    await cacheService.delByPattern('auth.context.*');
   }
 
   async invalidateAllForUser(idUsuario) {
-    await cacheService.delByPattern(`auth.context.${idUsuario}`);
+    if (idUsuario) {
+      await cacheService.delByPattern(`auth.context.${idUsuario}`);
+    } else {
+      await cacheService.delByPattern('auth.context.*');
+    }
+
     await cacheService.delByPattern(`auth.permisos.*`);
   }
 

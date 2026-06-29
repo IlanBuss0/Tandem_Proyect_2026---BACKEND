@@ -63,9 +63,8 @@ export default class CacheService {
       const fullPattern = this.buildKey(pattern);
       let cursor = '0';
       do {
-        const result = await redis.scan(cursor, { match: fullPattern, count: 100 });
-        cursor = result.cursor;
-        const keys = result.keys;
+        const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', fullPattern, 'COUNT', 100);
+        cursor = nextCursor;
         if (keys.length > 0) {
           await redis.del(keys);
         }
