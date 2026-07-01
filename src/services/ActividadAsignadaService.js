@@ -1,10 +1,14 @@
 import ActividadAsignadaRepository from '../repositories/ActividadAsignadaRepository.js';
 import { cacheService } from './CacheService.js';
+import PertenecienteRepository from '../repositories/PertenecienteRepository.js';
+import NotificationProducerService from './NotificationProducerService.js';
 
 export default class ActividadAsignadaService {
   constructor() {
     console.log('Estoy en: ActividadAsignadaService.constructor()');
     this.ActividadAsignadaRepository = new ActividadAsignadaRepository();
+    this.PertenecienteRepository = new PertenecienteRepository();
+    this.NotificationProducerService = new NotificationProducerService();
   }
 
   getAllAsync = async () => {
@@ -45,6 +49,19 @@ export default class ActividadAsignadaService {
     this.validarActividadAsignadaParaCrear(entity);
     const newId = await this.ActividadAsignadaRepository.createAsync(entity);
     await cacheService.delByPattern(`actividad-asignada.perteneciente.${entity.id_perteneciente}`);
+    const perteneciente = await this.PertenecienteRepository.getByIdAsync(entity.id_perteneciente);
+    if (perteneciente) {
+      await this.NotificationProducerService.createAsync({
+        recipientUserId: perteneciente.id_usuario,
+        actorUserId: entity.id_usuario_asignador,
+        contextUserId: perteneciente.id_usuario,
+        typeName: 'Información',
+        title: 'Nueva actividad asignada',
+        body: 'Tenés una nueva actividad disponible.',
+        referenceType: 'activity',
+        referenceId: newId,
+      });
+    }
     return newId;
   };
 
@@ -57,6 +74,21 @@ export default class ActividadAsignadaService {
     if (previousEntity == null) return 0;
     const rowsAffected = await this.ActividadAsignadaRepository.updateAsync(entity);
     await cacheService.delByPattern('actividad-asignada.*');
+    if (rowsAffected > 0 && !previousEntity.fecha_completada && entity.fecha_completada) {
+      const perteneciente = await this.PertenecienteRepository.getByIdAsync(previousEntity.id_perteneciente);
+      if (perteneciente && previousEntity.id_usuario_asignador !== perteneciente.id_usuario) {
+        await this.NotificationProducerService.createAsync({
+          recipientUserId: previousEntity.id_usuario_asignador,
+          actorUserId: perteneciente.id_usuario,
+          contextUserId: perteneciente.id_usuario,
+          typeName: 'Información',
+          title: 'Actividad completada',
+          body: 'Se completó una actividad asignada.',
+          referenceType: 'activity',
+          referenceId: entity.id,
+        });
+      }
+    }
     return rowsAffected;
   };
 

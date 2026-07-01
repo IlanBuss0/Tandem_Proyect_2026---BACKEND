@@ -11,6 +11,7 @@ class Notificacion {
     fecha_lectura = null,
     reference_type = null,
     reference_id = null,
+    context_user_id = null,
   }) {
     this.id = id;
     this.id_usuario_destino = id_usuario_destino;
@@ -23,6 +24,7 @@ class Notificacion {
     this.fecha_lectura = fecha_lectura;
     this.reference_type = reference_type;
     this.reference_id = reference_id;
+    this.context_user_id = context_user_id;
   }
 }
 

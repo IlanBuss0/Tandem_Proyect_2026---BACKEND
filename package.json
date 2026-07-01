@@ -26,6 +26,7 @@
     "db:pictograms": "node scripts/create-pictograms-table.mjs",
     "db:config-values-text": "node scripts/expand-config-value-columns.mjs",
     "db:notification-references": "node scripts/add-notification-reference-fields.mjs",
+    "db:routine-reminders": "node scripts/create-routine-reminders-table.mjs",
     "sync:pictograms": "node scripts/sync-pictograms.mjs"
   },
   "dependencies": {

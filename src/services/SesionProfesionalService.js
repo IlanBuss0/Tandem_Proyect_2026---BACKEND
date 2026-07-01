@@ -1,9 +1,14 @@
 import SesionProfesionalRepository from '../repositories/SesionProfesionalRepository.js';
+import PertenecienteRepository from '../repositories/PertenecienteRepository.js';
+import NotificationProducerService from './NotificationProducerService.js';
+import BD from '../db/BD.js';
 
 export default class SesionProfesionalService {
   constructor() {
     console.log('Estoy en: SesionProfesionalService.constructor()');
     this.SesionProfesionalRepository = new SesionProfesionalRepository();
+    this.PertenecienteRepository = new PertenecienteRepository();
+    this.NotificationProducerService = new NotificationProducerService();
   }
 
   getAllAsync = async () => {
@@ -42,6 +47,22 @@ export default class SesionProfesionalService {
     console.log(`SesionProfesionalService.createAsync(${JSON.stringify(entity)})`);
     this.validarSesionParaCrear(entity);
     const newId = await this.SesionProfesionalRepository.createAsync(entity);
+    const [perteneciente, profesional] = await Promise.all([
+      this.PertenecienteRepository.getByIdAsync(entity.id_perteneciente),
+      BD.queryOne(`SELECT id_usuario FROM profesionales WHERE id = $1`, [entity.id_profesional]),
+    ]);
+    if (perteneciente) {
+      await this.NotificationProducerService.createAsync({
+        recipientUserId: perteneciente.id_usuario,
+        actorUserId: profesional?.id_usuario ?? null,
+        contextUserId: perteneciente.id_usuario,
+        typeName: 'Recordatorio',
+        title: 'Nueva sesión programada',
+        body: `Sesión programada para ${new Date(entity.fecha_sesion).toLocaleString('es-AR')}.`,
+        referenceType: 'calendar',
+        referenceId: newId,
+      });
+    }
     return newId;
   };
 

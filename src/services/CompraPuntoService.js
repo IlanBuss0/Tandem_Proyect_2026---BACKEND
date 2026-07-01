@@ -1,9 +1,13 @@
 import CompraPuntoRepository from '../repositories/CompraPuntoRepository.js';
+import PertenecienteRepository from '../repositories/PertenecienteRepository.js';
+import NotificationProducerService from './NotificationProducerService.js';
 
 export default class CompraPuntoService {
   constructor() {
     console.log('Estoy en: CompraPuntoService.constructor()');
     this.CompraPuntoRepository = new CompraPuntoRepository();
+    this.PertenecienteRepository = new PertenecienteRepository();
+    this.NotificationProducerService = new NotificationProducerService();
   }
 
   getAllAsync = async () => {
@@ -26,6 +30,17 @@ export default class CompraPuntoService {
     console.log(`CompraPuntoService.createAsync(${JSON.stringify(entity)})`);
     this.validarCompraParaCrear(entity);
     const newId = await this.CompraPuntoRepository.createAsync(entity);
+    const perteneciente = await this.PertenecienteRepository.getByIdAsync(entity.id_perteneciente);
+    await this.NotificationProducerService.createAsync({
+      recipientUserId: entity.id_usuario,
+      actorUserId: entity.id_usuario,
+      contextUserId: perteneciente?.id_usuario ?? null,
+      typeName: 'Información',
+      title: entity.pagado ? 'Compra confirmada' : 'Compra registrada',
+      body: entity.pagado ? 'Tu compra de puntos fue confirmada.' : 'Tu compra está pendiente de confirmación.',
+      referenceType: 'payment',
+      referenceId: newId,
+    });
     return newId;
   };
 

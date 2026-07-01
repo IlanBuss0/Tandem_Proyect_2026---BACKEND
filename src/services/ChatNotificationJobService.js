@@ -37,6 +37,7 @@ export default class ChatNotificationJobService {
       fecha_lectura: null,
       reference_type: 'chat',
       reference_id: message.id_chat,
+      context_user_id: message.id_usuario_emisor,
     }));
 
     const created = await this.NotificacionRepository.createManyAsync(notificaciones);

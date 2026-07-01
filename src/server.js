@@ -32,6 +32,7 @@ import DispositivoController from './controllers/DispositivoController.js';
 import UbicacionActualController from './controllers/UbicacionActualController.js';
 import UbicacionHistorialController from './controllers/UbicacionHistorialController.js';
 import NotificacionController from './controllers/NotificacionController.js';
+import RoutineReminderController from './controllers/RoutineReminderController.js';
 import ContactoController from './controllers/ContactoController.js';
 import ChatController from './controllers/ChatController.js';
 import ParticipanteChatController from './controllers/ParticipanteChatController.js';
@@ -95,6 +96,7 @@ import BD from './db/BD.js';
 import { setupRealtime } from './realtime/socket.js';
 import { startNotificationWorker } from './workers/notificationWorker.js';
 import { startPictogramaSyncJob } from './jobs/pictogramaSyncJob.js';
+import { startRoutineReminderWorker } from './workers/routineReminderWorker.js';
 
 // Configuración para usar __dirname con ES Modules (import)
 const __filename = fileURLToPath(import.meta.url);
@@ -182,6 +184,7 @@ app.use('/api/dispositivos', DispositivoController);
 app.use('/api/ubicaciones-actuales', UbicacionActualController);
 app.use('/api/ubicaciones-historiales', UbicacionHistorialController);
 app.use('/api/notificaciones', NotificacionController);
+app.use('/api/routine-reminders', RoutineReminderController);
 app.use('/api/contactos', ContactoController);
 app.use('/api/chats', ChatController);
 app.use('/api/participantes-chats', ParticipanteChatController);
@@ -255,6 +258,7 @@ async function startServer() {
     }
 
     startPictogramaSyncJob();
+    startRoutineReminderWorker();
 
     httpServer.listen(envConfig.port, () => {
       console.log(`Servidor escuchando en puerto ${envConfig.port}`);
