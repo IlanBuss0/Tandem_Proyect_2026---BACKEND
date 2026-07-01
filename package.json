@@ -24,6 +24,8 @@
     "db:avatar-images": "node scripts/create-avatar-image-columns.mjs",
     "cache:avatar-images": "node scripts/cache-existing-avatar-images.mjs",
     "db:pictograms": "node scripts/create-pictograms-table.mjs",
+    "db:config-values-text": "node scripts/expand-config-value-columns.mjs",
+    "db:notification-references": "node scripts/add-notification-reference-fields.mjs",
     "sync:pictograms": "node scripts/sync-pictograms.mjs"
   },
   "dependencies": {
