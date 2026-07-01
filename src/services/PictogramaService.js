@@ -178,6 +178,44 @@ function normalizeLimit(value) {
   return Math.min(limit, MAX_LIMIT);
 }
 
+export function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function pictogramSearchRank(pictogram, search) {
+  const query = normalizeSearchText(search);
+  const name = normalizeSearchText(pictogram?.name);
+  const searchable = normalizeSearchText([name, ...(pictogram?.tags || [])].join(' '));
+  if (!query) return 3;
+  if (name === query) return 0;
+  if (name.startsWith(query)) return 1;
+  if (searchable.includes(query)) return 2;
+  return 3;
+}
+
+export function mergePictograms(local, remote, search, limit) {
+  const byId = new Map();
+  for (const pictogram of [...local, ...remote]) {
+    const key = String(pictogram?.arasaacId || pictogram?.id || '');
+    if (key && !byId.has(key)) byId.set(key, pictogram);
+  }
+
+  return Array.from(byId.values())
+    .sort((a, b) => {
+      const rank = pictogramSearchRank(a, search) - pictogramSearchRank(b, search);
+      if (rank !== 0) return rank;
+      const popularityA = Number(a?.popularity || 0) + Number(a?.downloadCount || 0) + Number(a?.useCount || 0) + Number(a?.savedCount || 0);
+      const popularityB = Number(b?.popularity || 0) + Number(b?.downloadCount || 0) + Number(b?.useCount || 0) + Number(b?.savedCount || 0);
+      if (popularityA !== popularityB) return popularityB - popularityA;
+      return String(a?.name || '').localeCompare(String(b?.name || ''), 'es');
+    })
+    .slice(0, limit);
+}
+
 function normalizeLanguage(value) {
   return String(value || DEFAULT_LANGUAGE).trim().toLowerCase() || DEFAULT_LANGUAGE;
 }
@@ -250,8 +288,9 @@ export default class PictogramaService {
     const locale = normalizeLanguage(language);
     const normalizedLimit = normalizeLimit(limit);
     const searchText = String(search || category || '').trim();
+    const normalizedCategory = String(category || '').trim().toLowerCase();
 
-    const cacheKey = `pictogram.search.${locale}.${searchText}.${normalizedLimit}`;
+    const cacheKey = `pictogram.search.${locale}.${normalizeSearchText(searchText)}.${normalizedCategory}.${normalizedLimit}`;
     const cachedResult = await cacheService.get(cacheKey);
     if (cachedResult) return cachedResult;
 
@@ -262,7 +301,7 @@ export default class PictogramaService {
       limit: normalizedLimit,
     });
 
-    if (cached.length > 0) {
+    if (!searchText && cached.length > 0) {
       await cacheService.set(cacheKey, cached, 3600);
       return cached;
     }
@@ -271,16 +310,18 @@ export default class PictogramaService {
       ? `/pictograms/${encodeURIComponent(locale)}/search/${encodeURIComponent(searchText)}`
       : `/pictograms/${encodeURIComponent(locale)}/new/${normalizedLimit}`;
 
-    const pictograms = await this.fetchArasaacPictograms(path);
+    const pictograms = await this.fetchArasaacPictograms(path).catch(() => []);
     const normalized = pictograms
-      .slice(0, normalizedLimit)
       .map((pictogram) => normalizePictogram(pictogram, locale));
 
     await this.PictogramaRepository.upsertManyAsync(normalized);
 
-    const result = (!category || category === 'todas' || searchText === category)
+    const remote = (!category || category === 'todas' || searchText === category)
       ? normalized
       : normalized.filter((pictogram) => pictogram.category === String(category).toLowerCase());
+    const result = searchText
+      ? mergePictograms(cached, remote, searchText, normalizedLimit)
+      : remote.slice(0, normalizedLimit);
 
     await cacheService.set(cacheKey, result, 3600);
     return result;
