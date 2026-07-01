@@ -35,6 +35,8 @@ export default class ChatNotificationJobService {
       leida: false,
       fecha_creacion: new Date(),
       fecha_lectura: null,
+      reference_type: 'chat',
+      reference_id: message.id_chat,
     }));
 
     const created = await this.NotificacionRepository.createManyAsync(notificaciones);
@@ -46,6 +48,8 @@ export default class ChatNotificationJobService {
         id_mensaje: message.id,
         contenido: message.contenido,
         id_usuario_emisor: message.id_usuario_emisor,
+        reference_type: 'chat',
+        reference_id: message.id_chat,
       });
     }
 

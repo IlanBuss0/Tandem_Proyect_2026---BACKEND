@@ -2,6 +2,27 @@ import { Router } from 'express'; import { StatusCodes } from 'http-status-codes
 import NotificacionService from '../services/NotificacionService.js'; import Notificacion from '../entities/Notificacion.js';
 const router = Router(); const currentService = new NotificacionService();
 router.get('', async (req, res) => { try { console.log('NotificacionController.getAll'); const r = await currentService.getAllAsync(); if (r != null) { res.status(StatusCodes.OK).json(r); } else { res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.'); } } catch (error) { console.log(error); res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`); } });
+
+router.get('/mine', async (req, res) => {
+  try {
+    const userId = parseInt(req.query.userId);
+    console.log(`NotificacionController.getMine(${userId})`);
+    if (!userId || Number.isNaN(userId)) { return res.status(StatusCodes.BAD_REQUEST).send('userId es obligatorio.'); }
+    const r = await currentService.getByUsuarioDestinoIdAsync(userId);
+    if (r != null) { res.status(StatusCodes.OK).json(r); } else { res.status(StatusCodes.OK).json([]); }
+  } catch (error) { console.log(error); res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`); }
+});
+
+router.put('/read-all', async (req, res) => {
+  try {
+    const userId = parseInt(req.body.userId);
+    console.log(`NotificacionController.markAllRead(${userId})`);
+    if (!userId || Number.isNaN(userId)) { return res.status(StatusCodes.BAD_REQUEST).send('userId es obligatorio.'); }
+    const rowsAffected = await currentService.markAllAsReadForUserAsync(userId);
+    res.status(StatusCodes.OK).json({ message: `Se marcaron ${rowsAffected} notificaciones como leidas.`, rowsAffected });
+  } catch (error) { console.log(error); res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`); }
+});
+
 router.get('/:id', async (req, res) => { try { const id = parseInt(req.params.id); console.log(`NotificacionController.getById(${id})`); const r = await currentService.getByIdAsync(id); if (r != null) { res.status(StatusCodes.OK).json(r); } else { res.status(StatusCodes.NOT_FOUND).send(`No se encontro la notificacion con id: ${id}.`); } } catch (error) { console.log(error); res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`); } });
 router.post('', async (req, res) => { try { console.log('NotificacionController.create'); const entity = new Notificacion(req.body); const newId = await currentService.createAsync(entity); if (newId > 0) { res.status(StatusCodes.CREATED).json({ message: `Se creo la notificacion con id: ${newId}`, id: newId }); } else { res.status(StatusCodes.BAD_REQUEST).json({ message: 'No se pudo crear la notificacion.' }); } } catch (error) { console.log(error); res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`); } });
 router.put('/:id', async (req, res) => { try { const id = parseInt(req.params.id); const entity = new Notificacion(req.body); console.log(`NotificacionController.update(${id})`); if (entity.id && parseInt(entity.id) !== id) { return res.status(StatusCodes.BAD_REQUEST).send(`El id de la URL (${id}) no coincide con el id del body (${entity.id}).`); } entity.id = id; const rowsAffected = await currentService.updateAsync(entity); if (rowsAffected !== 0) { res.status(StatusCodes.OK).json({ message: `Se actualizo la notificacion con id: ${id}`, rowsAffected }); } else { res.status(StatusCodes.NOT_FOUND).send(`No se encontro la notificacion con id: ${id}.`); } } catch (error) { console.log(error); res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`); } });

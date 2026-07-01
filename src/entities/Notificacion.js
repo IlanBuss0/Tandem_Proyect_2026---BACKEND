@@ -9,6 +9,8 @@ class Notificacion {
     leida = false,
     fecha_creacion,
     fecha_lectura = null,
+    reference_type = null,
+    reference_id = null,
   }) {
     this.id = id;
     this.id_usuario_destino = id_usuario_destino;
@@ -19,6 +21,8 @@ class Notificacion {
     this.leida = leida;
     this.fecha_creacion = fecha_creacion;
     this.fecha_lectura = fecha_lectura;
+    this.reference_type = reference_type;
+    this.reference_id = reference_id;
   }
 }
 
