@@ -17,6 +17,7 @@
     "test:chat-permission-enforcement": "node scripts/test-chat-permission-enforcement.mjs",
     "test:vinculo-invite-flow": "node scripts/test-vinculo-invite-flow.mjs",
     "test:pictogram-search": "node --test test/pictogram-search.test.js",
+    "test:routine-reminders": "node --test test/routine-reminders.test.js",
     "seed:permissions": "node scripts/seed-permission-catalogs.mjs",
     "db:invites-vinculo": "node scripts/create-invites-vinculo-table.mjs",
     "db:invites-vinculo-profesional": "node scripts/create-invites-vinculo-profesional-table.mjs",
