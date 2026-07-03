@@ -32,6 +32,8 @@ export const envConfig = {
   dicebearAvatarPngBaseUrl: process.env.DICEBEAR_AVATAR_PNG_BASE_URL || 'https://api.dicebear.com/9.x/avataaars/png',
   notificationWorkerConcurrency: Number.parseInt(process.env.NOTIFICATION_WORKER_CONCURRENCY || '5', 10),
   startNotificationWorker: process.env.START_NOTIFICATION_WORKER !== 'false',
+  falKey: process.env.FAL_KEY || null,
+  falRequestTimeoutMs: Number.parseInt(process.env.FAL_REQUEST_TIMEOUT_MS || '120000', 10),
 };
 
 export function validateEnvConfig() {

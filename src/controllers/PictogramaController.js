@@ -6,9 +6,59 @@ import AuthorizationService from '../services/AuthorizationService.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { csrfMiddleware } from '../middlewares/csrf.middleware.js';
 import { PERTENECIENTE_PERMISSIONS } from '../modules/security/permissions.constants.js';
+import AiPictogramService from '../services/AiPictogramService.js';
+import { upload } from '../middlewares/upload.middleware.js';
 
 const router = Router();
 const currentService = new PictogramaService();
+const aiService = new AiPictogramService();
+
+router.get('/ai/targets', authMiddleware, async (req, res, next) => {
+  try { res.json(await aiService.getTargetsAsync(req.user.id)); } catch (error) { next(error); }
+});
+
+router.post('/ai/generations', authMiddleware, csrfMiddleware, upload.single('reference'), async (req, res, next) => {
+  try {
+    const result = await aiService.generateAsync({ userId: req.user.id, body: req.body || {}, file: req.file });
+    res.status(StatusCodes.CREATED).json(result);
+  } catch (error) { next(error); }
+});
+
+router.get('/ai/generations/:id', authMiddleware, async (req, res, next) => {
+  try { res.json(await aiService.getGenerationForOwnerAsync(req.params.id, req.user.id)); } catch (error) { next(error); }
+});
+
+router.post('/ai/generations/:id/save', authMiddleware, csrfMiddleware, async (req, res, next) => {
+  try { res.status(StatusCodes.CREATED).json(await aiService.saveAsync(req.params.id, req.user.id)); } catch (error) { next(error); }
+});
+
+router.delete('/ai/generations/:id', authMiddleware, csrfMiddleware, async (req, res, next) => {
+  try { res.json(await aiService.discardAsync(req.params.id, req.user.id)); } catch (error) { next(error); }
+});
+
+router.get('/ai/creations/mine', authMiddleware, async (req, res, next) => {
+  try { res.json(await aiService.listMineAsync(req.user.id)); } catch (error) { next(error); }
+});
+
+router.get('/ai/creations/available', authMiddleware, async (req, res, next) => {
+  try { res.json(await aiService.listAvailableAsync(req.user.id)); } catch (error) { next(error); }
+});
+
+router.patch('/ai/creations/:id', authMiddleware, csrfMiddleware, async (req, res, next) => {
+  try { res.json(await aiService.updateCreationAsync(req.params.id, req.user.id, req.body || {})); } catch (error) { next(error); }
+});
+
+router.post('/ai/creations/:id/submit', authMiddleware, csrfMiddleware, async (req, res, next) => {
+  try { res.json(await aiService.submitAsync(req.params.id, req.user.id)); } catch (error) { next(error); }
+});
+
+router.get('/ai/moderation', authMiddleware, async (req, res, next) => {
+  try { res.json(await aiService.listModerationAsync(req.user.id)); } catch (error) { next(error); }
+});
+
+router.post('/ai/moderation/:id/review', authMiddleware, csrfMiddleware, async (req, res, next) => {
+  try { res.json(await aiService.reviewAsync(req.params.id, req.user.id, req.body || {})); } catch (error) { next(error); }
+});
 
 router.get('', async (req, res) => {
   try {

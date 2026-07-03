@@ -163,7 +163,7 @@ export default class PictogramaRepository {
   };
 
   searchAsync = async ({ search, category, language, limit }) => {
-    const where = ['idioma = $1'];
+    const where = ["idioma = $1", "(origen <> 'TANDEM_AI' OR estado_publicacion = 'approved')"];
     const params = [language];
     const categories = String(category || '')
       .split(',')
@@ -243,14 +243,16 @@ export default class PictogramaRepository {
              etiquetas, idioma, autor, licencia, popularidad, uso_total, descarga_total,
              guardado_total, fecha_sincronizacion
       FROM pictogramas
-      WHERE idioma = $1 AND (origen_id = $2 OR arasaac_id::TEXT = $2)
+      WHERE idioma = $1
+        AND (origen_id = $2 OR arasaac_id::TEXT = $2)
+        AND (origen <> 'TANDEM_AI' OR estado_publicacion = 'approved')
       LIMIT 1
     `;
     return normalizeRow(await BD.queryOne(sql, [language, String(id)]));
   };
 
   countAsync = async (language) => {
-    const row = await BD.queryOne('SELECT COUNT(*)::INTEGER AS total FROM pictogramas WHERE idioma = $1', [language]);
+    const row = await BD.queryOne("SELECT COUNT(*)::INTEGER AS total FROM pictogramas WHERE idioma = $1 AND (origen <> 'TANDEM_AI' OR estado_publicacion = 'approved')", [language]);
     return row?.total || 0;
   };
 
@@ -259,7 +261,7 @@ export default class PictogramaRepository {
       `
         SELECT tipo, COUNT(*)::INTEGER AS total
         FROM pictogramas
-        WHERE idioma = $1
+        WHERE idioma = $1 AND (origen <> 'TANDEM_AI' OR estado_publicacion = 'approved')
         GROUP BY tipo
         ORDER BY tipo ASC
       `,
