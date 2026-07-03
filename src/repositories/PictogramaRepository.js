@@ -74,6 +74,8 @@ function normalizeRow(row) {
     downloadCount: row.descarga_total || 0,
     savedCount: row.guardado_total || 0,
     syncedAt: row.fecha_sincronizacion,
+    targetPertenecienteId: row.id_perteneciente_destino ? Number(row.id_perteneciente_destino) : null,
+    status: row.estado_publicacion || 'approved',
   };
 }
 
@@ -162,8 +164,18 @@ export default class PictogramaRepository {
     await BD.execute(`CREATE INDEX IF NOT EXISTS idx_favoritos_pictogramas_usuario ON favoritos_pictogramas (id_usuario, idioma, fecha_marcado DESC)`);
   };
 
-  searchAsync = async ({ search, category, language, limit }) => {
-    const where = ["idioma = $1", "(origen <> 'TANDEM_AI' OR estado_publicacion = 'approved')"];
+  searchAsync = async ({ search, category, language, limit, targetPertenecienteId }) => {
+    const where = ["idioma = $1"];
+    if (targetPertenecienteId) {
+      const ids = String(targetPertenecienteId).split(',').map(Number).filter(Boolean);
+      if (ids.length > 0) {
+        where.push(`(origen <> 'TANDEM_AI' OR estado_publicacion = 'approved' OR (estado_publicacion = 'private' AND id_perteneciente_destino = ANY('{${ids.join(',')}}'::int[])))`);
+      } else {
+        where.push("(origen <> 'TANDEM_AI' OR estado_publicacion = 'approved')");
+      }
+    } else {
+      where.push("(origen <> 'TANDEM_AI' OR estado_publicacion = 'approved')");
+    }
     const params = [language];
     const categories = String(category || '')
       .split(',')
@@ -214,7 +226,7 @@ export default class PictogramaRepository {
     const sql = `
       SELECT id, origen, origen_id, arasaac_id, titulo, tipo, url, url_descarga,
              etiquetas, idioma, autor, licencia, popularidad, uso_total, descarga_total,
-             guardado_total, fecha_sincronizacion
+             guardado_total, fecha_sincronizacion, id_perteneciente_destino, estado_publicacion
       FROM pictogramas
       WHERE ${where.join(' AND ')}
       ORDER BY ${orderBy}

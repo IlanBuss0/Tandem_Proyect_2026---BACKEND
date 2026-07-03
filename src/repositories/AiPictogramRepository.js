@@ -93,24 +93,34 @@ export default class AiPictogramRepository {
 
   getGenerationAsync = async (id) => mapGeneration(await BD.queryOne('SELECT * FROM generaciones_pictogramas_ia WHERE id=$1', [id]));
 
-  saveGenerationAsync = async (generation) => {
-    const row = await BD.queryOne(`
-      INSERT INTO pictogramas (
-        origen, origen_id, titulo, tipo, url, url_descarga, etiquetas, idioma,
-        autor, licencia, texto_busqueda, metadata, id_usuario_creador,
-        id_perteneciente_destino, estado_publicacion, generacion_ia_id
-      ) VALUES ('TANDEM_AI',$1,$2,$3,$4,$4,'{}','es','TANDEM IA','Uso interno TANDEM',$5,$6::jsonb,$7,$8,'private',$9)
-      ON CONFLICT (origen, idioma, origen_id) DO UPDATE SET
-        titulo=EXCLUDED.titulo, tipo=EXCLUDED.tipo, url=EXCLUDED.url,
-        texto_busqueda=EXCLUDED.texto_busqueda, metadata=EXCLUDED.metadata,
-        fecha_actualizacion=NOW()
-      RETURNING id, origen_id
-    `, [generation.id, generation.name, generation.category, generation.previewUrl,
-      `${generation.name} ${generation.description} ${generation.category}`.toLowerCase(),
-      JSON.stringify({ generated: true, mode: generation.mode, model: generation.model }),
-      generation.creatorUserId, generation.targetPertenecienteId, generation.id]);
+  saveGenerationAsync = async (generation, allTargetIds) => {
+    const targets = (Array.isArray(allTargetIds) && allTargetIds.length > 0)
+      ? allTargetIds
+      : [generation.targetPertenecienteId];
+
+    const results = [];
+    for (const targetId of targets) {
+      const uniqueOriginId = targets.length > 1 ? `${generation.id}_${targetId}` : generation.id;
+      const row = await BD.queryOne(`
+        INSERT INTO pictogramas (
+          origen, origen_id, titulo, tipo, url, url_descarga, etiquetas, idioma,
+          autor, licencia, texto_busqueda, metadata, id_usuario_creador,
+          id_perteneciente_destino, estado_publicacion, generacion_ia_id
+        ) VALUES ('TANDEM_AI',$1,$2,$3,$4,$4,'{}','es','TANDEM IA','Uso interno TANDEM',$5,$6::jsonb,$7,$8,'private',$9)
+        ON CONFLICT (origen, idioma, origen_id) DO UPDATE SET
+          titulo=EXCLUDED.titulo, tipo=EXCLUDED.tipo, url=EXCLUDED.url,
+          texto_busqueda=EXCLUDED.texto_busqueda, metadata=EXCLUDED.metadata,
+          fecha_actualizacion=NOW()
+        RETURNING id, origen_id
+      `, [uniqueOriginId, generation.name, generation.category, generation.previewUrl,
+        `${generation.name} ${generation.description} ${generation.category}`.toLowerCase(),
+        JSON.stringify({ generated: true, mode: generation.mode, model: generation.model, targetPertenecienteIds: targets }),
+        generation.creatorUserId, targetId, generation.id]);
+      results.push({ id: String(row.origen_id), dbId: row.id });
+    }
+
     await BD.execute(`UPDATE generaciones_pictogramas_ia SET estado='saved', fecha_actualizacion=NOW() WHERE id=$1`, [generation.id]);
-    return { id: String(row.origen_id), dbId: row.id };
+    return results[0] || { id: generation.id, dbId: null };
   };
 
   listPrivateAsync = async (userId) => BD.query(`

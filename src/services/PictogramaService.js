@@ -282,7 +282,7 @@ export default class PictogramaService {
     return await this.schemaReady;
   }
 
-  async searchAsync({ search, category, language, limit }) {
+  async searchAsync({ search, category, language, limit, targetPertenecienteId }) {
     await this.ensureSchemaAsync();
 
     const locale = normalizeLanguage(language);
@@ -290,7 +290,7 @@ export default class PictogramaService {
     const searchText = String(search || category || '').trim();
     const normalizedCategory = String(category || '').trim().toLowerCase();
 
-    const cacheKey = `pictogram.search.${locale}.${normalizeSearchText(searchText)}.${normalizedCategory}.${normalizedLimit}`;
+    const cacheKey = `pictogram.search.${locale}.${normalizeSearchText(searchText)}.${normalizedCategory}.${normalizedLimit}${targetPertenecienteId ? `.${targetPertenecienteId}` : ''}`;
     const cachedResult = await cacheService.get(cacheKey);
     if (cachedResult) return cachedResult;
 
@@ -299,6 +299,7 @@ export default class PictogramaService {
       category,
       language: locale,
       limit: normalizedLimit,
+      targetPertenecienteId,
     });
 
     if (!searchText && cached.length > 0) {

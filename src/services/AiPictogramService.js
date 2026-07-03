@@ -99,6 +99,16 @@ export default class AiPictogramService {
     return null;
   };
 
+  callPollinationsAsync = async ({ prompt, referenceUrl }) => {
+    const encodedPrompt = encodeURIComponent(prompt);
+    let url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=flux&nologo=true`;
+    if (referenceUrl) {
+      url += `&image=${encodeURIComponent(referenceUrl)}`;
+    }
+    const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 60000 });
+    return Buffer.from(response.data);
+  };
+
   callFalAsync = async ({ model, prompt, referenceUrl }) => {
     if (!process.env.FAL_KEY) throw new AppError('La generacion IA no esta configurada.', 503);
     const endpoint = `https://fal.run/${model}`;
@@ -136,15 +146,17 @@ export default class AiPictogramService {
     if (!Number.isInteger(targetPertenecienteId) || targetPertenecienteId <= 0) throw new AppError('Selecciona un perteneciente.', 400);
     await this.assertTargetAsync(userId, targetPertenecienteId);
 
+    const hasFalKey = process.env.FAL_KEY && process.env.FAL_KEY !== 'replace-with-fal-api-key';
     const id = crypto.randomUUID();
     const reference = await this.prepareReferenceAsync({
       file, referencePictogramId: body.referencePictogramId, userId, generationId: id,
     });
+
     if (mode === 'quick' && reference) {
       if (reference.path) await this.storage.deleteAsync(reference.path).catch(() => undefined);
       throw new AppError('Las referencias se aplican en modo final. Usa modo final o quita la referencia.', 400);
     }
-    const model = mode === 'quick' ? QUICK_MODEL : reference ? FINAL_EDIT_MODEL : FINAL_MODEL;
+    const model = hasFalKey ? (mode === 'quick' ? QUICK_MODEL : reference ? FINAL_EDIT_MODEL : FINAL_MODEL) : 'pollinations-flux';
     const prompt = buildPrompt(name, description);
     const generation = await this.repository.createGenerationAsync({
       id, creatorUserId: userId, targetPertenecienteId, name, description, category,
@@ -154,15 +166,33 @@ export default class AiPictogramService {
     });
 
     try {
-      const result = await this.callFalAsync({ model, prompt, referenceUrl: reference?.url });
-      const downloaded = await axios.get(result.image.url, { responseType: 'arraybuffer', timeout: 60000 });
-      const imageBuffer = await sharp(Buffer.from(downloaded.data)).resize(1024, 1024, { fit: 'cover' }).png({ compressionLevel: 9 }).toBuffer();
+      let imageBuffer;
+      let providerRequestId = null;
+      let seed = null;
+
+      if (hasFalKey) {
+        try {
+          const result = await this.callFalAsync({ model, prompt, referenceUrl: reference?.url });
+          const downloaded = await axios.get(result.image.url, { responseType: 'arraybuffer', timeout: 60000 });
+          imageBuffer = await sharp(Buffer.from(downloaded.data)).resize(1024, 1024, { fit: 'cover' }).png({ compressionLevel: 9 }).toBuffer();
+          providerRequestId = result.requestId;
+          seed = result.seed;
+        } catch (falError) {
+          console.warn('Fal AI failed. Falling back to Pollinations AI...', falError.message || falError);
+          const rawBuffer = await this.callPollinationsAsync({ prompt, referenceUrl: reference?.url });
+          imageBuffer = await sharp(rawBuffer).resize(1024, 1024, { fit: 'cover' }).png({ compressionLevel: 9 }).toBuffer();
+        }
+      } else {
+        const rawBuffer = await this.callPollinationsAsync({ prompt, referenceUrl: reference?.url });
+        imageBuffer = await sharp(rawBuffer).resize(1024, 1024, { fit: 'cover' }).png({ compressionLevel: 9 }).toBuffer();
+      }
+
       const stored = await this.storage.uploadAsync({
         buffer: imageBuffer, contentType: 'image/png', fileName: `${id}.png`, userId,
         path: `pictograms-ai/previews/${id}.png`, upsert: true,
       });
       return await this.repository.completeGenerationAsync(id, {
-        previewUrl: stored.url, previewPath: stored.path, providerRequestId: result.requestId, seed: result.seed,
+        previewUrl: stored.url, previewPath: stored.path, providerRequestId, seed,
       });
     } catch (error) {
       await this.repository.failGenerationAsync(id, error.message);
@@ -176,10 +206,13 @@ export default class AiPictogramService {
     return generation;
   };
 
-  saveAsync = async (id, userId) => {
+  saveAsync = async (id, userId, body) => {
     const generation = await this.getGenerationForOwnerAsync(id, userId);
     if (!['ready', 'saved'].includes(generation.status) || !generation.previewUrl) throw new AppError('La vista previa no esta lista.', 409);
-    return await this.repository.saveGenerationAsync(generation);
+    const targetIds = Array.isArray(body?.targetPertenecienteIds)
+      ? body.targetPertenecienteIds.map(Number).filter(Boolean)
+      : [];
+    return await this.repository.saveGenerationAsync(generation, targetIds);
   };
 
   discardAsync = async (id, userId) => {

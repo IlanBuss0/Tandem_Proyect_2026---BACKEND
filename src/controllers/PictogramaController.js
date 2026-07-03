@@ -67,6 +67,7 @@ router.get('', async (req, res) => {
       category: req.query.category,
       language: req.query.language || req.query.lang,
       limit: req.query.limit,
+      targetPertenecienteId: req.query.targetPertenecienteId || req.query.id_perteneciente_destino,
     });
 
     res.status(StatusCodes.OK).json(pictograms);

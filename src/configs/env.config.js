@@ -2,6 +2,10 @@ import dotenv from 'dotenv';
 dotenv.config();
 dotenv.config({ path: '.env.local', override: true });
 
+if (process.env.NODE_ENV !== 'production') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
 function parseCsv(value) {
   return String(value || '')
     .split(',')
@@ -34,6 +38,7 @@ export const envConfig = {
   startNotificationWorker: process.env.START_NOTIFICATION_WORKER !== 'false',
   falKey: process.env.FAL_KEY || null,
   falRequestTimeoutMs: Number.parseInt(process.env.FAL_REQUEST_TIMEOUT_MS || '120000', 10),
+  geminiApiKey: process.env.GEMINI_API_KEY || null,
 };
 
 export function validateEnvConfig() {
