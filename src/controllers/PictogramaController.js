@@ -28,8 +28,20 @@ router.get('/ai/generations/:id', authMiddleware, async (req, res, next) => {
   try { res.json(await aiService.getGenerationForOwnerAsync(req.params.id, req.user.id)); } catch (error) { next(error); }
 });
 
+router.post('/ai/generations/:id/revise', authMiddleware, csrfMiddleware, upload.single('reference'), async (req, res, next) => {
+  try {
+    const result = await aiService.reviseGenerationAsync({
+      id: req.params.id,
+      userId: req.user.id,
+      body: req.body || {},
+      file: req.file,
+    });
+    res.status(StatusCodes.OK).json(result);
+  } catch (error) { next(error); }
+});
+
 router.post('/ai/generations/:id/save', authMiddleware, csrfMiddleware, async (req, res, next) => {
-  try { res.status(StatusCodes.CREATED).json(await aiService.saveAsync(req.params.id, req.user.id)); } catch (error) { next(error); }
+  try { res.status(StatusCodes.CREATED).json(await aiService.saveAsync(req.params.id, req.user.id, req.body || {})); } catch (error) { next(error); }
 });
 
 router.delete('/ai/generations/:id', authMiddleware, csrfMiddleware, async (req, res, next) => {

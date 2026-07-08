@@ -16,6 +16,7 @@ function mapGeneration(row) {
     previewPath: row.preview_path,
     referenceType: row.referencia_tipo,
     referencePictogramId: row.referencia_pictograma_id,
+    referenceUrl: row.referencia_url,
     referencePath: row.referencia_path,
     referenceHadPeople: row.referencia_contiene_personas,
     error: row.error,
@@ -87,6 +88,47 @@ export default class AiPictogramRepository {
       proveedor_request_id=$4, seed=$5, error=NULL, fecha_actualizacion=NOW() WHERE id=$1 RETURNING *
   `, [id, data.previewUrl, data.previewPath, data.providerRequestId ?? null, data.seed ?? null]));
 
+  updateGenerationRevisionAsync = async (id, data) => mapGeneration(await BD.queryOne(`
+    UPDATE generaciones_pictogramas_ia
+    SET nombre=$2,
+        descripcion=$3,
+        categoria=$4,
+        modo=$5,
+        modelo=$6,
+        prompt_final=$7,
+        estado='ready',
+        referencia_tipo=$8,
+        referencia_pictograma_id=$9,
+        referencia_url=$10,
+        referencia_path=$11,
+        referencia_contiene_personas=$12,
+        preview_url=$13,
+        preview_path=$14,
+        proveedor_request_id=$15,
+        seed=$16,
+        error=NULL,
+        fecha_actualizacion=NOW()
+    WHERE id=$1
+    RETURNING *
+  `, [
+    id,
+    data.name,
+    data.description,
+    data.category,
+    data.mode,
+    data.model,
+    data.prompt,
+    data.referenceType ?? null,
+    data.referencePictogramId ?? null,
+    data.referenceUrl ?? null,
+    data.referencePath ?? null,
+    Boolean(data.referenceHadPeople),
+    data.previewUrl,
+    data.previewPath,
+    data.providerRequestId ?? null,
+    data.seed ?? null,
+  ]));
+
   failGenerationAsync = async (id, error) => mapGeneration(await BD.queryOne(`
     UPDATE generaciones_pictogramas_ia SET estado='failed', error=$2, fecha_actualizacion=NOW() WHERE id=$1 RETURNING *
   `, [id, String(error || 'Error de generacion').slice(0, 1000)]));
@@ -94,33 +136,63 @@ export default class AiPictogramRepository {
   getGenerationAsync = async (id) => mapGeneration(await BD.queryOne('SELECT * FROM generaciones_pictogramas_ia WHERE id=$1', [id]));
 
   saveGenerationAsync = async (generation, allTargetIds) => {
-    const targets = (Array.isArray(allTargetIds) && allTargetIds.length > 0)
-      ? allTargetIds
-      : [generation.targetPertenecienteId];
+    const targets = Array.from(new Set(
+      (Array.isArray(allTargetIds) && allTargetIds.length > 0 ? allTargetIds : [generation.targetPertenecienteId])
+        .map(Number)
+        .filter(Boolean),
+    ));
 
-    const results = [];
-    for (const targetId of targets) {
-      const uniqueOriginId = targets.length > 1 ? `${generation.id}_${targetId}` : generation.id;
-      const row = await BD.queryOne(`
-        INSERT INTO pictogramas (
-          origen, origen_id, titulo, tipo, url, url_descarga, etiquetas, idioma,
-          autor, licencia, texto_busqueda, metadata, id_usuario_creador,
-          id_perteneciente_destino, estado_publicacion, generacion_ia_id
-        ) VALUES ('TANDEM_AI',$1,$2,$3,$4,$4,'{}','es','TANDEM IA','Uso interno TANDEM',$5,$6::jsonb,$7,$8,'private',$9)
-        ON CONFLICT (origen, idioma, origen_id) DO UPDATE SET
-          titulo=EXCLUDED.titulo, tipo=EXCLUDED.tipo, url=EXCLUDED.url,
-          texto_busqueda=EXCLUDED.texto_busqueda, metadata=EXCLUDED.metadata,
-          fecha_actualizacion=NOW()
-        RETURNING id, origen_id
-      `, [uniqueOriginId, generation.name, generation.category, generation.previewUrl,
-        `${generation.name} ${generation.description} ${generation.category}`.toLowerCase(),
-        JSON.stringify({ generated: true, mode: generation.mode, model: generation.model, targetPertenecienteIds: targets }),
-        generation.creatorUserId, targetId, generation.id]);
-      results.push({ id: String(row.origen_id), dbId: row.id });
-    }
+    return await BD.transaction(async (client) => {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [generation.id]);
 
-    await BD.execute(`UPDATE generaciones_pictogramas_ia SET estado='saved', fecha_actualizacion=NOW() WHERE id=$1`, [generation.id]);
-    return results[0] || { id: generation.id, dbId: null };
+      const existing = await client.query(
+        `
+          SELECT id, origen_id
+          FROM pictogramas
+          WHERE origen='TANDEM_AI' AND generacion_ia_id=$1
+          ORDER BY fecha_creacion ASC
+        `,
+        [generation.id],
+      );
+      if (existing.rows.length > 0) {
+        await client.query(`UPDATE generaciones_pictogramas_ia SET estado='saved', fecha_actualizacion=NOW() WHERE id=$1`, [generation.id]);
+        return { id: String(existing.rows[0].origen_id), dbId: existing.rows[0].id };
+      }
+
+      const results = [];
+      for (const targetId of targets) {
+        const uniqueOriginId = targets.length > 1 ? `${generation.id}_${targetId}` : generation.id;
+        const row = await client.query(
+          `
+            INSERT INTO pictogramas (
+              origen, origen_id, titulo, tipo, url, url_descarga, etiquetas, idioma,
+              autor, licencia, texto_busqueda, metadata, id_usuario_creador,
+              id_perteneciente_destino, estado_publicacion, generacion_ia_id
+            ) VALUES ('TANDEM_AI',$1,$2,$3,$4,$4,'{}','es','TANDEM IA','Uso interno TANDEM',$5,$6::jsonb,$7,$8,'private',$9)
+            ON CONFLICT (origen, idioma, origen_id) DO UPDATE SET
+              titulo=EXCLUDED.titulo, tipo=EXCLUDED.tipo, url=EXCLUDED.url,
+              texto_busqueda=EXCLUDED.texto_busqueda, metadata=EXCLUDED.metadata,
+              fecha_actualizacion=NOW()
+            RETURNING id, origen_id
+          `,
+          [
+            uniqueOriginId,
+            generation.name,
+            generation.category,
+            generation.previewUrl,
+            `${generation.name} ${generation.description} ${generation.category}`.toLowerCase(),
+            JSON.stringify({ generated: true, mode: generation.mode, model: generation.model, targetPertenecienteIds: targets }),
+            generation.creatorUserId,
+            targetId,
+            generation.id,
+          ],
+        );
+        results.push({ id: String(row.rows[0].origen_id), dbId: row.rows[0].id });
+      }
+
+      await client.query(`UPDATE generaciones_pictogramas_ia SET estado='saved', fecha_actualizacion=NOW() WHERE id=$1`, [generation.id]);
+      return results[0] || { id: generation.id, dbId: null };
+    });
   };
 
   listPrivateAsync = async (userId) => BD.query(`
