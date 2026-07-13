@@ -133,6 +133,10 @@ export default class AiPictogramRepository {
     UPDATE generaciones_pictogramas_ia SET estado='failed', error=$2, fecha_actualizacion=NOW() WHERE id=$1 RETURNING *
   `, [id, String(error || 'Error de generacion').slice(0, 1000)]));
 
+  discardGenerationAsync = async (id) => mapGeneration(await BD.queryOne(`
+    UPDATE generaciones_pictogramas_ia SET estado='discarded', error='discarded', fecha_actualizacion=NOW() WHERE id=$1 RETURNING *
+  `, [id]));
+
   getGenerationAsync = async (id) => mapGeneration(await BD.queryOne('SELECT * FROM generaciones_pictogramas_ia WHERE id=$1', [id]));
 
   saveGenerationAsync = async (generation, allTargetIds) => {
@@ -169,10 +173,7 @@ export default class AiPictogramRepository {
               autor, licencia, texto_busqueda, metadata, id_usuario_creador,
               id_perteneciente_destino, estado_publicacion, generacion_ia_id
             ) VALUES ('TANDEM_AI',$1,$2,$3,$4,$4,'{}','es','TANDEM IA','Uso interno TANDEM',$5,$6::jsonb,$7,$8,'private',$9)
-            ON CONFLICT (origen, idioma, origen_id) DO UPDATE SET
-              titulo=EXCLUDED.titulo, tipo=EXCLUDED.tipo, url=EXCLUDED.url,
-              texto_busqueda=EXCLUDED.texto_busqueda, metadata=EXCLUDED.metadata,
-              fecha_actualizacion=NOW()
+            ON CONFLICT (origen, idioma, origen_id) DO NOTHING
             RETURNING id, origen_id
           `,
           [
@@ -187,7 +188,9 @@ export default class AiPictogramRepository {
             generation.id,
           ],
         );
-        results.push({ id: String(row.rows[0].origen_id), dbId: row.rows[0].id });
+        if (row.rows[0]) {
+          results.push({ id: String(row.rows[0].origen_id), dbId: row.rows[0].id });
+        }
       }
 
       await client.query(`UPDATE generaciones_pictogramas_ia SET estado='saved', fecha_actualizacion=NOW() WHERE id=$1`, [generation.id]);

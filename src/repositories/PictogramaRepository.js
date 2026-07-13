@@ -148,7 +148,16 @@ export default class PictogramaRepository {
     await BD.execute(`ALTER TABLE pictogramas ADD COLUMN IF NOT EXISTS uso_total INTEGER NOT NULL DEFAULT 0`);
     await BD.execute(`ALTER TABLE pictogramas ADD COLUMN IF NOT EXISTS descarga_total INTEGER NOT NULL DEFAULT 0`);
     await BD.execute(`ALTER TABLE pictogramas ADD COLUMN IF NOT EXISTS guardado_total INTEGER NOT NULL DEFAULT 0`);
+    await BD.execute(`ALTER TABLE pictogramas ADD COLUMN IF NOT EXISTS id_usuario_creador INTEGER REFERENCES usuarios(id)`);
+    await BD.execute(`ALTER TABLE pictogramas ADD COLUMN IF NOT EXISTS id_perteneciente_destino INTEGER REFERENCES pertenecientes(id)`);
+    await BD.execute(`ALTER TABLE pictogramas ADD COLUMN IF NOT EXISTS estado_publicacion VARCHAR(30) NOT NULL DEFAULT 'approved'`);
+    await BD.execute(`ALTER TABLE pictogramas ADD COLUMN IF NOT EXISTS motivo_revision TEXT`);
+    await BD.execute(`ALTER TABLE pictogramas ADD COLUMN IF NOT EXISTS id_administrador_revisor INTEGER REFERENCES usuarios(id)`);
+    await BD.execute(`ALTER TABLE pictogramas ADD COLUMN IF NOT EXISTS fecha_revision TIMESTAMPTZ`);
+    await BD.execute(`ALTER TABLE pictogramas ADD COLUMN IF NOT EXISTS generacion_ia_id UUID`);
     await BD.execute(`CREATE INDEX IF NOT EXISTS idx_pictogramas_populares ON pictogramas (idioma, popularidad DESC, descarga_total DESC, uso_total DESC, titulo ASC)`);
+    await BD.execute(`CREATE INDEX IF NOT EXISTS idx_pictogramas_publicacion ON pictogramas(estado_publicacion, fecha_creacion DESC)`);
+    await BD.execute(`CREATE INDEX IF NOT EXISTS idx_pictogramas_generacion_ia ON pictogramas(generacion_ia_id) WHERE generacion_ia_id IS NOT NULL`);
 
     await BD.execute(`
       CREATE TABLE IF NOT EXISTS favoritos_pictogramas (
@@ -263,6 +272,30 @@ export default class PictogramaRepository {
     return normalizeRow(await BD.queryOne(sql, [language, String(id)]));
   };
 
+  getByExternalIdForUserAsync = async (id, language, userId) => {
+    const sql = `
+      SELECT p.id, p.origen, p.origen_id, p.arasaac_id, p.titulo, p.tipo, p.url, p.url_descarga,
+             p.etiquetas, p.idioma, p.autor, p.licencia, p.popularidad, p.uso_total,
+             p.descarga_total, p.guardado_total, p.fecha_sincronizacion,
+             p.id_perteneciente_destino, p.estado_publicacion
+      FROM pictogramas p
+      WHERE p.idioma = $1
+        AND (p.origen_id = $2 OR p.arasaac_id::TEXT = $2)
+        AND (
+          p.origen <> 'TANDEM_AI'
+          OR p.estado_publicacion = 'approved'
+          OR (
+            p.estado_publicacion = 'private'
+            AND p.id_perteneciente_destino IN (
+              SELECT id FROM pertenecientes WHERE id_usuario = $3
+            )
+          )
+        )
+      LIMIT 1
+    `;
+    return normalizeRow(await BD.queryOne(sql, [language, String(id), Number(userId)]));
+  };
+
   countAsync = async (language) => {
     const row = await BD.queryOne("SELECT COUNT(*)::INTEGER AS total FROM pictogramas WHERE idioma = $1 AND (origen <> 'TANDEM_AI' OR estado_publicacion = 'approved')", [language]);
     return row?.total || 0;
@@ -338,7 +371,7 @@ export default class PictogramaRepository {
   };
 
   addFavoriteAsync = async ({ userId, pictogramId, language }) => {
-    const pictogram = await this.getByExternalIdAsync(pictogramId, language);
+    const pictogram = await this.getByExternalIdForUserAsync(pictogramId, language, userId);
     if (!pictogram) return 0;
 
     const row = await BD.queryOne(
@@ -360,7 +393,7 @@ export default class PictogramaRepository {
   };
 
   removeFavoriteAsync = async ({ userId, pictogramId, language }) => {
-    const pictogram = await this.getByExternalIdAsync(pictogramId, language);
+    const pictogram = await this.getByExternalIdForUserAsync(pictogramId, language, userId);
     if (!pictogram) return 0;
 
     const rows = await BD.execute(
