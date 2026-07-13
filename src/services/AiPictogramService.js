@@ -54,6 +54,24 @@ function getProviderError(error) {
   return { status, message };
 }
 
+function splitStoredList(value) {
+  return String(value || '')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function joinStoredList(items) {
+  return Array.from(new Set((items || []).filter(Boolean))).join('\n') || null;
+}
+
+function isRetryablePollinationsError(error) {
+  const providerError = getProviderError(error);
+  return !providerError.status
+    || providerError.status >= 500
+    || /queue\s*full|timeout|timed?\s*out|network|socket|econn/i.test(providerError.message || '');
+}
+
 function buildPrompt(name, description, revisionInstructions = '') {
   const visualDescription = visualOnlyText(description);
   const visualRevision = visualOnlyText(revisionInstructions);
@@ -154,11 +172,16 @@ export default class AiPictogramService {
       } catch {
         throw new AppError('La imagen de referencia no es valida.', 400);
       }
-      const stored = await this.storage.uploadAsync({
-        buffer, contentType: 'image/png', fileName: 'reference.png', userId,
-        path: `pictograms-ai/temp/${generationId}/reference.png`, upsert: true,
-      });
-      return { type: 'upload', url: stored.url, path: stored.path };
+      try {
+        const stored = await this.storage.uploadAsync({
+          buffer, contentType: 'image/png', fileName: 'reference.png', userId,
+          path: `pictograms-ai/temp/${generationId}/reference.png`, upsert: true,
+        });
+        return { type: 'upload', url: stored.url, path: stored.path };
+      } catch (error) {
+        const providerError = getProviderError(error);
+        throw new AppError(`No se pudo guardar la referencia (${providerError.status || 'sin estado'}).`, 502);
+      }
     }
     if (referencePictogramId) {
       const pictogram = await this.pictograms.getByExternalIdAsync(referencePictogramId, 'es');
@@ -186,6 +209,7 @@ export default class AiPictogramService {
         if (referenceUrl) params.set('image', referenceUrl);
 
         const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(currentPrompt)}?${params.toString()}`;
+        for (let attempt = 1; attempt <= 2; attempt += 1) {
         try {
           const response = await axios.get(url, {
             responseType: 'arraybuffer',
@@ -200,7 +224,9 @@ export default class AiPictogramService {
         } catch (error) {
           lastError = error;
           const providerError = getProviderError(error);
-          console.warn(`Pollinations ${model} failed:`, providerError.message);
+          console.warn(`Pollinations ${model} attempt ${attempt} failed:`, providerError.message);
+          if (!isRetryablePollinationsError(error)) break;
+        }
         }
       }
     }
@@ -320,10 +346,16 @@ export default class AiPictogramService {
         description,
       });
 
-      const stored = await this.storage.uploadAsync({
-        buffer: imageBuffer, contentType: 'image/png', fileName: `${id}.png`, userId,
-        path: `pictograms-ai/previews/${id}.png`, upsert: true,
-      });
+      let stored;
+      try {
+        stored = await this.storage.uploadAsync({
+          buffer: imageBuffer, contentType: 'image/png', fileName: `${id}.png`, userId,
+          path: `pictograms-ai/previews/${id}.png`, upsert: true,
+        });
+      } catch (error) {
+        const providerError = getProviderError(error);
+        throw new AppError(`No se pudo guardar la vista previa (${providerError.status || 'sin estado'}).`, 502);
+      }
       return await this.repository.completeGenerationAsync(id, {
         previewUrl: stored.url, previewPath: stored.path, providerRequestId, seed,
       });
@@ -361,9 +393,7 @@ export default class AiPictogramService {
       catalogReference = { type: 'catalog', url: pictogram.imageUrl, pictogramId: pictogram.id };
     }
 
-    const previousReferenceUrls = String(generation.referenceUrl || '')
-      .split('\n')
-      .map((url) => url.trim())
+    const previousReferenceUrls = splitStoredList(generation.referenceUrl)
       .filter((url) => !url.includes('/pictograms-ai/previews/'))
       .filter(Boolean);
     const persistentReferenceUrls = Array.from(new Set([
@@ -384,14 +414,25 @@ export default class AiPictogramService {
       description,
     });
 
-    const stored = await this.storage.uploadAsync({
-      buffer: imageBuffer,
-      contentType: 'image/png',
-      fileName: `${id}.png`,
-      userId,
-      path: `pictograms-ai/previews/${id}-${Date.now()}.png`,
-      upsert: true,
-    });
+    let stored;
+    try {
+      stored = await this.storage.uploadAsync({
+        buffer: imageBuffer,
+        contentType: 'image/png',
+        fileName: `${id}.png`,
+        userId,
+        path: `pictograms-ai/previews/${id}-${Date.now()}.png`,
+        upsert: true,
+      });
+    } catch (error) {
+      const providerError = getProviderError(error);
+      throw new AppError(`No se pudo guardar la vista previa (${providerError.status || 'sin estado'}).`, 502);
+    }
+
+    const persistentReferencePaths = joinStoredList([
+      ...splitStoredList(generation.referencePath),
+      uploadedReference?.path,
+    ]);
 
     const revised = await this.repository.updateGenerationRevisionAsync(id, {
       name,
@@ -402,8 +443,8 @@ export default class AiPictogramService {
       prompt,
       referenceType: [uploadedReference?.type, catalogReference?.type, 'previous-preview'].filter(Boolean).join('+'),
       referencePictogramId: catalogReference?.pictogramId || generation.referencePictogramId,
-      referenceUrl: persistentReferenceUrls.join('\n'),
-      referencePath: uploadedReference?.path || generation.referencePath,
+      referenceUrl: joinStoredList(persistentReferenceUrls),
+      referencePath: persistentReferencePaths,
       referenceHadPeople: generation.referenceHadPeople || body.referenceHadPeople === 'true',
       previewUrl: stored.url,
       previewPath: stored.path,
@@ -425,20 +466,25 @@ export default class AiPictogramService {
   saveAsync = async (id, userId, body) => {
     const generation = await this.getGenerationForOwnerAsync(id, userId);
     if (!['ready', 'saved'].includes(generation.status) || !generation.previewUrl) throw new AppError('La vista previa no esta lista.', 409);
-    const targetIds = Array.isArray(body?.targetPertenecienteIds)
+    const targetIds = Array.from(new Set((Array.isArray(body?.targetPertenecienteIds)
       ? body.targetPertenecienteIds.map(Number).filter(Boolean)
-      : [];
-    return await this.repository.saveGenerationAsync(generation, targetIds);
+      : []).filter(Boolean)));
+    const effectiveTargetIds = targetIds.length > 0 ? targetIds : [Number(generation.targetPertenecienteId)];
+    for (const targetId of effectiveTargetIds) {
+      await this.assertTargetAsync(userId, targetId);
+    }
+    return await this.repository.saveGenerationAsync(generation, effectiveTargetIds);
   };
 
   discardAsync = async (id, userId) => {
     const generation = await this.getGenerationForOwnerAsync(id, userId);
     if (generation.status === 'saved') throw new AppError('Una creacion guardada no puede descartarse desde la vista previa.', 409);
-    await Promise.all([
-      generation.previewPath ? this.storage.deleteAsync(generation.previewPath).catch(() => undefined) : null,
-      generation.referencePath ? this.storage.deleteAsync(generation.referencePath).catch(() => undefined) : null,
-    ]);
-    await this.repository.failGenerationAsync(id, 'discarded');
+    const pathsToDelete = Array.from(new Set([
+      generation.previewPath,
+      ...splitStoredList(generation.referencePath),
+    ].filter(Boolean)));
+    await Promise.all(pathsToDelete.map((path) => this.storage.deleteAsync(path).catch(() => undefined)));
+    await this.repository.discardGenerationAsync(id);
     return { discarded: true };
   };
 

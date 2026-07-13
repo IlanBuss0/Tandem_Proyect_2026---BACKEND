@@ -13,6 +13,12 @@ const router = Router();
 const currentService = new PictogramaService();
 const aiService = new AiPictogramService();
 
+const authIfTargetPerteneciente = (req, res, next) => {
+  const targetPertenecienteId = req.query.targetPertenecienteId || req.query.id_perteneciente_destino;
+  if (targetPertenecienteId) return authMiddleware(req, res, next);
+  return next();
+};
+
 router.get('/ai/targets', authMiddleware, async (req, res, next) => {
   try { res.json(await aiService.getTargetsAsync(req.user.id)); } catch (error) { next(error); }
 });
@@ -72,20 +78,27 @@ router.post('/ai/moderation/:id/review', authMiddleware, csrfMiddleware, async (
   try { res.json(await aiService.reviewAsync(req.params.id, req.user.id, req.body || {})); } catch (error) { next(error); }
 });
 
-router.get('', async (req, res) => {
+router.get('', authIfTargetPerteneciente, async (req, res, next) => {
   try {
+    const targetPertenecienteId = req.query.targetPertenecienteId || req.query.id_perteneciente_destino;
+    if (targetPertenecienteId) {
+      const targetIds = String(targetPertenecienteId).split(',').map(Number).filter(Boolean);
+      for (const targetId of targetIds) {
+        await AuthorizationService.assertCanReadPertenecienteResource(req.user.id, targetId);
+      }
+    }
+
     const pictograms = await currentService.searchAsync({
       search: req.query.search || req.query.q,
       category: req.query.category,
       language: req.query.language || req.query.lang,
       limit: req.query.limit,
-      targetPertenecienteId: req.query.targetPertenecienteId || req.query.id_perteneciente_destino,
+      targetPertenecienteId,
     });
 
     res.status(StatusCodes.OK).json(pictograms);
   } catch (error) {
-    console.log(error);
-    res.status(StatusCodes.BAD_GATEWAY).json({ message: error.message });
+    next(error);
   }
 });
 
