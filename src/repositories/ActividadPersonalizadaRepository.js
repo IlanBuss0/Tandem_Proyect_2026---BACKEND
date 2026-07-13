@@ -69,6 +69,31 @@ export default class ActividadPersonalizadaRepository {
     return await BD.query(sql, [idUsuarioCreador]);
   };
 
+  getByPertenecienteIdAsync = async (idPerteneciente) => {
+    console.log(`ActividadPersonalizadaRepository.getByPertenecienteIdAsync(${idPerteneciente})`);
+
+    const sql = `
+      SELECT DISTINCT
+        ap.id,
+        ap.id_actividad_base,
+        ap.id_tipo_actividad,
+        ap.id_punto_otorgado,
+        ap.id_usuario_creador,
+        ap.titulo,
+        ap.descripcion,
+        ap.fecha_creacion,
+        ap.activa
+      FROM actividades_personalizadas ap
+      INNER JOIN actividades_asignadas aa
+        ON aa.id_actividad_personalizada = ap.id
+      WHERE aa.id_perteneciente = $1
+        AND ap.activa = true
+      ORDER BY ap.id DESC
+    `;
+
+    return await BD.query(sql, [idPerteneciente]);
+  };
+
   createAsync = async (entity) => {
     console.log(`ActividadPersonalizadaRepository.createAsync(${JSON.stringify(entity)})`);
 

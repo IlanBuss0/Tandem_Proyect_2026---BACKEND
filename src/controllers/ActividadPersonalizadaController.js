@@ -20,6 +20,16 @@ function sendError(res, error, fallbackStatus = StatusCodes.INTERNAL_SERVER_ERRO
 router.get('', async (req, res) => {
   try {
     console.log('ActividadPersonalizadaController.getAll');
+    const idPerteneciente = Number(req.query.id_perteneciente);
+
+    if (idPerteneciente) {
+      await AuthorizationService.assertCanReadPertenecienteResource(
+        req.user.id,
+        idPerteneciente,
+      );
+      const returnArray = await currentService.getByPertenecienteIdAsync(idPerteneciente);
+      return res.status(StatusCodes.OK).json(returnArray ?? []);
+    }
 
     const returnArray = await currentService.getByUsuarioCreadorAsync(req.user.id);
 

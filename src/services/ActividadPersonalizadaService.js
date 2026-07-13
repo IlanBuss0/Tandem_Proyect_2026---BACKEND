@@ -30,6 +30,14 @@ export default class ActividadPersonalizadaService {
     return await this.ActividadPersonalizadaRepository.getByUsuarioCreadorAsync(idUsuarioCreador);
   };
 
+  getByPertenecienteIdAsync = async (idPerteneciente) => {
+    console.log(`ActividadPersonalizadaService.getByPertenecienteIdAsync(${idPerteneciente})`);
+    if (!idPerteneciente || Number.isNaN(idPerteneciente)) {
+      throw new Error('El id del perteneciente es invalido.');
+    }
+    return await this.ActividadPersonalizadaRepository.getByPertenecienteIdAsync(idPerteneciente);
+  };
+
   createAsync = async (entity) => {
     console.log(`ActividadPersonalizadaService.createAsync(${JSON.stringify(entity)})`);
     this.validarActividadPersonalizadaParaCrear(entity);
