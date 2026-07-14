@@ -1,43 +1,53 @@
 import BD from '../db/BD.js';
 
+const PROFILE_COLUMNS = `id, id_profesional, descripcion, experiencia, precio_sesion,
+  informacion_precio, visible_en_tienda, modalidad, disponibilidad,
+  correo_contacto, whatsapp_contacto, publicar_correo, publicar_whatsapp`;
+
 export default class PerfilProfesionalRepository {
-  constructor() {
-    console.log('Estoy en: PerfilProfesionalRepository.constructor()');
-  }
+  getByIdAsync = async (id) => BD.queryOne(
+    `SELECT ${PROFILE_COLUMNS} FROM perfiles_profesionales WHERE id = $1`, [id],
+  );
 
-  getAllAsync = async () => {
-    console.log('PerfilProfesionalRepository.getAllAsync()');
-    const sql = `SELECT id, id_profesional, descripcion, experiencia, precio_sesion, informacion_precio, visible_en_tienda FROM perfiles_profesionales ORDER BY id DESC`;
-    return await BD.query(sql);
-  };
+  getByProfessionalIdAsync = async (idProfessional) => BD.queryOne(
+    `SELECT ${PROFILE_COLUMNS} FROM perfiles_profesionales WHERE id_profesional = $1`, [idProfessional],
+  );
 
-  getByIdAsync = async (id) => {
-    console.log(`PerfilProfesionalRepository.getByIdAsync(${id})`);
-    const sql = `SELECT id, id_profesional, descripcion, experiencia, precio_sesion, informacion_precio, visible_en_tienda FROM perfiles_profesionales WHERE id = $1`;
-    return await BD.queryOne(sql, [id]);
-  };
+  upsertForProfessionalAsync = async (idProfessional, entity) => BD.queryOne(`
+    INSERT INTO perfiles_profesionales (
+      id_profesional, descripcion, experiencia, precio_sesion, informacion_precio,
+      visible_en_tienda, modalidad, disponibilidad, correo_contacto,
+      whatsapp_contacto, publicar_correo, publicar_whatsapp
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+    ON CONFLICT (id_profesional) DO UPDATE SET
+      descripcion = EXCLUDED.descripcion, experiencia = EXCLUDED.experiencia,
+      precio_sesion = EXCLUDED.precio_sesion, informacion_precio = EXCLUDED.informacion_precio,
+      visible_en_tienda = EXCLUDED.visible_en_tienda, modalidad = EXCLUDED.modalidad,
+      disponibilidad = EXCLUDED.disponibilidad, correo_contacto = EXCLUDED.correo_contacto,
+      whatsapp_contacto = EXCLUDED.whatsapp_contacto, publicar_correo = EXCLUDED.publicar_correo,
+      publicar_whatsapp = EXCLUDED.publicar_whatsapp
+    RETURNING ${PROFILE_COLUMNS}
+  `, [
+    idProfessional, entity.descripcion, entity.experiencia, entity.precio_sesion,
+    entity.informacion_precio, entity.visible_en_tienda, entity.modalidad,
+    entity.disponibilidad, entity.correo_contacto, entity.whatsapp_contacto,
+    entity.publicar_correo, entity.publicar_whatsapp,
+  ]);
 
-  createAsync = async (entity) => {
-    console.log(`PerfilProfesionalRepository.createAsync(${JSON.stringify(entity)})`);
-    const sql = `INSERT INTO perfiles_profesionales (id_profesional, descripcion, experiencia, precio_sesion, informacion_precio, visible_en_tienda) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`;
-    const values = [entity?.id_profesional ?? null, entity?.descripcion ?? null, entity?.experiencia ?? null, entity?.precio_sesion ?? null, entity?.informacion_precio ?? null, entity?.visible_en_tienda ?? null];
-    const result = await BD.queryOne(sql, values);
-    return result?.id ?? 0;
-  };
-
-  updateAsync = async (entity) => {
-    console.log(`PerfilProfesionalRepository.updateAsync(${JSON.stringify(entity)})`);
-    const id = entity.id;
-    const previousEntity = await this.getByIdAsync(id);
-    if (previousEntity == null) return 0;
-    const sql = `UPDATE perfiles_profesionales SET id_profesional = $2, descripcion = $3, experiencia = $4, precio_sesion = $5, informacion_precio = $6, visible_en_tienda = $7 WHERE id = $1`;
-    const values = [id, entity?.id_profesional ?? previousEntity.id_profesional, entity?.descripcion ?? previousEntity.descripcion, entity?.experiencia ?? previousEntity.experiencia, entity?.precio_sesion ?? previousEntity.precio_sesion, entity?.informacion_precio ?? previousEntity.informacion_precio, entity?.visible_en_tienda ?? previousEntity.visible_en_tienda];
-    return await BD.execute(sql, values);
-  };
-
-  deleteByIdAsync = async (id) => {
-    console.log(`PerfilProfesionalRepository.deleteByIdAsync(${id})`);
-    const sql = `DELETE FROM perfiles_profesionales WHERE id = $1`;
-    return await BD.execute(sql, [id]);
-  };
+  getDirectoryAsync = async () => BD.query(`
+    SELECT pf.id, p.id AS id_profesional,
+      CONCAT_WS(' ', u.nombre, u.apellido) AS nombre,
+      p.profesion, p.especialidad, p.institucion,
+      pf.descripcion, pf.experiencia, pf.precio_sesion, pf.informacion_precio,
+      pf.modalidad, pf.disponibilidad,
+      CASE WHEN pf.publicar_correo THEN pf.correo_contacto ELSE NULL END AS correo_contacto,
+      CASE WHEN pf.publicar_whatsapp THEN pf.whatsapp_contacto ELSE NULL END AS whatsapp_contacto
+    FROM perfiles_profesionales pf
+    INNER JOIN profesionales p ON p.id = pf.id_profesional
+    INNER JOIN usuarios u ON u.id = p.id_usuario AND u.activo = TRUE
+    INNER JOIN estados_validaciones_profesionales ev ON ev.id = p.id_estado_validacion
+    WHERE pf.visible_en_tienda = TRUE
+      AND LOWER(ev.nombre) IN ('validado', 'aprobado', 'verificado')
+    ORDER BY u.apellido NULLS LAST, u.nombre NULLS LAST
+  `);
 }

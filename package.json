@@ -18,6 +18,7 @@
     "test:vinculo-invite-flow": "node scripts/test-vinculo-invite-flow.mjs",
     "test:pictogram-search": "node --test test/pictogram-search.test.js",
     "test:routine-reminders": "node --test test/routine-reminders.test.js",
+    "test:professional-core": "node --test test/professional-core.test.js",
     "seed:permissions": "node scripts/seed-permission-catalogs.mjs",
     "db:invites-vinculo": "node scripts/create-invites-vinculo-table.mjs",
     "db:invites-vinculo-profesional": "node scripts/create-invites-vinculo-profesional-table.mjs",
@@ -29,6 +30,7 @@
     "db:config-values-text": "node scripts/expand-config-value-columns.mjs",
     "db:notification-references": "node scripts/add-notification-reference-fields.mjs",
     "db:routine-reminders": "node scripts/create-routine-reminders-table.mjs",
+    "db:professional-core": "node scripts/upgrade-professional-core.mjs",
     "sync:pictograms": "node scripts/sync-pictograms.mjs"
   },
   "dependencies": {

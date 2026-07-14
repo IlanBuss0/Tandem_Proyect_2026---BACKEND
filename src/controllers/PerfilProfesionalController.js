@@ -1,63 +1,48 @@
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import PerfilProfesionalService from '../services/PerfilProfesionalService.js';
-import PerfilProfesional from '../entities/PerfilProfesional.js';
+import AuthorizationService from '../services/AuthorizationService.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = Router();
-const currentService = new PerfilProfesionalService();
+const service = new PerfilProfesionalService();
+router.use(authMiddleware);
 
-router.get('', async (req, res) => {
+function sendError(res, error, fallback = 500) {
+  return res.status(Number(error?.statusCode || fallback)).json({ error: error?.message || 'Error interno.' });
+}
+
+router.get('/directory', async (req, res) => {
   try {
-    const r = await currentService.getAllAsync();
-    res.status(StatusCodes.OK).json(r);
+    const context = await AuthorizationService.getUserContext(req.user.id);
+    if (!context?.tutor && !context?.perteneciente) {
+      return res.status(StatusCodes.FORBIDDEN).json({ error: 'El directorio esta disponible para tutores y pertenecientes.' });
+    }
+    return res.status(StatusCodes.OK).json(await service.getDirectoryAsync());
   } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+    return sendError(res, error);
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/mine', async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
-    const r = await currentService.getByIdAsync(id);
-    if (r != null) res.status(StatusCodes.OK).json(r);
-    else res.status(StatusCodes.NOT_FOUND).send('No encontrado.');
+    const context = await AuthorizationService.getUserContext(req.user.id);
+    if (!context?.profesional?.id) return res.status(403).json({ error: 'Se requiere una cuenta profesional.' });
+    const profile = await service.getMineAsync(context.profesional.id);
+    return res.status(StatusCodes.OK).json({ profesional: context.profesional, perfil: profile });
   } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+    return sendError(res, error);
   }
 });
 
-router.post('', async (req, res) => {
+router.put('/mine', async (req, res) => {
   try {
-    const entity = new PerfilProfesional(req.body);
-    const newId = await currentService.createAsync(entity);
-    if (newId > 0) res.status(StatusCodes.CREATED).json({ id: newId });
-    else res.status(StatusCodes.BAD_REQUEST).send('No se pudo crear.');
+    const context = await AuthorizationService.getUserContext(req.user.id);
+    if (!context?.profesional?.id) return res.status(403).json({ error: 'Se requiere una cuenta profesional.' });
+    const profile = await service.saveMineAsync(context.profesional.id, req.body);
+    return res.status(StatusCodes.OK).json({ profesional: context.profesional, perfil: profile });
   } catch (error) {
-    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
-  }
-});
-
-router.put('/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const entity = new PerfilProfesional(req.body);
-    entity.id = id;
-    const rowsAffected = await currentService.updateAsync(entity);
-    if (rowsAffected !== 0) res.status(StatusCodes.OK).json({ rowsAffected });
-    else res.status(StatusCodes.NOT_FOUND).send('No encontrado.');
-  } catch (error) {
-    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
-  }
-});
-
-router.delete('/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const rowCount = await currentService.deleteByIdAsync(id);
-    if (rowCount !== 0) res.status(StatusCodes.OK).json({ rowsAffected: rowCount });
-    else res.status(StatusCodes.NOT_FOUND).send('No encontrado.');
-  } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+    return sendError(res, error, 400);
   }
 });
 

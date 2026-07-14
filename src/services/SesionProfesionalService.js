@@ -86,6 +86,64 @@ export default class SesionProfesionalService {
     return rowsAffected;
   };
 
+  getPrivateNoteAsync = async (idSesion, idProfesional) => {
+    const session = await this.SesionProfesionalRepository.getByIdAsync(idSesion);
+    if (!session) return null;
+    if (Number(session.id_profesional) !== Number(idProfesional)) {
+      const error = new Error('La nota privada pertenece a otro profesional.');
+      error.statusCode = 403;
+      throw error;
+    }
+    return await this.SesionProfesionalRepository.getPrivateNoteAsync(idSesion, idProfesional);
+  };
+
+  savePrivateNoteAsync = async (idSesion, idProfesional, contenido) => {
+    const session = await this.SesionProfesionalRepository.getByIdAsync(idSesion);
+    if (!session) return null;
+    if (Number(session.id_profesional) !== Number(idProfesional)) {
+      const error = new Error('La nota privada pertenece a otro profesional.');
+      error.statusCode = 403;
+      throw error;
+    }
+    if (!contenido || contenido.type !== 'doc' || !Array.isArray(contenido.content)) {
+      const error = new Error('El contenido de la nota no tiene un formato valido.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (JSON.stringify(contenido).length > 100000) {
+      const error = new Error('La nota supera el limite de 100 KB.');
+      error.statusCode = 413;
+      throw error;
+    }
+    return await this.SesionProfesionalRepository.upsertPrivateNoteAsync(idSesion, idProfesional, contenido);
+  };
+
+  linkDriveDocumentAsync = async (idSesion, idProfesional, document) => {
+    let note = await this.getPrivateNoteAsync(idSesion, idProfesional);
+    if (!note) {
+      note = await this.savePrivateNoteAsync(idSesion, idProfesional, { type: 'doc', content: [] });
+    }
+    const fileId = String(document?.google_file_id || '').trim();
+    if (!/^[A-Za-z0-9_-]{10,255}$/.test(fileId)) {
+      const error = new Error('Identificador de Google Drive invalido.');
+      error.statusCode = 400;
+      throw error;
+    }
+    const mimeType = 'application/vnd.google-apps.document';
+    return await this.SesionProfesionalRepository.upsertDriveDocumentAsync(note.id, {
+      google_file_id: fileId,
+      nombre: String(document?.nombre || 'Documento de Google').trim().slice(0, 255),
+      mime_type: mimeType,
+      web_view_url: `https://docs.google.com/document/d/${fileId}/edit`,
+    });
+  };
+
+  unlinkDriveDocumentAsync = async (idSesion, idProfesional) => {
+    const note = await this.getPrivateNoteAsync(idSesion, idProfesional);
+    if (!note) return 0;
+    return await this.SesionProfesionalRepository.deleteDriveDocumentAsync(note.id);
+  };
+
   validarSesionParaCrear = (entity) => {
     if (!entity) {
       throw new Error('La sesion profesional es obligatoria.');
@@ -98,6 +156,9 @@ export default class SesionProfesionalService {
     }
     if (!entity.fecha_sesion) {
       throw new Error('fecha_sesion es obligatorio.');
+    }
+    if (!Number.isInteger(Number(entity.duracion_minutos)) || Number(entity.duracion_minutos) < 15 || Number(entity.duracion_minutos) > 480) {
+      throw new Error('duracion_minutos debe estar entre 15 y 480.');
     }
   };
 }
