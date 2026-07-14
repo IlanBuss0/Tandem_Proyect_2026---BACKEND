@@ -1,5 +1,8 @@
 import BD from '../db/BD.js';
 
+const SESSION_COLUMNS = `id, id_profesional, id_perteneciente, fecha_sesion, titulo, duracion_minutos,
+  estado, recordatorios, legacy_calendar_event_id, recurrence_group_id, recurrence_rule, recurrence_index`;
+
 export default class SesionProfesionalRepository {
   constructor() {
     console.log('Estoy en: SesionProfesionalRepository.constructor()');
@@ -7,33 +10,36 @@ export default class SesionProfesionalRepository {
 
   getAllAsync = async () => {
     console.log('SesionProfesionalRepository.getAllAsync()');
-    const sql = `SELECT id, id_profesional, id_perteneciente, fecha_sesion, titulo, duracion_minutos, estado, recordatorios, legacy_calendar_event_id FROM sesiones_profesionales ORDER BY fecha_sesion DESC`;
+    const sql = `SELECT ${SESSION_COLUMNS} FROM sesiones_profesionales ORDER BY fecha_sesion DESC`;
     return await BD.query(sql);
   };
 
   getByIdAsync = async (id) => {
     console.log(`SesionProfesionalRepository.getByIdAsync(${id})`);
-    const sql = `SELECT id, id_profesional, id_perteneciente, fecha_sesion, titulo, duracion_minutos, estado, recordatorios, legacy_calendar_event_id FROM sesiones_profesionales WHERE id = $1`;
+    const sql = `SELECT ${SESSION_COLUMNS} FROM sesiones_profesionales WHERE id = $1`;
     return await BD.queryOne(sql, [id]);
   };
 
   getByPertenecienteIdAsync = async (idPerteneciente) => {
     console.log(`SesionProfesionalRepository.getByPertenecienteIdAsync(${idPerteneciente})`);
-    const sql = `SELECT id, id_profesional, id_perteneciente, fecha_sesion, titulo, duracion_minutos, estado, recordatorios, legacy_calendar_event_id FROM sesiones_profesionales WHERE id_perteneciente = $1 ORDER BY fecha_sesion DESC`;
+    const sql = `SELECT ${SESSION_COLUMNS} FROM sesiones_profesionales WHERE id_perteneciente = $1 ORDER BY fecha_sesion DESC`;
     return await BD.query(sql, [idPerteneciente]);
   };
 
   getByProfesionalIdAsync = async (idProfesional) => {
     console.log(`SesionProfesionalRepository.getByProfesionalIdAsync(${idProfesional})`);
-    const sql = `SELECT id, id_profesional, id_perteneciente, fecha_sesion, titulo, duracion_minutos, estado, recordatorios, legacy_calendar_event_id FROM sesiones_profesionales WHERE id_profesional = $1 ORDER BY fecha_sesion DESC`;
+    const sql = `SELECT ${SESSION_COLUMNS} FROM sesiones_profesionales WHERE id_profesional = $1 ORDER BY fecha_sesion DESC`;
     return await BD.query(sql, [idProfesional]);
   };
 
   createAsync = async (entity) => {
     console.log(`SesionProfesionalRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `
-      INSERT INTO sesiones_profesionales (id_profesional, id_perteneciente, fecha_sesion, titulo, duracion_minutos, estado, recordatorios, legacy_calendar_event_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+      INSERT INTO sesiones_profesionales (
+        id_profesional, id_perteneciente, fecha_sesion, titulo, duracion_minutos, estado,
+        recordatorios, legacy_calendar_event_id, recurrence_group_id, recurrence_rule, recurrence_index
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10::jsonb, $11)
       RETURNING id
     `;
     const values = [
@@ -45,6 +51,9 @@ export default class SesionProfesionalRepository {
       entity?.estado ?? 'programada',
       JSON.stringify(entity?.recordatorios ?? []),
       entity?.legacy_calendar_event_id ?? null,
+      entity?.recurrence_group_id ?? null,
+      entity?.recurrence_rule ? JSON.stringify(entity.recurrence_rule) : null,
+      entity?.recurrence_index ?? 0,
     ];
     const result = await BD.queryOne(sql, values);
     return result?.id ?? 0;
@@ -58,7 +67,8 @@ export default class SesionProfesionalRepository {
     const sql = `
       UPDATE sesiones_profesionales
       SET id_profesional = $2, id_perteneciente = $3, fecha_sesion = $4, titulo = $5,
-          duracion_minutos = $6, estado = $7, recordatorios = $8::jsonb
+          duracion_minutos = $6, estado = $7, recordatorios = $8::jsonb,
+          recurrence_group_id = $9, recurrence_rule = $10::jsonb, recurrence_index = $11
       WHERE id = $1
     `;
     const values = [
@@ -70,6 +80,9 @@ export default class SesionProfesionalRepository {
       entity?.duracion_minutos ?? previousEntity.duracion_minutos,
       entity?.estado ?? previousEntity.estado,
       JSON.stringify(entity?.recordatorios ?? previousEntity.recordatorios ?? []),
+      entity?.recurrence_group_id ?? previousEntity.recurrence_group_id ?? null,
+      entity?.recurrence_rule ? JSON.stringify(entity.recurrence_rule) : (previousEntity.recurrence_rule ? JSON.stringify(previousEntity.recurrence_rule) : null),
+      entity?.recurrence_index ?? previousEntity.recurrence_index ?? 0,
     ];
     return await BD.execute(sql, values);
   };

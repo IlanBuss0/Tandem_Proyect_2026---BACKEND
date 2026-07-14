@@ -8,7 +8,10 @@ import BD from '../src/db/BD.js';
         ADD COLUMN IF NOT EXISTS duracion_minutos INTEGER NOT NULL DEFAULT 60,
         ADD COLUMN IF NOT EXISTS estado VARCHAR(24) NOT NULL DEFAULT 'programada',
         ADD COLUMN IF NOT EXISTS recordatorios JSONB NOT NULL DEFAULT '[]'::jsonb,
-        ADD COLUMN IF NOT EXISTS legacy_calendar_event_id VARCHAR(120)
+        ADD COLUMN IF NOT EXISTS legacy_calendar_event_id VARCHAR(120),
+        ADD COLUMN IF NOT EXISTS recurrence_group_id UUID,
+        ADD COLUMN IF NOT EXISTS recurrence_rule JSONB,
+        ADD COLUMN IF NOT EXISTS recurrence_index INTEGER NOT NULL DEFAULT 0
     `);
     await BD.execute(`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_sesiones_profesionales_legacy_event

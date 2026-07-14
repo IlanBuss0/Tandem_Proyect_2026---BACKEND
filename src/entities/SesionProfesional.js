@@ -9,6 +9,9 @@ class SesionProfesional {
     estado = 'programada',
     recordatorios = [],
     legacy_calendar_event_id = null,
+    recurrence_group_id = null,
+    recurrence_rule = null,
+    recurrence_index = 0,
   }) {
     this.id = id;
     this.id_profesional = id_profesional;
@@ -19,6 +22,9 @@ class SesionProfesional {
     this.estado = estado;
     this.recordatorios = recordatorios;
     this.legacy_calendar_event_id = legacy_calendar_event_id;
+    this.recurrence_group_id = recurrence_group_id;
+    this.recurrence_rule = recurrence_rule;
+    this.recurrence_index = recurrence_index;
   }
 }
 

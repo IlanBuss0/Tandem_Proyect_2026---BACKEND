@@ -2,6 +2,9 @@ import SesionProfesionalRepository from '../repositories/SesionProfesionalReposi
 import PertenecienteRepository from '../repositories/PertenecienteRepository.js';
 import NotificationProducerService from './NotificationProducerService.js';
 import BD from '../db/BD.js';
+import crypto from 'node:crypto';
+
+const RECURRENCE_PRESETS = new Set(['none', 'weekly', 'twice_weekly', 'biweekly', 'monthly']);
 
 export default class SesionProfesionalService {
   constructor() {
@@ -46,6 +49,9 @@ export default class SesionProfesionalService {
   createAsync = async (entity) => {
     console.log(`SesionProfesionalService.createAsync(${JSON.stringify(entity)})`);
     this.validarSesionParaCrear(entity);
+    if (entity.recurrence_rule?.frequency && entity.recurrence_rule.frequency !== 'none') {
+      return await this.createRecurringAsync(entity);
+    }
     const newId = await this.SesionProfesionalRepository.createAsync(entity);
     const [perteneciente, profesional] = await Promise.all([
       this.PertenecienteRepository.getByIdAsync(entity.id_perteneciente),
@@ -64,6 +70,41 @@ export default class SesionProfesionalService {
       });
     }
     return newId;
+  };
+
+  createRecurringAsync = async (entity) => {
+    const rule = this.normalizeRecurrenceRule(entity.recurrence_rule);
+    const groupId = crypto.randomUUID();
+    const dates = this.buildRecurringDates(entity.fecha_sesion, rule);
+    const ids = [];
+    for (let index = 0; index < dates.length; index += 1) {
+      const id = await this.SesionProfesionalRepository.createAsync({
+        ...entity,
+        fecha_sesion: dates[index].toISOString(),
+        recurrence_group_id: groupId,
+        recurrence_rule: rule,
+        recurrence_index: index,
+      });
+      ids.push(id);
+    }
+
+    const [perteneciente, profesional] = await Promise.all([
+      this.PertenecienteRepository.getByIdAsync(entity.id_perteneciente),
+      BD.queryOne(`SELECT id_usuario FROM profesionales WHERE id = $1`, [entity.id_profesional]),
+    ]);
+    if (perteneciente) {
+      await this.NotificationProducerService.createAsync({
+        recipientUserId: perteneciente.id_usuario,
+        actorUserId: profesional?.id_usuario ?? null,
+        contextUserId: perteneciente.id_usuario,
+        typeName: 'Recordatorio',
+        title: 'Sesiones programadas',
+        body: `Se programaron ${ids.length} sesiones recurrentes.`,
+        referenceType: 'calendar',
+        referenceId: ids[0],
+      });
+    }
+    return ids[0] ?? 0;
   };
 
   updateAsync = async (entity) => {
@@ -160,5 +201,41 @@ export default class SesionProfesionalService {
     if (!Number.isInteger(Number(entity.duracion_minutos)) || Number(entity.duracion_minutos) < 15 || Number(entity.duracion_minutos) > 480) {
       throw new Error('duracion_minutos debe estar entre 15 y 480.');
     }
+  };
+
+  normalizeRecurrenceRule = (rule) => {
+    if (!rule || typeof rule !== 'object') return { frequency: 'none' };
+    const frequency = String(rule.frequency || 'none');
+    if (!RECURRENCE_PRESETS.has(frequency)) {
+      const error = new Error('Frecuencia de recurrencia invalida.');
+      error.statusCode = 400;
+      throw error;
+    }
+    const count = Math.max(1, Math.min(Number(rule.count || 1), 52));
+    return { frequency, count };
+  };
+
+  buildRecurringDates = (start, rule) => {
+    const first = new Date(start);
+    if (Number.isNaN(first.getTime())) {
+      const error = new Error('fecha_sesion es invalida.');
+      error.statusCode = 400;
+      throw error;
+    }
+    const dates = [];
+    const pushDate = (date) => dates.push(new Date(date.getTime()));
+    for (let i = 0; i < rule.count; i += 1) {
+      const date = new Date(first.getTime());
+      if (rule.frequency === 'weekly') date.setDate(first.getDate() + i * 7);
+      else if (rule.frequency === 'biweekly') date.setDate(first.getDate() + i * 14);
+      else if (rule.frequency === 'monthly') date.setMonth(first.getMonth() + i);
+      else if (rule.frequency === 'twice_weekly') {
+        const week = Math.floor(i / 2);
+        const offset = i % 2 === 0 ? 0 : 3;
+        date.setDate(first.getDate() + week * 7 + offset);
+      }
+      pushDate(date);
+    }
+    return dates;
   };
 }
