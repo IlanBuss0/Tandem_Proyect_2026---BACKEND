@@ -100,8 +100,8 @@ export default class SesionProfesionalRepository {
    * (sin I/O) provista por el service: recibe las filas del grupo ya
    * ordenadas por fecha real (no por indice, que puede no coincidir si se
    * reprogramo una sola ocurrencia) y la cantidad de sesiones ya pasadas, y
-   * devuelve `{ effectiveTitulo, toInsert, toDeleteIds, finalRule }` o tira
-   * un error (statusCode incluido) que hace ROLLBACK automatico.
+   * devuelve `{ effectiveTitulo, toInsert, toDeleteIds, toCompleteIds, finalRule }`
+   * o tira un error (statusCode incluido) que hace ROLLBACK automatico.
    */
   resizeSeriesAsync = async (groupId, computeChanges) => {
     console.log(`SesionProfesionalRepository.resizeSeriesAsync(${groupId})`);
@@ -120,7 +120,7 @@ export default class SesionProfesionalRepository {
       );
       const pastCount = pastCountResult.rows[0]?.c ?? 0;
 
-      const { effectiveTitulo, toInsert, toDeleteIds, finalRule } = computeChanges(rows, pastCount);
+      const { effectiveTitulo, toInsert, toDeleteIds, toCompleteIds, finalRule } = computeChanges(rows, pastCount);
 
       let deletedNotesCount = 0;
       if (toDeleteIds?.length) {
@@ -161,6 +161,13 @@ export default class SesionProfesionalRepository {
         }
       }
 
+      if (toCompleteIds?.length) {
+        await client.query(
+          `UPDATE sesiones_profesionales SET estado = 'completada' WHERE id = ANY($1::int[])`,
+          [toCompleteIds],
+        );
+      }
+
       if (effectiveTitulo !== undefined || finalRule !== undefined) {
         await client.query(
           `UPDATE sesiones_profesionales
@@ -180,6 +187,7 @@ export default class SesionProfesionalRepository {
         sessions: finalRows.rows,
         deletedSessionIds: toDeleteIds ?? [],
         deletedNotesCount,
+        completedSessionIds: toCompleteIds ?? [],
       };
     });
   };

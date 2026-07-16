@@ -107,8 +107,8 @@ export default class SesionProfesionalService {
     return ids[0] ?? 0;
   };
 
-  resizeSeriesAsync = async (groupId, idProfesional, { titulo, count } = {}) => {
-    console.log(`SesionProfesionalService.resizeSeriesAsync(${groupId}, ${idProfesional}, ${JSON.stringify({ titulo, count })})`);
+  resizeSeriesAsync = async (groupId, idProfesional, { titulo, count, markPastAsCompleted } = {}) => {
+    console.log(`SesionProfesionalService.resizeSeriesAsync(${groupId}, ${idProfesional}, ${JSON.stringify({ titulo, count, markPastAsCompleted })})`);
     if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(groupId || ''))) {
       const error = new Error('Identificador de serie invalido.');
       error.statusCode = 400;
@@ -183,7 +183,16 @@ export default class SesionProfesionalService {
         }
       }
 
-      return { effectiveTitulo, toInsert, toDeleteIds, finalRule };
+      let toCompleteIds = [];
+      if (markPastAsCompleted) {
+        const deletedSet = new Set(toDeleteIds);
+        const now = Date.now();
+        toCompleteIds = rows
+          .filter((row) => !deletedSet.has(row.id) && row.estado === 'programada' && new Date(row.fecha_sesion).getTime() <= now)
+          .map((row) => row.id);
+      }
+
+      return { effectiveTitulo, toInsert, toDeleteIds, toCompleteIds, finalRule };
     });
   };
 

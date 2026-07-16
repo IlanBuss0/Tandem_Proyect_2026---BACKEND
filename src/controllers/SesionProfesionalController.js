@@ -56,11 +56,15 @@ router.get('', async (req, res) => {
 router.put('/series/:groupId', sesionProfesionalCreateRateLimiter, async (req, res) => {
   try {
     const context = await professionalContext(req);
-    const { titulo, count } = req.body || {};
+    const { titulo, count, markPastAsCompleted } = req.body || {};
     const result = await currentService.resizeSeriesAsync(
       req.params.groupId,
       context.profesional.id,
-      { titulo, count: count === undefined ? undefined : Number(count) },
+      {
+        titulo,
+        count: count === undefined ? undefined : Number(count),
+        markPastAsCompleted: Boolean(markPastAsCompleted),
+      },
     );
     return res.status(StatusCodes.OK).json(result);
   } catch (error) {

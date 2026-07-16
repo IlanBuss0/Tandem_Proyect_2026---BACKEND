@@ -131,6 +131,31 @@ test('resize de serie: solo renombrar no toca sesiones', async () => {
   assert.equal(result.finalRule.count, 3); // el count original de la regla, sin tocar
 });
 
+test('resize de serie: marca como completadas solo las pasadas y en estado programada', async () => {
+  const service = new SesionProfesionalService();
+  const past = Date.UTC(2020, 0, 1, 12); // muy en el pasado
+  const future = Date.UTC(2099, 0, 1, 12); // muy en el futuro
+  const rows = [
+    seriesRow({ id: 1, fecha_sesion: new Date(past).toISOString(), estado: 'programada', recurrence_index: 0 }),
+    seriesRow({ id: 2, fecha_sesion: new Date(past).toISOString(), estado: 'cancelada', recurrence_index: 1 }), // no tocar
+    seriesRow({ id: 3, fecha_sesion: new Date(past).toISOString(), estado: 'completada', recurrence_index: 2 }), // ya estaba
+    seriesRow({ id: 4, fecha_sesion: new Date(future).toISOString(), estado: 'programada', recurrence_index: 3 }), // futura, no tocar
+  ];
+  mockRepositoryFor(service, rows, 3);
+
+  const result = await service.resizeSeriesAsync(GROUP_ID, 10, { markPastAsCompleted: true });
+  assert.deepEqual(result.toCompleteIds, [1]);
+});
+
+test('resize de serie: sin markPastAsCompleted no toca ninguna sesion', async () => {
+  const service = new SesionProfesionalService();
+  const rows = [seriesRow({ id: 1, fecha_sesion: new Date(Date.UTC(2020, 0, 1)).toISOString(), estado: 'programada' })];
+  mockRepositoryFor(service, rows, 1);
+
+  const result = await service.resizeSeriesAsync(GROUP_ID, 10, { titulo: 'Otra cosa' });
+  assert.deepEqual(result.toCompleteIds, []);
+});
+
 test('resize de serie: rechaza modificar una serie de otro profesional', async () => {
   const service = new SesionProfesionalService();
   mockRepositoryFor(service, [seriesRow({ id_profesional: 99 })], 0);
