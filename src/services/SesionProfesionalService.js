@@ -76,17 +76,17 @@ export default class SesionProfesionalService {
     const rule = this.normalizeRecurrenceRule(entity.recurrence_rule);
     const groupId = crypto.randomUUID();
     const dates = this.buildRecurringDates(entity.fecha_sesion, rule);
-    const ids = [];
-    for (let index = 0; index < dates.length; index += 1) {
-      const id = await this.SesionProfesionalRepository.createAsync({
+    // Todas las ocurrencias se insertan en una sola transaccion: si una
+    // falla a mitad de camino, no queda una serie fantasma a medias.
+    const ids = await this.SesionProfesionalRepository.createManyAsync(
+      dates.map((date, index) => ({
         ...entity,
-        fecha_sesion: dates[index].toISOString(),
+        fecha_sesion: date.toISOString(),
         recurrence_group_id: groupId,
         recurrence_rule: rule,
         recurrence_index: index,
-      });
-      ids.push(id);
-    }
+      })),
+    );
 
     const [perteneciente, profesional] = await Promise.all([
       this.PertenecienteRepository.getByIdAsync(entity.id_perteneciente),
@@ -114,7 +114,8 @@ export default class SesionProfesionalService {
     }
     const previousEntity = await this.SesionProfesionalRepository.getByIdAsync(entity.id);
     if (previousEntity == null) return 0;
-    const rowsAffected = await this.SesionProfesionalRepository.updateAsync(entity);
+    this.validarSesionParaActualizar(entity);
+    const rowsAffected = await this.SesionProfesionalRepository.updateAsync(entity, previousEntity);
     return rowsAffected;
   };
 
@@ -200,6 +201,26 @@ export default class SesionProfesionalService {
     }
     if (!Number.isInteger(Number(entity.duracion_minutos)) || Number(entity.duracion_minutos) < 15 || Number(entity.duracion_minutos) > 480) {
       throw new Error('duracion_minutos debe estar entre 15 y 480.');
+    }
+  };
+
+  validarSesionParaActualizar = (entity) => {
+    // PUT es un update parcial (el repository hace COALESCE con el valor
+    // previo campo a campo), asi que solo se valida lo que efectivamente
+    // vino en el body — nunca se exige lo que no se esta tocando.
+    if (entity.duracion_minutos !== undefined && entity.duracion_minutos !== null) {
+      if (!Number.isInteger(Number(entity.duracion_minutos)) || Number(entity.duracion_minutos) < 15 || Number(entity.duracion_minutos) > 480) {
+        const error = new Error('duracion_minutos debe estar entre 15 y 480.');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+    if (entity.fecha_sesion !== undefined && entity.fecha_sesion !== null) {
+      if (Number.isNaN(new Date(entity.fecha_sesion).getTime())) {
+        const error = new Error('fecha_sesion es invalida.');
+        error.statusCode = 400;
+        throw error;
+      }
     }
   };
 

@@ -24,6 +24,18 @@ export const inviteRateLimiter = rateLimit({
   message: { error: 'Demasiadas solicitudes. Probá nuevamente en unos minutos.' },
 });
 
+// Solo para creación de sesiones profesionales: cada request puede crear
+// hasta 52 sesiones de una serie recurrente, así que el límite de requests
+// ya pone un techo razonable al volumen total sin frenar la carga normal
+// de agenda/calendario (esos endpoints son GET y no pasan por acá).
+export const sesionProfesionalCreateRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas sesiones creadas en poco tiempo. Probá nuevamente en unos minutos.' },
+});
+
 export async function setupRedisRateLimit() {
   const { isRedisEnabled } = await import('../redis/redisClient.js');
   if (!isRedisEnabled()) return;

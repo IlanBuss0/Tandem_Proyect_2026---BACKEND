@@ -59,10 +59,46 @@ export default class SesionProfesionalRepository {
     return result?.id ?? 0;
   };
 
-  updateAsync = async (entity) => {
+  /** Inserta varias sesiones (ej. una serie recurrente) en una sola transaccion: si una falla, no queda ninguna a medias. */
+  createManyAsync = async (entities) => {
+    console.log(`SesionProfesionalRepository.createManyAsync(${entities.length} sesiones)`);
+    const sql = `
+      INSERT INTO sesiones_profesionales (
+        id_profesional, id_perteneciente, fecha_sesion, titulo, duracion_minutos, estado,
+        recordatorios, legacy_calendar_event_id, recurrence_group_id, recurrence_rule, recurrence_index
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10::jsonb, $11)
+      RETURNING id
+    `;
+    return await BD.transaction(async (client) => {
+      const ids = [];
+      for (const entity of entities) {
+        const values = [
+          entity?.id_profesional,
+          entity?.id_perteneciente,
+          entity?.fecha_sesion,
+          entity?.titulo ?? 'Sesion profesional',
+          entity?.duracion_minutos ?? 60,
+          entity?.estado ?? 'programada',
+          JSON.stringify(entity?.recordatorios ?? []),
+          entity?.legacy_calendar_event_id ?? null,
+          entity?.recurrence_group_id ?? null,
+          entity?.recurrence_rule ? JSON.stringify(entity.recurrence_rule) : null,
+          entity?.recurrence_index ?? 0,
+        ];
+        const result = await client.query(sql, values);
+        ids.push(result.rows[0]?.id ?? 0);
+      }
+      return ids;
+    });
+  };
+
+  updateAsync = async (entity, preloadedPreviousEntity = null) => {
     console.log(`SesionProfesionalRepository.updateAsync(${JSON.stringify(entity)})`);
     const id = entity.id;
-    const previousEntity = await this.getByIdAsync(id);
+    // El caller (el service) ya suele tener la fila previa cargada para
+    // validar ownership antes de llamar acá — evita repetir el SELECT.
+    const previousEntity = preloadedPreviousEntity ?? await this.getByIdAsync(id);
     if (previousEntity == null) return 0;
     const sql = `
       UPDATE sesiones_profesionales

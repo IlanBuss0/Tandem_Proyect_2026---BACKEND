@@ -107,7 +107,7 @@ import BD from '../src/db/BD.js';
         const legacyId = `calendar:${config.id_profesional}:${event.id || config.clave}`;
         const inserted = await BD.execute(`
           INSERT INTO sesiones_profesionales (
-            id_profesional, id_perteneciente, fecha_hora, titulo,
+            id_profesional, id_perteneciente, fecha_sesion, titulo,
             duracion_minutos, estado, recordatorios, legacy_calendar_event_id
           ) VALUES ($1, $2, $3, $4, $5, 'programada', $6::jsonb, $7)
           ON CONFLICT (legacy_calendar_event_id) WHERE legacy_calendar_event_id IS NOT NULL DO NOTHING
