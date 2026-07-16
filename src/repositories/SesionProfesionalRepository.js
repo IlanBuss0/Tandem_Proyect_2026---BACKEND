@@ -93,6 +93,97 @@ export default class SesionProfesionalRepository {
     });
   };
 
+  /**
+   * Redimensiona/renombra una serie recurrente completa en una sola
+   * transaccion con lock (FOR UPDATE) para serializar resizes concurrentes
+   * del mismo grupo. `computeChanges(rows, pastCount)` es una funcion pura
+   * (sin I/O) provista por el service: recibe las filas del grupo ya
+   * ordenadas por fecha real (no por indice, que puede no coincidir si se
+   * reprogramo una sola ocurrencia) y la cantidad de sesiones ya pasadas, y
+   * devuelve `{ effectiveTitulo, toInsert, toDeleteIds, finalRule }` o tira
+   * un error (statusCode incluido) que hace ROLLBACK automatico.
+   */
+  resizeSeriesAsync = async (groupId, computeChanges) => {
+    console.log(`SesionProfesionalRepository.resizeSeriesAsync(${groupId})`);
+    return await BD.transaction(async (client) => {
+      const { rows } = await client.query(
+        `SELECT ${SESSION_COLUMNS} FROM sesiones_profesionales
+         WHERE recurrence_group_id = $1
+         ORDER BY fecha_sesion ASC, recurrence_index ASC
+         FOR UPDATE`,
+        [groupId],
+      );
+      const pastCountResult = await client.query(
+        `SELECT COUNT(*)::int AS c FROM sesiones_profesionales
+         WHERE recurrence_group_id = $1 AND fecha_sesion <= NOW()`,
+        [groupId],
+      );
+      const pastCount = pastCountResult.rows[0]?.c ?? 0;
+
+      const { effectiveTitulo, toInsert, toDeleteIds, finalRule } = computeChanges(rows, pastCount);
+
+      let deletedNotesCount = 0;
+      if (toDeleteIds?.length) {
+        const notesResult = await client.query(
+          `SELECT COUNT(*)::int AS c FROM notas_privadas_profesionales
+           WHERE id_sesion_profesional = ANY($1::int[])`,
+          [toDeleteIds],
+        );
+        deletedNotesCount = notesResult.rows[0]?.c ?? 0;
+        await client.query(
+          `DELETE FROM sesiones_profesionales WHERE id = ANY($1::int[])`,
+          [toDeleteIds],
+        );
+      }
+
+      if (toInsert?.length) {
+        const insertSql = `
+          INSERT INTO sesiones_profesionales (
+            id_profesional, id_perteneciente, fecha_sesion, titulo, duracion_minutos, estado,
+            recordatorios, legacy_calendar_event_id, recurrence_group_id, recurrence_rule, recurrence_index
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10::jsonb, $11)
+        `;
+        for (const entity of toInsert) {
+          await client.query(insertSql, [
+            entity.id_profesional,
+            entity.id_perteneciente,
+            entity.fecha_sesion,
+            entity.titulo,
+            entity.duracion_minutos,
+            entity.estado,
+            JSON.stringify(entity.recordatorios ?? []),
+            entity.legacy_calendar_event_id ?? null,
+            entity.recurrence_group_id,
+            JSON.stringify(entity.recurrence_rule),
+            entity.recurrence_index,
+          ]);
+        }
+      }
+
+      if (effectiveTitulo !== undefined || finalRule !== undefined) {
+        await client.query(
+          `UPDATE sesiones_profesionales
+           SET titulo = COALESCE($2, titulo), recurrence_rule = COALESCE($3::jsonb, recurrence_rule)
+           WHERE recurrence_group_id = $1`,
+          [groupId, effectiveTitulo ?? null, finalRule ? JSON.stringify(finalRule) : null],
+        );
+      }
+
+      const finalRows = await client.query(
+        `SELECT ${SESSION_COLUMNS} FROM sesiones_profesionales
+         WHERE recurrence_group_id = $1
+         ORDER BY fecha_sesion ASC`,
+        [groupId],
+      );
+      return {
+        sessions: finalRows.rows,
+        deletedSessionIds: toDeleteIds ?? [],
+        deletedNotesCount,
+      };
+    });
+  };
+
   updateAsync = async (entity, preloadedPreviousEntity = null) => {
     console.log(`SesionProfesionalRepository.updateAsync(${JSON.stringify(entity)})`);
     const id = entity.id;

@@ -107,6 +107,86 @@ export default class SesionProfesionalService {
     return ids[0] ?? 0;
   };
 
+  resizeSeriesAsync = async (groupId, idProfesional, { titulo, count } = {}) => {
+    console.log(`SesionProfesionalService.resizeSeriesAsync(${groupId}, ${idProfesional}, ${JSON.stringify({ titulo, count })})`);
+    if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(groupId || ''))) {
+      const error = new Error('Identificador de serie invalido.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (count !== undefined && (!Number.isInteger(count) || count < 1 || count > 52)) {
+      const error = new Error('La cantidad de sesiones debe estar entre 1 y 52.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (titulo !== undefined && !String(titulo).trim()) {
+      const error = new Error('El titulo no puede estar vacio.');
+      error.statusCode = 400;
+      throw error;
+    }
+    const nextTitulo = titulo !== undefined ? String(titulo).trim() : undefined;
+
+    return await this.SesionProfesionalRepository.resizeSeriesAsync(groupId, (rows, pastCount) => {
+      if (!rows.length) {
+        const error = new Error('Serie no encontrada.');
+        error.statusCode = 404;
+        throw error;
+      }
+      if (rows.some((row) => Number(row.id_profesional) !== Number(idProfesional))) {
+        const error = new Error('No autorizado para modificar esta serie.');
+        error.statusCode = 403;
+        throw error;
+      }
+
+      const effectiveTitulo = nextTitulo;
+      let toInsert = [];
+      let toDeleteIds = [];
+      // Todas las filas de una serie comparten recurrence_rule (se copia
+      // igual en cada fila al crearla) — se toma la de la primera como base.
+      let finalRule = rows[0].recurrence_rule || { frequency: 'none', count: rows.length };
+
+      if (count !== undefined && count !== rows.length) {
+        if (count < pastCount) {
+          const error = new Error(
+            `No se puede bajar de ${pastCount} sesion${pastCount === 1 ? '' : 'es'}: ya pasaron esa cantidad.`,
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+
+        const rule = { ...(rows[0].recurrence_rule || {}), count };
+        finalRule = rule;
+
+        if (count > rows.length) {
+          const allDates = this.buildRecurringDates(rows[0].fecha_sesion, rule);
+          const newDates = allDates.slice(rows.length);
+          const nextIndex = Math.max(...rows.map((row) => Number(row.recurrence_index) || 0)) + 1;
+          const templateTitulo = effectiveTitulo ?? rows[0].titulo;
+          toInsert = newDates.map((date, i) => ({
+            id_profesional: rows[0].id_profesional,
+            id_perteneciente: rows[0].id_perteneciente,
+            fecha_sesion: date.toISOString(),
+            titulo: templateTitulo,
+            duracion_minutos: rows[0].duracion_minutos,
+            // Nunca heredar 'cancelada'/'completada' de una fila vieja: las
+            // sesiones nuevas todavia no ocurrieron.
+            estado: 'programada',
+            recordatorios: [],
+            recurrence_group_id: groupId,
+            recurrence_rule: rule,
+            recurrence_index: nextIndex + i,
+          }));
+        } else {
+          // Por construccion (count >= pastCount) estas filas son siempre
+          // futuras, nunca sesiones que ya ocurrieron.
+          toDeleteIds = rows.slice(count).map((row) => row.id);
+        }
+      }
+
+      return { effectiveTitulo, toInsert, toDeleteIds, finalRule };
+    });
+  };
+
   updateAsync = async (entity) => {
     console.log(`SesionProfesionalService.updateAsync(${JSON.stringify(entity)})`);
     if (!entity?.id || Number.isNaN(entity.id)) {

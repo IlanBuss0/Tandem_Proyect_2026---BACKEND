@@ -31,6 +31,8 @@
     "db:notification-references": "node scripts/add-notification-reference-fields.mjs",
     "db:routine-reminders": "node scripts/create-routine-reminders-table.mjs",
     "db:professional-core": "node scripts/upgrade-professional-core.mjs",
+    "db:sesiones-recurrence-index": "node scripts/add-sesiones-recurrence-index.mjs",
+    "db:note-template-favorites": "node scripts/create-note-template-favorites-table.mjs",
     "sync:pictograms": "node scripts/sync-pictograms.mjs"
   },
   "dependencies": {

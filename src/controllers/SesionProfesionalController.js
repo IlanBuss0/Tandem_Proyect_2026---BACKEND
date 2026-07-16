@@ -51,6 +51,23 @@ router.get('', async (req, res) => {
   }
 });
 
+// Registrada antes de "/:id" a proposito: si no, Express matchea "series"
+// como si fuera un :id numerico.
+router.put('/series/:groupId', sesionProfesionalCreateRateLimiter, async (req, res) => {
+  try {
+    const context = await professionalContext(req);
+    const { titulo, count } = req.body || {};
+    const result = await currentService.resizeSeriesAsync(
+      req.params.groupId,
+      context.profesional.id,
+      { titulo, count: count === undefined ? undefined : Number(count) },
+    );
+    return res.status(StatusCodes.OK).json(result);
+  } catch (error) {
+    return sendError(res, error, StatusCodes.BAD_REQUEST);
+  }
+});
+
 router.get('/:id/private-note', async (req, res) => {
   try {
     const context = await professionalContext(req);
