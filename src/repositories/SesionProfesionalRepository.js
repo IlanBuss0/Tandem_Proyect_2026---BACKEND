@@ -1,7 +1,17 @@
 import BD from '../db/BD.js';
 
 const SESSION_COLUMNS = `id, id_profesional, id_perteneciente, fecha_sesion, titulo, duracion_minutos,
-  estado, recordatorios, legacy_calendar_event_id, recurrence_group_id, recurrence_rule, recurrence_index`;
+  estado, recordatorios, legacy_calendar_event_id, recurrence_group_id, recurrence_rule, recurrence_index,
+  motivo_cancelacion`;
+
+const SESSION_COLUMNS_WITH_NOTE = `s.id, s.id_profesional, s.id_perteneciente, s.fecha_sesion, s.titulo, s.duracion_minutos,
+  s.estado, s.recordatorios, s.legacy_calendar_event_id, s.recurrence_group_id, s.recurrence_rule, s.recurrence_index,
+  s.motivo_cancelacion,
+  EXISTS (
+    SELECT 1 FROM notas_privadas_profesionales n
+    JOIN documentos_drive_notas d ON d.id_nota_privada = n.id
+    WHERE n.id_sesion_profesional = s.id
+  ) AS has_note`;
 
 export default class SesionProfesionalRepository {
   constructor() {
@@ -28,7 +38,7 @@ export default class SesionProfesionalRepository {
 
   getByProfesionalIdAsync = async (idProfesional) => {
     console.log(`SesionProfesionalRepository.getByProfesionalIdAsync(${idProfesional})`);
-    const sql = `SELECT ${SESSION_COLUMNS} FROM sesiones_profesionales WHERE id_profesional = $1 ORDER BY fecha_sesion DESC`;
+    const sql = `SELECT ${SESSION_COLUMNS_WITH_NOTE} FROM sesiones_profesionales s WHERE s.id_profesional = $1 ORDER BY s.fecha_sesion DESC`;
     return await BD.query(sql, [idProfesional]);
   };
 
@@ -37,9 +47,10 @@ export default class SesionProfesionalRepository {
     const sql = `
       INSERT INTO sesiones_profesionales (
         id_profesional, id_perteneciente, fecha_sesion, titulo, duracion_minutos, estado,
-        recordatorios, legacy_calendar_event_id, recurrence_group_id, recurrence_rule, recurrence_index
+        recordatorios, legacy_calendar_event_id, recurrence_group_id, recurrence_rule, recurrence_index,
+        motivo_cancelacion
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10::jsonb, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10::jsonb, $11, $12)
       RETURNING id
     `;
     const values = [
@@ -54,6 +65,7 @@ export default class SesionProfesionalRepository {
       entity?.recurrence_group_id ?? null,
       entity?.recurrence_rule ? JSON.stringify(entity.recurrence_rule) : null,
       entity?.recurrence_index ?? 0,
+      entity?.motivo_cancelacion ?? null,
     ];
     const result = await BD.queryOne(sql, values);
     return result?.id ?? 0;
@@ -65,9 +77,10 @@ export default class SesionProfesionalRepository {
     const sql = `
       INSERT INTO sesiones_profesionales (
         id_profesional, id_perteneciente, fecha_sesion, titulo, duracion_minutos, estado,
-        recordatorios, legacy_calendar_event_id, recurrence_group_id, recurrence_rule, recurrence_index
+        recordatorios, legacy_calendar_event_id, recurrence_group_id, recurrence_rule, recurrence_index,
+        motivo_cancelacion
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10::jsonb, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10::jsonb, $11, $12)
       RETURNING id
     `;
     return await BD.transaction(async (client) => {
@@ -85,6 +98,7 @@ export default class SesionProfesionalRepository {
           entity?.recurrence_group_id ?? null,
           entity?.recurrence_rule ? JSON.stringify(entity.recurrence_rule) : null,
           entity?.recurrence_index ?? 0,
+          entity?.motivo_cancelacion ?? null,
         ];
         const result = await client.query(sql, values);
         ids.push(result.rows[0]?.id ?? 0);
@@ -203,7 +217,8 @@ export default class SesionProfesionalRepository {
       UPDATE sesiones_profesionales
       SET id_profesional = $2, id_perteneciente = $3, fecha_sesion = $4, titulo = $5,
           duracion_minutos = $6, estado = $7, recordatorios = $8::jsonb,
-          recurrence_group_id = $9, recurrence_rule = $10::jsonb, recurrence_index = $11
+          recurrence_group_id = $9, recurrence_rule = $10::jsonb, recurrence_index = $11,
+          motivo_cancelacion = $12
       WHERE id = $1
     `;
     const values = [
@@ -218,13 +233,14 @@ export default class SesionProfesionalRepository {
       entity?.recurrence_group_id ?? previousEntity.recurrence_group_id ?? null,
       entity?.recurrence_rule ? JSON.stringify(entity.recurrence_rule) : (previousEntity.recurrence_rule ? JSON.stringify(previousEntity.recurrence_rule) : null),
       entity?.recurrence_index ?? previousEntity.recurrence_index ?? 0,
+      entity?.motivo_cancelacion ?? null,
     ];
     return await BD.execute(sql, values);
   };
 
   getPrivateNoteAsync = async (idSesion, idProfesional) => {
     return await BD.queryOne(`
-      SELECT n.id, n.id_sesion_profesional, n.id_profesional, n.contenido, n.version,
+      SELECT n.id, n.id_sesion_profesional, n.id_profesional,
              n.fecha_creacion, n.fecha_actualizacion,
              CASE WHEN d.id IS NULL THEN NULL ELSE jsonb_build_object(
                'id', d.id, 'google_file_id', d.google_file_id, 'nombre', d.nombre,
@@ -237,17 +253,17 @@ export default class SesionProfesionalRepository {
     `, [idSesion, idProfesional]);
   };
 
-  upsertPrivateNoteAsync = async (idSesion, idProfesional, contenido) => {
+  ensurePrivateNoteAsync = async (idSesion, idProfesional) => {
     return await BD.queryOne(`
-      INSERT INTO notas_privadas_profesionales (id_sesion_profesional, id_profesional, contenido)
-      VALUES ($1, $2, $3::jsonb)
-      ON CONFLICT (id_sesion_profesional) DO UPDATE
-      SET contenido = EXCLUDED.contenido,
-          version = notas_privadas_profesionales.version + 1,
-          fecha_actualizacion = NOW()
-      WHERE notas_privadas_profesionales.id_profesional = EXCLUDED.id_profesional
-      RETURNING id, id_sesion_profesional, id_profesional, contenido, version, fecha_creacion, fecha_actualizacion
-    `, [idSesion, idProfesional, JSON.stringify(contenido)]);
+      INSERT INTO notas_privadas_profesionales (id_sesion_profesional, id_profesional)
+      VALUES ($1, $2)
+      ON CONFLICT (id_sesion_profesional) DO NOTHING
+      RETURNING id, id_sesion_profesional, id_profesional, fecha_creacion, fecha_actualizacion
+    `, [idSesion, idProfesional]) ?? await BD.queryOne(`
+      SELECT id, id_sesion_profesional, id_profesional, fecha_creacion, fecha_actualizacion
+      FROM notas_privadas_profesionales
+      WHERE id_sesion_profesional = $1 AND id_profesional = $2
+    `, [idSesion, idProfesional]);
   };
 
   upsertDriveDocumentAsync = async (idNota, document) => {

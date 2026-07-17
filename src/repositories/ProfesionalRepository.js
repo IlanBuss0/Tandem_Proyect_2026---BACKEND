@@ -11,6 +11,18 @@ export default class ProfesionalRepository {
     return await BD.query(sql);
   };
 
+  getAllPublicAsync = async () => {
+    console.log('ProfesionalRepository.getAllPublicAsync()');
+    const sql = `SELECT id, id_usuario, profesion, especialidad, institucion, id_estado_validacion FROM profesionales ORDER BY id DESC`;
+    return await BD.query(sql);
+  };
+
+  getByIdPublicAsync = async (id) => {
+    console.log(`ProfesionalRepository.getByIdPublicAsync(${id})`);
+    const sql = `SELECT id, id_usuario, profesion, especialidad, institucion, id_estado_validacion FROM profesionales WHERE id = $1`;
+    return await BD.queryOne(sql, [id]);
+  };
+
   getByIdAsync = async (id) => {
     console.log(`ProfesionalRepository.getByIdAsync(${id})`);
     const sql = `SELECT id, id_usuario, profesion, especialidad, matricula, institucion, id_estado_validacion FROM profesionales WHERE id = $1`;
@@ -51,5 +63,18 @@ export default class ProfesionalRepository {
     console.log(`ProfesionalRepository.deleteByIdAsync(${id})`);
     const sql = `DELETE FROM profesionales WHERE id = $1`;
     return await BD.execute(sql, [id]);
+  };
+
+  getEstadoValidacionPendienteAsync = async () => {
+    console.log('ProfesionalRepository.getEstadoValidacionPendienteAsync()');
+    return await BD.queryOne(
+      `
+        SELECT id, nombre
+        FROM estados_validaciones_profesionales
+        WHERE LOWER(nombre) IN ('pendiente', 'en revision', 'en_revision', 'pendiente de revision')
+        ORDER BY orden ASC NULLS LAST, id ASC
+        LIMIT 1
+      `,
+    );
   };
 }

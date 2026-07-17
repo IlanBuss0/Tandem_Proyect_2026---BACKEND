@@ -16,23 +16,53 @@ export default class VinculoProfesionalPertenecienteService {
     this.VinculoProfesionalPertenecienteRepository = new VinculoProfesionalPertenecienteRepository();
   }
 
-  getAllAsync = async () => {
-    console.log('VinculoProfesionalPertenecienteService.getAllAsync()');
-    const returnArray = await this.VinculoProfesionalPertenecienteRepository.getAllAsync();
-    if (returnArray == null) return null;
-    return returnArray;
+  getForUserContextAsync = async (idUsuario) => {
+    console.log(`VinculoProfesionalPertenecienteService.getForUserContextAsync(${idUsuario})`);
+
+    const userContext = await AuthorizationService.getUserContext(idUsuario);
+    if (!userContext) throw new AppError('Usuario no encontrado o inactivo', 404);
+
+    const results = await Promise.all([
+      userContext.profesional?.id
+        ? this.VinculoProfesionalPertenecienteRepository.getByProfesionalIdAsync(userContext.profesional.id)
+        : [],
+      userContext.perteneciente?.id
+        ? this.VinculoProfesionalPertenecienteRepository.getByPertenecienteIdAsync(userContext.perteneciente.id)
+        : [],
+      userContext.tutor?.id
+        ? this.VinculoProfesionalPertenecienteRepository.getByTutorIdAsync(userContext.tutor.id)
+        : [],
+    ]);
+
+    const merged = new Map();
+    for (const rows of results) {
+      for (const row of rows) merged.set(row.id, row);
+    }
+    return Array.from(merged.values());
   };
 
-  getByIdAsync = async (id) => {
-    console.log(`VinculoProfesionalPertenecienteService.getByIdAsync(${id})`);
-    const returnEntity = await this.VinculoProfesionalPertenecienteRepository.getByIdAsync(id);
-    return returnEntity;
-  };
+  getByIdForUserAsync = async (idUsuario, id) => {
+    console.log(`VinculoProfesionalPertenecienteService.getByIdForUserAsync(${idUsuario}, ${id})`);
 
-  createAsync = async (entity) => {
-    console.log(`VinculoProfesionalPertenecienteService.createAsync(${JSON.stringify(entity)})`);
-    const newId = await this.VinculoProfesionalPertenecienteRepository.createAsync(entity);
-    return newId;
+    const vinculo = await this.VinculoProfesionalPertenecienteRepository.getByIdAsync(id);
+    if (!vinculo) return null;
+
+    const userContext = await AuthorizationService.getUserContext(idUsuario);
+    if (!userContext) throw new AppError('Usuario no encontrado o inactivo', 404);
+
+    const esProfesional = userContext.profesional?.id === vinculo.id_profesional;
+    const esPerteneciente = userContext.perteneciente?.id === vinculo.id_perteneciente;
+    let esTutor = false;
+    if (!esProfesional && !esPerteneciente && userContext.tutor?.id) {
+      const tutorAccess = await AuthorizationService.canTutorActOnPerteneciente(userContext, { id_perteneciente: vinculo.id_perteneciente });
+      esTutor = Boolean(tutorAccess?.allowed);
+    }
+
+    if (!esProfesional && !esPerteneciente && !esTutor) {
+      throw new AppError('No autorizado para consultar este vinculo.', 403);
+    }
+
+    return vinculo;
   };
 
   generarCodigo = () => {
@@ -166,12 +196,6 @@ export default class VinculoProfesionalPertenecienteService {
       id_usuario_perteneciente: idUsuarioPerteneciente,
       was_existing: Boolean(existing),
     };
-  };
-
-  updateAsync = async (entity) => {
-    console.log(`VinculoProfesionalPertenecienteService.updateAsync(${JSON.stringify(entity)})`);
-    const rowsAffected = await this.VinculoProfesionalPertenecienteRepository.updateAsync(entity);
-    return rowsAffected;
   };
 
   deleteByIdAsync = async (id) => {

@@ -1,67 +1,64 @@
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import ProfesionalService from '../services/ProfesionalService.js';
-import Profesional from '../entities/Profesional.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 const currentService = new ProfesionalService();
+router.use(authMiddleware);
+
+function sendError(res, error, fallback = StatusCodes.INTERNAL_SERVER_ERROR) {
+  const status = Number(error?.statusCode || error?.status || fallback);
+  return res.status(status).json({ error: error?.message || 'Error interno.' });
+}
+
+router.get('/mine', async (req, res) => {
+  try {
+    const entity = await currentService.getMineAsync(req.user.id);
+    if (entity != null) return res.status(StatusCodes.OK).json(entity);
+    return res.status(StatusCodes.NOT_FOUND).send('No tenes un perfil profesional creado.');
+  } catch (error) {
+    return sendError(res, error, StatusCodes.BAD_REQUEST);
+  }
+});
+
+router.post('/mine', async (req, res) => {
+  try {
+    const { profesion, especialidad, matricula, institucion } = req.body || {};
+    const newId = await currentService.createMineAsync(req.user.id, { profesion, especialidad, matricula, institucion });
+    return res.status(StatusCodes.CREATED).json({ message: `Se creo el profesional con id: ${newId}`, id: newId });
+  } catch (error) {
+    return sendError(res, error, StatusCodes.BAD_REQUEST);
+  }
+});
+
+router.put('/mine', async (req, res) => {
+  try {
+    const { profesion, especialidad, matricula, institucion } = req.body || {};
+    const rowsAffected = await currentService.updateMineAsync(req.user.id, { profesion, especialidad, matricula, institucion });
+    return res.status(StatusCodes.OK).json({ message: 'Se actualizo tu perfil profesional.', rowsAffected });
+  } catch (error) {
+    return sendError(res, error, StatusCodes.BAD_REQUEST);
+  }
+});
 
 router.get('', async (req, res) => {
   try {
-    const returnArray = await currentService.getAllAsync();
-    if (returnArray != null) res.status(StatusCodes.OK).json(returnArray);
-    else res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
+    const returnArray = await currentService.getAllPublicAsync();
+    return res.status(StatusCodes.OK).json(returnArray ?? []);
   } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+    return sendError(res, error);
   }
 });
 
 router.get('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const returnEntity = await currentService.getByIdAsync(id);
-    if (returnEntity != null) res.status(StatusCodes.OK).json(returnEntity);
-    else res.status(StatusCodes.NOT_FOUND).send(`No se encontro el profesional con id: ${id}.`);
+    const returnEntity = await currentService.getByIdPublicAsync(id);
+    if (returnEntity != null) return res.status(StatusCodes.OK).json(returnEntity);
+    return res.status(StatusCodes.NOT_FOUND).send(`No se encontro el profesional con id: ${id}.`);
   } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
-  }
-});
-
-router.post('', async (req, res) => {
-  try {
-    const entity = new Profesional(req.body);
-    const newId = await currentService.createAsync(entity);
-    if (newId > 0) res.status(StatusCodes.CREATED).json({ message: `Se creo el profesional con id: ${newId}`, id: newId });
-    else res.status(StatusCodes.BAD_REQUEST).json({ message: 'No se pudo crear el profesional.' });
-  } catch (error) {
-    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
-  }
-});
-
-router.put('/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const entity = new Profesional(req.body);
-    if (entity.id && parseInt(entity.id) !== id) {
-      return res.status(StatusCodes.BAD_REQUEST).send(`El id de la URL (${id}) no coincide con el id del body (${entity.id}).`);
-    }
-    entity.id = id;
-    const rowsAffected = await currentService.updateAsync(entity);
-    if (rowsAffected !== 0) res.status(StatusCodes.OK).json({ message: `Se actualizo el profesional con id: ${id}`, rowsAffected });
-    else res.status(StatusCodes.NOT_FOUND).send(`No se encontro el profesional con id: ${id}.`);
-  } catch (error) {
-    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
-  }
-});
-
-router.delete('/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const rowCount = await currentService.deleteByIdAsync(id);
-    if (rowCount !== 0) res.status(StatusCodes.OK).json({ message: `Se elimino el profesional con id: ${id}`, rowsAffected: rowCount });
-    else res.status(StatusCodes.NOT_FOUND).send(`No se encontro el profesional con id: ${id}.`);
-  } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+    return sendError(res, error, StatusCodes.BAD_REQUEST);
   }
 });
 

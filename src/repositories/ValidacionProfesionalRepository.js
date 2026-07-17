@@ -17,6 +17,12 @@ export default class ValidacionProfesionalRepository {
     return await BD.queryOne(sql, [id]);
   };
 
+  getByProfesionalIdAsync = async (idProfesional) => {
+    console.log(`ValidacionProfesionalRepository.getByProfesionalIdAsync(${idProfesional})`);
+    const sql = `SELECT id, id_profesional, numero_matricula, titulo_profesional, documento_dni_url, id_estado_validacion, observacion, id_administrador_validador, fecha_validacion FROM validaciones_profesionales WHERE id_profesional = $1 ORDER BY id DESC`;
+    return await BD.query(sql, [idProfesional]);
+  };
+
   createAsync = async (entity) => {
     console.log(`ValidacionProfesionalRepository.createAsync(${JSON.stringify(entity)})`);
     const sql = `INSERT INTO validaciones_profesionales (id_profesional, numero_matricula, titulo_profesional, documento_dni_url, id_estado_validacion, observacion, id_administrador_validador, fecha_validacion) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`;
@@ -39,5 +45,18 @@ export default class ValidacionProfesionalRepository {
     console.log(`ValidacionProfesionalRepository.deleteByIdAsync(${id})`);
     const sql = `DELETE FROM validaciones_profesionales WHERE id = $1`;
     return await BD.execute(sql, [id]);
+  };
+
+  getEstadoValidacionPendienteAsync = async () => {
+    console.log('ValidacionProfesionalRepository.getEstadoValidacionPendienteAsync()');
+    return await BD.queryOne(
+      `
+        SELECT id, nombre
+        FROM estados_validaciones_profesionales
+        WHERE LOWER(nombre) IN ('pendiente', 'en revision', 'en_revision', 'pendiente de revision')
+        ORDER BY orden ASC NULLS LAST, id ASC
+        LIMIT 1
+      `,
+    );
   };
 }

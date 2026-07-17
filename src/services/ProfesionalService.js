@@ -1,4 +1,5 @@
 import ProfesionalRepository from '../repositories/ProfesionalRepository.js';
+import AppError from '../modules/errors/AppError.js';
 
 export default class ProfesionalService {
   constructor() {
@@ -6,115 +7,97 @@ export default class ProfesionalService {
     this.ProfesionalRepository = new ProfesionalRepository();
   }
 
-  getAllAsync = async () => {
-    console.log('ProfesionalService.getAllAsync()');
-
-    const returnArray = await this.ProfesionalRepository.getAllAsync();
-
-    if (returnArray == null) return null;
-
-    return returnArray;
+  getAllPublicAsync = async () => {
+    console.log('ProfesionalService.getAllPublicAsync()');
+    return await this.ProfesionalRepository.getAllPublicAsync();
   };
 
-  getByIdAsync = async (id) => {
-    console.log(`ProfesionalService.getByIdAsync(${id})`);
+  getByIdPublicAsync = async (id) => {
+    console.log(`ProfesionalService.getByIdPublicAsync(${id})`);
 
     if (!id || Number.isNaN(id)) {
-      throw new Error('El id del profesional es invalido.');
+      throw new AppError('El id del profesional es invalido.', 400);
     }
 
-    const returnEntity = await this.ProfesionalRepository.getByIdAsync(id);
-
-    return returnEntity;
+    return await this.ProfesionalRepository.getByIdPublicAsync(id);
   };
 
-  createAsync = async (entity) => {
-    console.log(`ProfesionalService.createAsync(${JSON.stringify(entity)})`);
+  getMineAsync = async (idUsuario) => {
+    console.log(`ProfesionalService.getMineAsync(${idUsuario})`);
+    return await this.ProfesionalRepository.getByUsuarioIdAsync(idUsuario);
+  };
 
+  createMineAsync = async (idUsuario, { profesion, especialidad = null, matricula, institucion = null } = {}) => {
+    console.log(`ProfesionalService.createMineAsync(${idUsuario})`);
+
+    const existente = await this.ProfesionalRepository.getByUsuarioIdAsync(idUsuario);
+    if (existente != null) {
+      throw new AppError('Ya existe un perfil profesional asociado a tu usuario.', 409);
+    }
+
+    const entity = { id_usuario: idUsuario, profesion, especialidad, matricula, institucion };
     this.validarProfesionalParaCrear(entity);
 
-    const profesionalConMismoUsuario = await this.ProfesionalRepository.getByUsuarioIdAsync(entity.id_usuario);
-
-    if (profesionalConMismoUsuario != null) {
-      throw new Error(`Ya existe un profesional asociado al usuario con id ${entity.id_usuario}.`);
-    }
-
     const profesionalConMismaMatricula = await this.ProfesionalRepository.getByMatriculaAsync(entity.matricula);
-
     if (profesionalConMismaMatricula != null) {
-      throw new Error(`Ya existe un profesional con la matricula ${entity.matricula}.`);
+      throw new AppError(`Ya existe un profesional con la matricula ${entity.matricula}.`, 409);
     }
 
-    const newId = await this.ProfesionalRepository.createAsync(entity);
+    const estadoPendiente = await this.ProfesionalRepository.getEstadoValidacionPendienteAsync();
+    entity.id_estado_validacion = estadoPendiente?.id ?? null;
 
-    return newId;
+    if (!entity.id_estado_validacion) {
+      throw new AppError('No se encontro un estado de validacion inicial configurado.', 500);
+    }
+
+    return await this.ProfesionalRepository.createAsync(entity);
   };
 
-  updateAsync = async (entity) => {
-    console.log(`ProfesionalService.updateAsync(${JSON.stringify(entity)})`);
+  updateMineAsync = async (idUsuario, { profesion, especialidad, matricula, institucion } = {}) => {
+    console.log(`ProfesionalService.updateMineAsync(${idUsuario})`);
 
-    if (!entity?.id || Number.isNaN(entity.id)) {
-      throw new Error('El id del profesional es obligatorio para actualizar.');
-    }
-
-    const previousEntity = await this.ProfesionalRepository.getByIdAsync(entity.id);
-
+    const previousEntity = await this.ProfesionalRepository.getByUsuarioIdAsync(idUsuario);
     if (previousEntity == null) {
-      return 0;
+      throw new AppError('No existe un perfil profesional asociado a tu usuario.', 404);
     }
 
-    if (entity.id_usuario && entity.id_usuario !== previousEntity.id_usuario) {
-      const profesionalConMismoUsuario = await this.ProfesionalRepository.getByUsuarioIdAsync(entity.id_usuario);
+    const entity = { id: previousEntity.id, id_usuario: previousEntity.id_usuario };
+    if (profesion !== undefined) entity.profesion = profesion;
+    if (especialidad !== undefined) entity.especialidad = especialidad;
+    if (institucion !== undefined) entity.institucion = institucion;
 
-      if (profesionalConMismoUsuario != null) {
-        throw new Error(`Ya existe un profesional asociado al usuario con id ${entity.id_usuario}.`);
+    const matriculaCambio = matricula !== undefined && matricula !== previousEntity.matricula;
+    if (matriculaCambio) {
+      const profesionalConMismaMatricula = await this.ProfesionalRepository.getByMatriculaAsync(matricula);
+      if (profesionalConMismaMatricula != null && profesionalConMismaMatricula.id !== previousEntity.id) {
+        throw new AppError(`Ya existe un profesional con la matricula ${matricula}.`, 409);
+      }
+      entity.matricula = matricula;
+
+      const estadoPendiente = await this.ProfesionalRepository.getEstadoValidacionPendienteAsync();
+      if (estadoPendiente?.id) {
+        entity.id_estado_validacion = estadoPendiente.id;
       }
     }
 
-    if (entity.matricula && entity.matricula !== previousEntity.matricula) {
-      const profesionalConMismaMatricula = await this.ProfesionalRepository.getByMatriculaAsync(entity.matricula);
-
-      if (profesionalConMismaMatricula != null) {
-        throw new Error(`Ya existe un profesional con la matricula ${entity.matricula}.`);
-      }
-    }
-
-    const rowsAffected = await this.ProfesionalRepository.updateAsync(entity);
-
-    return rowsAffected;
-  };
-
-  deleteByIdAsync = async (id) => {
-    console.log(`ProfesionalService.deleteByIdAsync(${id})`);
-
-    if (!id || Number.isNaN(id)) {
-      throw new Error('El id del profesional es invalido.');
-    }
-
-    const rowsAffected = await this.ProfesionalRepository.deleteByIdAsync(id);
-
-    return rowsAffected;
+    return await this.ProfesionalRepository.updateAsync(entity);
   };
 
   validarProfesionalParaCrear = (entity) => {
     if (!entity) {
-      throw new Error('El profesional es obligatorio.');
+      throw new AppError('El profesional es obligatorio.', 400);
     }
 
     if (!entity.id_usuario) {
-      throw new Error('id_usuario es obligatorio.');
+      throw new AppError('id_usuario es obligatorio.', 400);
     }
 
     if (!entity.profesion) {
-      throw new Error('profesion es obligatorio.');
+      throw new AppError('profesion es obligatorio.', 400);
     }
 
     if (!entity.matricula) {
-      throw new Error('matricula es obligatorio.');
-    }
-
-    if (!entity.id_estado_validacion) {
-      throw new Error('id_estado_validacion es obligatorio.');
+      throw new AppError('matricula es obligatorio.', 400);
     }
   };
 }

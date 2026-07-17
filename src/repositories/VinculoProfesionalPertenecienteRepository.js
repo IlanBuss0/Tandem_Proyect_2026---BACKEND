@@ -17,6 +17,32 @@ export default class VinculoProfesionalPertenecienteRepository {
     return await BD.queryOne(sql, [id]);
   };
 
+  getByProfesionalIdAsync = async (idProfesional) => {
+    console.log(`VinculoProfesionalPertenecienteRepository.getByProfesionalIdAsync(${idProfesional})`);
+    const sql = `SELECT id, id_profesional, id_perteneciente, id_estado_vinculo, requiere_aprobacion_tutor, fue_aprobado_por_tutor, id_tutor_aprobador, fecha_solicitud, fecha_resolucion FROM vinculos_profesional_pertenecientes WHERE id_profesional = $1 ORDER BY id DESC`;
+    return await BD.query(sql, [idProfesional]);
+  };
+
+  getByPertenecienteIdAsync = async (idPerteneciente) => {
+    console.log(`VinculoProfesionalPertenecienteRepository.getByPertenecienteIdAsync(${idPerteneciente})`);
+    const sql = `SELECT id, id_profesional, id_perteneciente, id_estado_vinculo, requiere_aprobacion_tutor, fue_aprobado_por_tutor, id_tutor_aprobador, fecha_solicitud, fecha_resolucion FROM vinculos_profesional_pertenecientes WHERE id_perteneciente = $1 ORDER BY id DESC`;
+    return await BD.query(sql, [idPerteneciente]);
+  };
+
+  getByTutorIdAsync = async (idTutor) => {
+    console.log(`VinculoProfesionalPertenecienteRepository.getByTutorIdAsync(${idTutor})`);
+    const sql = `
+      SELECT vpp.id, vpp.id_profesional, vpp.id_perteneciente, vpp.id_estado_vinculo,
+             vpp.requiere_aprobacion_tutor, vpp.fue_aprobado_por_tutor, vpp.id_tutor_aprobador,
+             vpp.fecha_solicitud, vpp.fecha_resolucion
+      FROM vinculos_profesional_pertenecientes vpp
+      INNER JOIN vinculos_tutor_pertenecientes vtp ON vtp.id_perteneciente = vpp.id_perteneciente
+      WHERE vtp.id_tutor = $1
+      ORDER BY vpp.id DESC
+    `;
+    return await BD.query(sql, [idTutor]);
+  };
+
   getByProfesionalYPertenecienteAsync = async (idProfesional, idPerteneciente) => {
     console.log(`VinculoProfesionalPertenecienteRepository.getByProfesionalYPertenecienteAsync(${idProfesional}, ${idPerteneciente})`);
     const sql = `

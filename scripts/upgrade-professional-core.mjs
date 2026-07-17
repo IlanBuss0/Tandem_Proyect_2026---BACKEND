@@ -18,13 +18,13 @@ import BD from '../src/db/BD.js';
       ON sesiones_profesionales (legacy_calendar_event_id)
       WHERE legacy_calendar_event_id IS NOT NULL
     `);
+    // Nunca se guarda contenido de notas clinicas en el backend: esta tabla es
+    // solo un ancla para el vinculo a Google Drive (ver documentos_drive_notas).
     await BD.execute(`
       CREATE TABLE IF NOT EXISTS notas_privadas_profesionales (
         id SERIAL PRIMARY KEY,
         id_sesion_profesional INTEGER NOT NULL UNIQUE REFERENCES sesiones_profesionales(id) ON DELETE CASCADE,
         id_profesional INTEGER NOT NULL REFERENCES profesionales(id) ON DELETE CASCADE,
-        contenido JSONB NOT NULL DEFAULT '{"type":"doc","content":[]}'::jsonb,
-        version INTEGER NOT NULL DEFAULT 1,
         fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         fecha_actualizacion TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
@@ -39,24 +39,6 @@ import BD from '../src/db/BD.js';
         web_view_url TEXT NOT NULL,
         fecha_vinculacion TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
-    `);
-    await BD.execute(`
-      INSERT INTO notas_privadas_profesionales (id_sesion_profesional, id_profesional, contenido)
-      SELECT s.id, s.id_profesional,
-        jsonb_build_object(
-          'type', 'doc',
-          'content', jsonb_build_array(
-            jsonb_build_object(
-              'type', 'paragraph',
-              'content', jsonb_build_array(
-                jsonb_build_object('type', 'text', 'text', CONCAT_WS(E'\n\n', s.nota_sesion, s.recomendacion))
-              )
-            )
-          )
-        )
-      FROM sesiones_profesionales s
-      WHERE (NULLIF(TRIM(s.nota_sesion), '') IS NOT NULL OR NULLIF(TRIM(s.recomendacion), '') IS NOT NULL)
-      ON CONFLICT (id_sesion_profesional) DO NOTHING
     `);
     await BD.execute(`
       ALTER TABLE perfiles_profesionales

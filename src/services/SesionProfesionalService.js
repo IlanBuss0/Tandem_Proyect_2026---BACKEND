@@ -5,6 +5,7 @@ import BD from '../db/BD.js';
 import crypto from 'node:crypto';
 
 const RECURRENCE_PRESETS = new Set(['none', 'weekly', 'twice_weekly', 'biweekly', 'monthly']);
+const ESTADOS = new Set(['programada', 'completada', 'cancelada', 'ausente']);
 
 export default class SesionProfesionalService {
   constructor() {
@@ -49,6 +50,7 @@ export default class SesionProfesionalService {
   createAsync = async (entity) => {
     console.log(`SesionProfesionalService.createAsync(${JSON.stringify(entity)})`);
     this.validarSesionParaCrear(entity);
+    this.normalizeMotivoCancelacion(entity);
     if (entity.recurrence_rule?.frequency && entity.recurrence_rule.frequency !== 'none') {
       return await this.createRecurringAsync(entity);
     }
@@ -204,6 +206,7 @@ export default class SesionProfesionalService {
     const previousEntity = await this.SesionProfesionalRepository.getByIdAsync(entity.id);
     if (previousEntity == null) return 0;
     this.validarSesionParaActualizar(entity);
+    this.normalizeMotivoCancelacion(entity);
     const rowsAffected = await this.SesionProfesionalRepository.updateAsync(entity, previousEntity);
     return rowsAffected;
   };
@@ -228,31 +231,21 @@ export default class SesionProfesionalService {
     return await this.SesionProfesionalRepository.getPrivateNoteAsync(idSesion, idProfesional);
   };
 
-  savePrivateNoteAsync = async (idSesion, idProfesional, contenido) => {
+  linkDriveDocumentAsync = async (idSesion, idProfesional, document) => {
     const session = await this.SesionProfesionalRepository.getByIdAsync(idSesion);
-    if (!session) return null;
+    if (!session) {
+      const error = new Error('Sesion no encontrada.');
+      error.statusCode = 404;
+      throw error;
+    }
     if (Number(session.id_profesional) !== Number(idProfesional)) {
       const error = new Error('La nota privada pertenece a otro profesional.');
       error.statusCode = 403;
       throw error;
     }
-    if (!contenido || contenido.type !== 'doc' || !Array.isArray(contenido.content)) {
-      const error = new Error('El contenido de la nota no tiene un formato valido.');
-      error.statusCode = 400;
-      throw error;
-    }
-    if (JSON.stringify(contenido).length > 100000) {
-      const error = new Error('La nota supera el limite de 100 KB.');
-      error.statusCode = 413;
-      throw error;
-    }
-    return await this.SesionProfesionalRepository.upsertPrivateNoteAsync(idSesion, idProfesional, contenido);
-  };
-
-  linkDriveDocumentAsync = async (idSesion, idProfesional, document) => {
     let note = await this.getPrivateNoteAsync(idSesion, idProfesional);
     if (!note) {
-      note = await this.savePrivateNoteAsync(idSesion, idProfesional, { type: 'doc', content: [] });
+      note = await this.SesionProfesionalRepository.ensurePrivateNoteAsync(idSesion, idProfesional);
     }
     const fileId = String(document?.google_file_id || '').trim();
     if (!/^[A-Za-z0-9_-]{10,255}$/.test(fileId)) {
@@ -291,6 +284,9 @@ export default class SesionProfesionalService {
     if (!Number.isInteger(Number(entity.duracion_minutos)) || Number(entity.duracion_minutos) < 15 || Number(entity.duracion_minutos) > 480) {
       throw new Error('duracion_minutos debe estar entre 15 y 480.');
     }
+    if (entity.estado !== undefined && !ESTADOS.has(entity.estado)) {
+      throw new Error(`estado debe ser uno de: ${Array.from(ESTADOS).join(', ')}.`);
+    }
   };
 
   validarSesionParaActualizar = (entity) => {
@@ -310,6 +306,23 @@ export default class SesionProfesionalService {
         error.statusCode = 400;
         throw error;
       }
+    }
+    if (entity.estado !== undefined && !ESTADOS.has(entity.estado)) {
+      const error = new Error(`estado debe ser uno de: ${Array.from(ESTADOS).join(', ')}.`);
+      error.statusCode = 400;
+      throw error;
+    }
+    if (entity.motivo_cancelacion !== undefined && entity.motivo_cancelacion !== null && String(entity.motivo_cancelacion).length > 240) {
+      const error = new Error('motivo_cancelacion no puede superar los 240 caracteres.');
+      error.statusCode = 400;
+      throw error;
+    }
+  };
+
+  /** Nunca dejar un motivo de cancelacion pegado a una sesion que no esta cancelada. */
+  normalizeMotivoCancelacion = (entity) => {
+    if (entity.estado !== 'cancelada') {
+      entity.motivo_cancelacion = null;
     }
   };
 

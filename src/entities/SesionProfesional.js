@@ -12,6 +12,7 @@ class SesionProfesional {
     recurrence_group_id = null,
     recurrence_rule = null,
     recurrence_index = 0,
+    motivo_cancelacion = null,
   }) {
     this.id = id;
     this.id_profesional = id_profesional;
@@ -25,6 +26,7 @@ class SesionProfesional {
     this.recurrence_group_id = recurrence_group_id;
     this.recurrence_rule = recurrence_rule;
     this.recurrence_index = recurrence_index;
+    this.motivo_cancelacion = motivo_cancelacion;
   }
 }
 

@@ -84,20 +84,6 @@ router.get('/:id/private-note', async (req, res) => {
   }
 });
 
-router.put('/:id/private-note', async (req, res) => {
-  try {
-    const context = await professionalContext(req);
-    const note = await currentService.savePrivateNoteAsync(
-      Number(req.params.id), context.profesional.id, req.body?.contenido,
-    );
-    return note
-      ? res.status(StatusCodes.OK).json(note)
-      : res.status(StatusCodes.NOT_FOUND).json({ error: 'Sesion no encontrada.' });
-  } catch (error) {
-    return sendError(res, error, StatusCodes.BAD_REQUEST);
-  }
-});
-
 router.put('/:id/private-note/drive', async (req, res) => {
   try {
     const context = await professionalContext(req);

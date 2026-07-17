@@ -6294,30 +6294,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Profesional'
-    post:
-      summary: 'Crear Profesional'
-      tags:
-        - 'Módulo Profesional'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Profesional'
-      responses:
-        '201':
-          description: Creado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: integer
-                    example: 1
-                  message:
-                    type: string
-                    example: 'Creado exitosamente'
   '/profesionales/{id}':
     get:
       summary: 'Obtener Profesional por ID'
@@ -6339,17 +6315,37 @@ paths:
                 $ref: '#/components/schemas/Profesional'
         '404':
           description: 'No encontrado'
-    put:
-      summary: 'Actualizar Profesional por ID'
+  /profesionales/mine:
+    get:
+      summary: 'Obtener mi perfil profesional'
       tags:
         - 'Módulo Profesional'
-      parameters:
-        -
-          name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      responses:
+        '200':
+          description: 'Operación exitosa'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profesional'
+        '404':
+          description: 'No tenes un perfil profesional creado'
+    post:
+      summary: 'Crear mi perfil profesional'
+      tags:
+        - 'Módulo Profesional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Profesional'
+      responses:
+        '201':
+          description: Creado
+    put:
+      summary: 'Actualizar mi perfil profesional'
+      tags:
+        - 'Módulo Profesional'
       requestBody:
         required: true
         content:
@@ -6359,24 +6355,6 @@ paths:
       responses:
         '200':
           description: 'Actualizado correctamente'
-        '404':
-          description: 'No encontrado'
-    delete:
-      summary: 'Eliminar Profesional por ID'
-      tags:
-        - 'Módulo Profesional'
-      parameters:
-        -
-          name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: 'Eliminado correctamente'
-        '404':
-          description: 'No encontrado'
   /puntos-otorgados:
     get:
       summary: 'Listar puntos-otorgados'
@@ -8428,8 +8406,22 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ValidacionProfesional'
+  /validaciones-profesionales/mine:
+    get:
+      summary: 'Listar mis validaciones profesionales'
+      tags:
+        - 'Módulo Profesional'
+      responses:
+        '200':
+          description: 'Operación exitosa'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValidacionProfesional'
     post:
-      summary: 'Crear ValidacionProfesional'
+      summary: 'Solicitar validacion para mi perfil profesional'
       tags:
         - 'Módulo Profesional'
       requestBody:
@@ -8441,20 +8433,9 @@ paths:
       responses:
         '201':
           description: Creado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: integer
-                    example: 1
-                  message:
-                    type: string
-                    example: 'Creado exitosamente'
   '/validaciones-profesionales/{id}':
     get:
-      summary: 'Obtener ValidacionProfesional por ID'
+      summary: 'Obtener ValidacionProfesional por ID (solo si es propia)'
       tags:
         - 'Módulo Profesional'
       parameters:
@@ -8473,47 +8454,9 @@ paths:
                 $ref: '#/components/schemas/ValidacionProfesional'
         '404':
           description: 'No encontrado'
-    put:
-      summary: 'Actualizar ValidacionProfesional por ID'
-      tags:
-        - 'Módulo Profesional'
-      parameters:
-        -
-          name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ValidacionProfesional'
-      responses:
-        '200':
-          description: 'Actualizado correctamente'
-        '404':
-          description: 'No encontrado'
-    delete:
-      summary: 'Eliminar ValidacionProfesional por ID'
-      tags:
-        - 'Módulo Profesional'
-      parameters:
-        -
-          name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: 'Eliminado correctamente'
-        '404':
-          description: 'No encontrado'
   /vinculos-profesionales-pertenecientes:
     get:
-      summary: 'Listar vinculos-profesionales-pertenecientes'
+      summary: 'Listar vinculos-profesionales-pertenecientes visibles para el usuario autenticado'
       tags:
         - 'Módulo Profesional'
       responses:
@@ -8525,33 +8468,9 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/VinculoProfesionalPerteneciente'
-    post:
-      summary: 'Crear VinculoProfesionalPerteneciente'
-      tags:
-        - 'Módulo Profesional'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VinculoProfesionalPerteneciente'
-      responses:
-        '201':
-          description: Creado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: integer
-                    example: 1
-                  message:
-                    type: string
-                    example: 'Creado exitosamente'
   '/vinculos-profesionales-pertenecientes/{id}':
     get:
-      summary: 'Obtener VinculoProfesionalPerteneciente por ID'
+      summary: 'Obtener VinculoProfesionalPerteneciente por ID (solo si el usuario participa del vinculo)'
       tags:
         - 'Módulo Profesional'
       parameters:
@@ -8568,44 +8487,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VinculoProfesionalPerteneciente'
-        '404':
-          description: 'No encontrado'
-    put:
-      summary: 'Actualizar VinculoProfesionalPerteneciente por ID'
-      tags:
-        - 'Módulo Profesional'
-      parameters:
-        -
-          name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VinculoProfesionalPerteneciente'
-      responses:
-        '200':
-          description: 'Actualizado correctamente'
-        '404':
-          description: 'No encontrado'
-    delete:
-      summary: 'Eliminar VinculoProfesionalPerteneciente por ID'
-      tags:
-        - 'Módulo Profesional'
-      parameters:
-        -
-          name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: 'Eliminado correctamente'
         '404':
           description: 'No encontrado'
   /vinculos-tutor-pertenecientes:
