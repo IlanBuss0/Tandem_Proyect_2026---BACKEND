@@ -35,6 +35,7 @@
     "db:note-template-favorites": "node scripts/create-note-template-favorites-table.mjs",
     "db:drop-note-content": "node scripts/drop-private-note-content.mjs",
     "db:sesion-estado": "node scripts/add-sesion-estado-fields.mjs",
+    "db:fix-sesion-timezone": "node scripts/fix-sesion-fecha-timezone.mjs",
     "sync:pictograms": "node scripts/sync-pictograms.mjs"
   },
   "dependencies": {
