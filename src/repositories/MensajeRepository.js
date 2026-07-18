@@ -13,8 +13,8 @@ export default class MensajeRepository {
 
   ensureMessageMetadataColumnsAsync = async () => {
     if (this.messageMetadataColumnsReady) return;
-    await BD.execute(`ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS fecha_edicion TIMESTAMP`);
-    await BD.execute(`ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS fecha_eliminacion TIMESTAMP`);
+    await BD.execute(`ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS fecha_edicion TIMESTAMPTZ`);
+    await BD.execute(`ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS fecha_eliminacion TIMESTAMPTZ`);
     await BD.execute(`CREATE INDEX IF NOT EXISTS idx_mensajes_chat_id ON mensajes (id_chat, id)`);
     await BD.execute(`CREATE INDEX IF NOT EXISTS idx_mensajes_chat_fecha_envio ON mensajes (id_chat, fecha_envio)`);
     await BD.execute(`CREATE INDEX IF NOT EXISTS idx_mensajes_chat_fecha_edicion ON mensajes (id_chat, fecha_edicion)`);

@@ -9,8 +9,8 @@ async function main() {
   await BD.execute(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS actualizado_en TIMESTAMP`);
   await BD.execute(`UPDATE chats SET actualizado_en = COALESCE(actualizado_en, fecha_creacion, NOW()) WHERE actualizado_en IS NULL`);
 
-  await BD.execute(`ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS fecha_edicion TIMESTAMP`);
-  await BD.execute(`ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS fecha_eliminacion TIMESTAMP`);
+  await BD.execute(`ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS fecha_edicion TIMESTAMPTZ`);
+  await BD.execute(`ALTER TABLE mensajes ADD COLUMN IF NOT EXISTS fecha_eliminacion TIMESTAMPTZ`);
 
   await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS ultimo_mensaje_leido_id INT REFERENCES mensajes(id)`);
   await BD.execute(`ALTER TABLE participantes_chats ADD COLUMN IF NOT EXISTS fecha_ultima_lectura TIMESTAMP`);
