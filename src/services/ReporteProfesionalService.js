@@ -8,7 +8,7 @@ import TutorRepository from '../repositories/TutorRepository.js';
 import UsuarioRepository from '../repositories/UsuarioRepository.js';
 import TipoMensajeRepository from '../repositories/TipoMensajeRepository.js';
 import SesionProfesionalRepository from '../repositories/SesionProfesionalRepository.js';
-import GeminiReportService from './GeminiReportService.js';
+import AiReportService from './AiReportService.js';
 import ChatService from './ChatService.js';
 import MensajeService from './MensajeService.js';
 import NotificationProducerService from './NotificationProducerService.js';
@@ -28,7 +28,7 @@ export default class ReporteProfesionalService {
     this.UsuarioRepository = new UsuarioRepository();
     this.TipoMensajeRepository = new TipoMensajeRepository();
     this.SesionProfesionalRepository = new SesionProfesionalRepository();
-    this.GeminiReportService = new GeminiReportService();
+    this.AiReportService = new AiReportService();
     this.ChatService = new ChatService();
     this.MensajeService = new MensajeService();
     this.NotificationProducerService = new NotificationProducerService();
@@ -72,7 +72,7 @@ export default class ReporteProfesionalService {
       .filter((s) => s?.notas_texto && String(s.notas_texto).trim())
       .map((s) => ({ fecha_sesion: s.fecha_sesion, titulo: s.titulo, texto: String(s.notas_texto).trim().slice(0, 8000) }));
 
-    const { titulo, contenido } = await this.GeminiReportService.generatePatientSummaryAsync({
+    const { titulo, contenido } = await this.AiReportService.generatePatientSummaryAsync({
       pacienteNombre,
       nivelApoyoNombre,
       sesiones: sesiones.map((s) => ({ fecha_sesion: s.fecha_sesion, titulo: s.titulo, estado: s.estado || 'completada' })),
@@ -95,7 +95,7 @@ export default class ReporteProfesionalService {
     const sesiones = await this.SesionProfesionalRepository.getByProfesionalIdAsync(idProfesional);
     const sesionesPaciente = sesiones.filter((s) => Number(s.id_perteneciente) === Number(idPerteneciente));
 
-    const { titulo, contenido } = await this.GeminiReportService.generatePatientSummaryAsync({
+    const { titulo, contenido } = await this.AiReportService.generatePatientSummaryAsync({
       pacienteNombre,
       nivelApoyoNombre,
       sesiones: sesionesPaciente.map((s) => ({ fecha_sesion: s.fecha_sesion, titulo: s.titulo, estado: s.estado })),
@@ -226,7 +226,7 @@ export default class ReporteProfesionalService {
 
     const profesionalNombre = usuario?.nombre || usuario?.nombre_usuario || 'Profesional';
     const overviewText = pacientes.length > 0
-      ? await this.GeminiReportService.generateCaseloadOverviewAsync({ profesionalNombre, mes, anio, resumenPorPaciente: pacientes })
+      ? await this.AiReportService.generateCaseloadOverviewAsync({ profesionalNombre, mes, anio, resumenPorPaciente: pacientes })
       : null;
 
     return { profesionalNombre, mes, anio, overviewText, pacientes };

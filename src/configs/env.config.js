@@ -39,6 +39,7 @@ export const envConfig = {
   falKey: process.env.FAL_KEY || null,
   falRequestTimeoutMs: Number.parseInt(process.env.FAL_REQUEST_TIMEOUT_MS || '120000', 10),
   geminiApiKey: process.env.GEMINI_API_KEY || null,
+  groqApiKey: process.env.GROQ_API_KEY || null,
 };
 
 export function validateEnvConfig() {

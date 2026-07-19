@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import ReporteProfesionalService from '../src/services/ReporteProfesionalService.js';
-import GeminiReportService from '../src/services/GeminiReportService.js';
+import AiReportService from '../src/services/AiReportService.js';
 
 test('assertVinculoActivoAsync rechaza si no hay vinculo entre ese profesional y ese perteneciente', async () => {
   const service = new ReporteProfesionalService();
@@ -22,16 +22,16 @@ test('assertVinculoActivoAsync acepta un vinculo propio y activo', async () => {
   await assert.doesNotReject(() => service.assertVinculoActivoAsync(10, 5));
 });
 
-test('GeminiReportService tira 503 si no hay API key configurada', async () => {
-  const service = new GeminiReportService();
-  service.client = null;
+test('AiReportService tira 503 si no hay API key configurada', async () => {
+  const service = new AiReportService();
+  service.apiKey = null;
   await assert.rejects(
     () => service.generatePatientSummaryAsync({ pacienteNombre: 'Juan', nivelApoyoNombre: null, sesiones: [] }),
     error => error.statusCode === 503,
   );
 });
 
-test('generateScheduledAsync nunca manda texto de notas a Gemini', async () => {
+test('generateScheduledAsync nunca manda texto de notas a la IA', async () => {
   const service = new ReporteProfesionalService();
   let capturedNotasTexto = 'sin-llamar';
   service.PertenecienteRepository = { getByIdAsync: async () => ({ id: 5, id_usuario: 1, id_nivel_apoyo: null }) };
@@ -42,7 +42,7 @@ test('generateScheduledAsync nunca manda texto de notas a Gemini', async () => {
       { id_perteneciente: 5, fecha_sesion: '2026-07-20T12:00:00.000Z', titulo: 'Sesion', estado: 'completada' },
     ],
   };
-  service.GeminiReportService = {
+  service.AiReportService = {
     generatePatientSummaryAsync: async ({ notasTexto }) => {
       capturedNotasTexto = notasTexto;
       return { titulo: 'Reporte', contenido: 'texto generado' };
@@ -57,7 +57,7 @@ test('generateScheduledAsync nunca manda texto de notas a Gemini', async () => {
   assert.equal(reporte.id_tipo, 'programado');
 });
 
-test('generateOnDemandAsync manda el texto de notas seleccionadas a Gemini', async () => {
+test('generateOnDemandAsync manda el texto de notas seleccionadas a la IA', async () => {
   const service = new ReporteProfesionalService();
   let capturedNotasTexto = null;
   service.VinculoProfesionalPertenecienteRepository = {
@@ -66,7 +66,7 @@ test('generateOnDemandAsync manda el texto de notas seleccionadas a Gemini', asy
   service.PertenecienteRepository = { getByIdAsync: async () => ({ id: 5, id_usuario: 1, id_nivel_apoyo: null }) };
   service.UsuarioRepository = { getByIdAsync: async () => ({ nombre: 'Juan Pered' }) };
   service.NivelApoyoRepository = { getByIdAsync: async () => null };
-  service.GeminiReportService = {
+  service.AiReportService = {
     generatePatientSummaryAsync: async ({ notasTexto }) => {
       capturedNotasTexto = notasTexto;
       return { titulo: 'Reporte', contenido: 'texto generado' };

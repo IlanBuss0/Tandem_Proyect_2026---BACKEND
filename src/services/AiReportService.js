@@ -1,8 +1,9 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import axios from 'axios';
 import { envConfig } from '../configs/env.config.js';
 import AppError from '../modules/errors/AppError.js';
 
-const MODEL_NAME = 'gemini-2.0-flash';
+const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const MODEL_NAME = 'llama-3.3-70b-versatile';
 
 const PATIENT_SUMMARY_SYSTEM_PROMPT = `Sos un asistente que ayuda a profesionales (psicologos, terapeutas) a redactar resumenes de progreso para las familias/tutores de pacientes con TEA (Trastorno del Espectro Autista). Tu resumen va a ser leido directamente por un padre/madre/tutor, NO por otro profesional.
 
@@ -24,31 +25,42 @@ function formatSesionesList(sesiones) {
     .join('\n');
 }
 
-export default class GeminiReportService {
+export default class AiReportService {
   constructor() {
-    console.log('Estoy en: GeminiReportService.constructor()');
-    this.client = envConfig.geminiApiKey ? new GoogleGenerativeAI(envConfig.geminiApiKey) : null;
+    console.log('Estoy en: AiReportService.constructor()');
+    this.apiKey = envConfig.groqApiKey || null;
   }
 
   assertConfigured = () => {
-    if (!this.client) {
-      throw new AppError('GEMINI_API_KEY no configurado.', 503);
+    if (!this.apiKey) {
+      throw new AppError('GROQ_API_KEY no configurado.', 503);
     }
   };
 
-  generateContentSafe = async (prompt) => {
+  generateContentSafe = async (systemPrompt, userPrompt) => {
+    this.assertConfigured();
     try {
-      const model = this.client.getGenerativeModel({ model: MODEL_NAME });
-      const result = await model.generateContent(prompt);
-      const text = result?.response?.text?.();
+      const response = await axios.post(GROQ_CHAT_URL, {
+        model: MODEL_NAME,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+      }, {
+        headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
+        timeout: 30000,
+      });
+      const text = response?.data?.choices?.[0]?.message?.content;
       if (!text || !text.trim()) {
-        throw new Error('Respuesta vacia de Gemini.');
+        throw new Error('Respuesta vacia del proveedor de IA.');
       }
       return text.trim();
     } catch (error) {
       // Nunca logueamos el prompt (puede contener texto de notas de sesion) —
       // solo el mensaje de error del proveedor.
-      console.error('[GeminiReportService] Error generando contenido:', error.message);
+      const providerMessage = error?.response?.data?.error?.message || error.message;
+      console.error('[AiReportService] Error generando contenido:', providerMessage);
       throw new AppError('No se pudo generar el resumen con IA. Intenta de nuevo en unos minutos.', 502);
     }
   };
@@ -59,12 +71,9 @@ export default class GeminiReportService {
    * metadata de sesiones, nunca con contenido de notas.
    */
   generatePatientSummaryAsync = async ({ pacienteNombre, nivelApoyoNombre, sesiones, notasTexto = null }) => {
-    this.assertConfigured();
-    console.log(`GeminiReportService.generatePatientSummaryAsync(paciente=${pacienteNombre}, sesiones=${sesiones?.length ?? 0}, notas=${notasTexto?.length ?? 0})`);
+    console.log(`AiReportService.generatePatientSummaryAsync(paciente=${pacienteNombre}, sesiones=${sesiones?.length ?? 0}, notas=${notasTexto?.length ?? 0})`);
 
     const lines = [
-      PATIENT_SUMMARY_SYSTEM_PROMPT,
-      '',
       `Paciente: ${pacienteNombre}`,
       nivelApoyoNombre ? `Nivel de apoyo registrado: ${nivelApoyoNombre}` : null,
       `Cantidad de sesiones consideradas: ${sesiones.length}`,
@@ -82,22 +91,19 @@ export default class GeminiReportService {
       lines.push('', 'No hay contenido de notas clinicas disponible para este resumen automatico; basate solo en la cantidad y frecuencia de sesiones.');
     }
 
-    const contenido = await this.generateContentSafe(lines.join('\n'));
+    const contenido = await this.generateContentSafe(PATIENT_SUMMARY_SYSTEM_PROMPT, lines.join('\n'));
     const titulo = `Reporte de progreso — ${pacienteNombre} — ${new Date().toLocaleDateString('es-AR')}`;
     return { titulo, contenido };
   };
 
   generateCaseloadOverviewAsync = async ({ profesionalNombre, mes, anio, resumenPorPaciente }) => {
-    this.assertConfigured();
-    console.log(`GeminiReportService.generateCaseloadOverviewAsync(profesional=${profesionalNombre}, pacientes=${resumenPorPaciente?.length ?? 0})`);
+    console.log(`AiReportService.generateCaseloadOverviewAsync(profesional=${profesionalNombre}, pacientes=${resumenPorPaciente?.length ?? 0})`);
 
     const statsLines = resumenPorPaciente.map((p) =>
       `- ${p.pacienteNombre}: ${p.totalSesiones} sesiones (${p.completadas} completadas, ${p.canceladas} canceladas, ${p.ausentes} ausencias) — asistencia ${p.asistenciaPct}%`,
     );
 
     const prompt = [
-      CASELOAD_OVERVIEW_SYSTEM_PROMPT,
-      '',
       `Profesional: ${profesionalNombre}`,
       `Periodo: ${mes}/${anio}`,
       '',
@@ -105,6 +111,6 @@ export default class GeminiReportService {
       ...statsLines,
     ].join('\n');
 
-    return await this.generateContentSafe(prompt);
+    return await this.generateContentSafe(CASELOAD_OVERVIEW_SYSTEM_PROMPT, prompt);
   };
 }
