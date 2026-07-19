@@ -28,6 +28,7 @@ import ItemAvatarController from './controllers/ItemAvatarController.js';
 import EventoZonaSeguraController from './controllers/EventoZonaSeguraController.js';
 import CompraPuntoController from './controllers/CompraPuntoController.js';
 import SesionProfesionalController from './controllers/SesionProfesionalController.js';
+import ReporteProfesionalController from './controllers/ReporteProfesionalController.js';
 import NoteTemplateFavoriteController from './controllers/NoteTemplateFavoriteController.js';
 import DispositivoController from './controllers/DispositivoController.js';
 import UbicacionActualController from './controllers/UbicacionActualController.js';
@@ -98,6 +99,7 @@ import { setupRealtime } from './realtime/socket.js';
 import { startNotificationWorker } from './workers/notificationWorker.js';
 import { startPictogramaSyncJob } from './jobs/pictogramaSyncJob.js';
 import { startRoutineReminderWorker } from './workers/routineReminderWorker.js';
+import { startScheduledReportWorker } from './workers/scheduledReportWorker.js';
 
 // Configuración para usar __dirname con ES Modules (import)
 const __filename = fileURLToPath(import.meta.url);
@@ -181,6 +183,7 @@ app.use('/api/items-avatares', ItemAvatarController);
 app.use('/api/eventos-zonas-seguras', EventoZonaSeguraController);
 app.use('/api/compras-puntos', CompraPuntoController);
 app.use('/api/sesiones-profesionales', SesionProfesionalController);
+app.use('/api/reportes-profesionales', ReporteProfesionalController);
 app.use('/api/note-template-favorites', NoteTemplateFavoriteController);
 app.use('/api/dispositivos', DispositivoController);
 app.use('/api/ubicaciones-actuales', UbicacionActualController);
@@ -261,6 +264,7 @@ async function startServer() {
 
     startPictogramaSyncJob();
     startRoutineReminderWorker();
+    startScheduledReportWorker();
 
     httpServer.listen(envConfig.port, () => {
       console.log(`Servidor escuchando en puerto ${envConfig.port}`);

@@ -36,6 +36,16 @@ export const sesionProfesionalCreateRateLimiter = rateLimit({
   message: { error: 'Demasiadas sesiones creadas en poco tiempo. Probá nuevamente en unos minutos.' },
 });
 
+// Cada request dispara al menos una llamada a la API de Gemini (tiene costo)
+// asi que el limite es mas estricto que el de creacion de sesiones.
+export const reporteProfesionalCreateRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados reportes generados en poco tiempo. Probá nuevamente en unos minutos.' },
+});
+
 export async function setupRedisRateLimit() {
   const { isRedisEnabled } = await import('../redis/redisClient.js');
   if (!isRedisEnabled()) return;

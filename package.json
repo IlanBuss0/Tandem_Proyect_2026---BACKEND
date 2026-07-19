@@ -19,6 +19,7 @@
     "test:pictogram-search": "node --test test/pictogram-search.test.js",
     "test:routine-reminders": "node --test test/routine-reminders.test.js",
     "test:professional-core": "node --test test/professional-core.test.js",
+    "test:reportes": "node --test test/reportes-profesionales.test.js",
     "seed:permissions": "node scripts/seed-permission-catalogs.mjs",
     "db:invites-vinculo": "node scripts/create-invites-vinculo-table.mjs",
     "db:invites-vinculo-profesional": "node scripts/create-invites-vinculo-profesional-table.mjs",
@@ -38,9 +39,12 @@
     "db:fix-sesion-timezone": "node scripts/fix-sesion-fecha-timezone.mjs",
     "db:fix-mensajes-timezone": "node scripts/fix-mensajes-timezone.mjs",
     "db:fix-notificaciones-timezone": "node scripts/fix-notificaciones-timezone.mjs",
+    "db:reportes-profesionales": "node scripts/create-reportes-profesionales-table.mjs",
+    "db:tareas-reportes-programados": "node scripts/create-tareas-reportes-programados-table.mjs",
     "sync:pictograms": "node scripts/sync-pictograms.mjs"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@socket.io/redis-adapter": "^8.3.0",
     "@socket.io/redis-emitter": "^5.1.0",
     "argon2": "^0.44.0",
@@ -55,6 +59,7 @@
     "http-status-codes": "^2.3.0",
     "ioredis": "^5.11.0",
     "multer": "^2.2.0",
+    "pdfkit": "^0.19.1",
     "pg": "^8.20.0",
     "rate-limit-redis": "^5.0.0",
     "semver": "^7.7.2",
