@@ -111,6 +111,66 @@ export default class ReporteProfesionalService {
     });
   };
 
+  /** Nunca persiste (this.ReporteProfesionalRepository.createAsync deliberadamente no se llama aca). */
+  generateSessionPrepAsync = async (idProfesional, { id_perteneciente, sesion_objetivo, sesiones_pasadas }) => {
+    console.log(`ReporteProfesionalService.generateSessionPrepAsync(profesional=${idProfesional}, perteneciente=${id_perteneciente}, pasadas=${sesiones_pasadas?.length ?? 0})`);
+    const idPerteneciente = Number(id_perteneciente);
+    if (!idPerteneciente || Number.isNaN(idPerteneciente)) throw new Error('id_perteneciente es obligatorio.');
+    if (!sesion_objetivo?.titulo || !sesion_objetivo?.fecha_sesion) throw new Error('sesion_objetivo es obligatoria.');
+    if (!Array.isArray(sesiones_pasadas) || sesiones_pasadas.length === 0) {
+      throw new Error('No hay sesiones pasadas con notas para preparar esta sesion.');
+    }
+
+    await this.assertVinculoActivoAsync(idProfesional, idPerteneciente);
+    const { pacienteNombre, nivelApoyoNombre } = await this.buildPacienteContextAsync(idPerteneciente);
+
+    const notasTexto = sesiones_pasadas
+      .filter((s) => s?.notas_texto && String(s.notas_texto).trim())
+      .map((s) => ({ fecha_sesion: s.fecha_sesion, titulo: s.titulo, texto: String(s.notas_texto).trim().slice(0, 8000) }));
+
+    if (notasTexto.length === 0) {
+      throw new Error('Ninguna de las sesiones pasadas seleccionadas tiene contenido de nota disponible.');
+    }
+
+    return await this.AiReportService.generateSessionPrepAsync({
+      pacienteNombre,
+      nivelApoyoNombre,
+      sesionObjetivo: { titulo: sesion_objetivo.titulo, fecha_sesion: sesion_objetivo.fecha_sesion },
+      sesionesPasadas: sesiones_pasadas.map((s) => ({ fecha_sesion: s.fecha_sesion, titulo: s.titulo, estado: s.estado || 'completada' })),
+      notasTexto,
+    });
+  };
+
+  /** Nunca persiste — pregunta puntual, no queda historial. */
+  answerPatientQuestionAsync = async (idProfesional, { id_perteneciente, pregunta, sesiones }) => {
+    console.log(`ReporteProfesionalService.answerPatientQuestionAsync(profesional=${idProfesional}, perteneciente=${id_perteneciente})`);
+    const idPerteneciente = Number(id_perteneciente);
+    if (!idPerteneciente || Number.isNaN(idPerteneciente)) throw new Error('id_perteneciente es obligatorio.');
+    if (!pregunta || !String(pregunta).trim()) throw new Error('La pregunta es obligatoria.');
+    if (!Array.isArray(sesiones) || sesiones.length === 0) {
+      throw new Error('No hay sesiones con notas disponibles para responder sobre este paciente.');
+    }
+
+    await this.assertVinculoActivoAsync(idProfesional, idPerteneciente);
+    const { pacienteNombre, nivelApoyoNombre } = await this.buildPacienteContextAsync(idPerteneciente);
+
+    const notasTexto = sesiones
+      .filter((s) => s?.notas_texto && String(s.notas_texto).trim())
+      .map((s) => ({ fecha_sesion: s.fecha_sesion, titulo: s.titulo, texto: String(s.notas_texto).trim().slice(0, 8000) }));
+
+    if (notasTexto.length === 0) {
+      throw new Error('Ninguna de las sesiones disponibles tiene contenido de nota.');
+    }
+
+    return await this.AiReportService.answerPatientQuestionAsync({
+      pacienteNombre,
+      nivelApoyoNombre,
+      pregunta: String(pregunta).trim().slice(0, 500),
+      sesionesPasadas: sesiones.map((s) => ({ fecha_sesion: s.fecha_sesion, titulo: s.titulo, estado: s.estado || 'completada' })),
+      notasTexto,
+    });
+  };
+
   getByProfesionalIdAsync = async (idProfesional, idPerteneciente = null) => {
     return await this.ReporteProfesionalRepository.getByProfesionalIdAsync(idProfesional, idPerteneciente);
   };
@@ -230,5 +290,32 @@ export default class ReporteProfesionalService {
       : null;
 
     return { profesionalNombre, mes, anio, overviewText, pacientes };
+  };
+
+  generatePatientHistoryPdfDataAsync = async (idProfesional, idUsuarioProfesional, idPerteneciente) => {
+    console.log(`ReporteProfesionalService.generatePatientHistoryPdfDataAsync(${idProfesional}, ${idPerteneciente})`);
+    await this.assertVinculoActivoAsync(idProfesional, idPerteneciente);
+
+    const [usuario, { pacienteNombre }, sesionesProfesional] = await Promise.all([
+      this.UsuarioRepository.getByIdAsync(idUsuarioProfesional),
+      this.buildPacienteContextAsync(idPerteneciente),
+      this.SesionProfesionalRepository.getByProfesionalIdAsync(idProfesional),
+    ]);
+
+    const sesiones = sesionesProfesional
+      .filter((s) => Number(s.id_perteneciente) === Number(idPerteneciente))
+      .sort((a, b) => new Date(a.fecha_sesion).getTime() - new Date(b.fecha_sesion).getTime());
+
+    const completadas = sesiones.filter((s) => s.estado === 'completada').length;
+    const canceladas = sesiones.filter((s) => s.estado === 'cancelada').length;
+    const ausentes = sesiones.filter((s) => s.estado === 'ausente').length;
+    const asistenciaPct = completadas + ausentes > 0 ? Math.round((completadas / (completadas + ausentes)) * 100) : 0;
+
+    return {
+      profesionalNombre: usuario?.nombre || usuario?.nombre_usuario || 'Profesional',
+      pacienteNombre,
+      stats: { total: sesiones.length, completadas, canceladas, ausentes, asistenciaPct },
+      sesiones,
+    };
   };
 }

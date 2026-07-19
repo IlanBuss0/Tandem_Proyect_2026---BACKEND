@@ -130,3 +130,125 @@ test('sendToTutorAsync rechaza enviar un reporte de otro profesional', async () 
     error => error.statusCode === 403,
   );
 });
+
+test('generateSessionPrepAsync nunca persiste y no requiere id', async () => {
+  const service = new ReporteProfesionalService();
+  service.VinculoProfesionalPertenecienteRepository = {
+    getByProfesionalYPertenecienteAsync: async () => ({ id_profesional: 10, estado_vinculo: 'activo' }),
+  };
+  service.PertenecienteRepository = { getByIdAsync: async () => ({ id: 5, id_usuario: 1, id_nivel_apoyo: null }) };
+  service.UsuarioRepository = { getByIdAsync: async () => ({ nombre: 'Juan Pered' }) };
+  service.NivelApoyoRepository = { getByIdAsync: async () => null };
+  service.AiReportService = {
+    generateSessionPrepAsync: async () => ({ titulo: 'Preparacion', contenido: 'texto generado' }),
+  };
+  // Deliberadamente NO se mockea ReporteProfesionalRepository.createAsync — si
+  // el servicio intentara persistir, esto fallaria con una conexion real.
+
+  const result = await service.generateSessionPrepAsync(10, {
+    id_perteneciente: 5,
+    sesion_objetivo: { titulo: 'Sesion de hoy', fecha_sesion: '2026-07-25T12:00:00.000Z' },
+    sesiones_pasadas: [
+      { id: 1, fecha_sesion: '2026-07-18T12:00:00.000Z', titulo: 'Sesion pasada', estado: 'completada', notas_texto: 'nota' },
+    ],
+  });
+
+  assert.equal(result.titulo, 'Preparacion');
+  assert.equal(result.id, undefined);
+});
+
+test('generateSessionPrepAsync rechaza si no hay vinculo activo', async () => {
+  const service = new ReporteProfesionalService();
+  service.VinculoProfesionalPertenecienteRepository = {
+    getByProfesionalYPertenecienteAsync: async () => null,
+  };
+  await assert.rejects(
+    () => service.generateSessionPrepAsync(10, {
+      id_perteneciente: 5,
+      sesion_objetivo: { titulo: 'Sesion', fecha_sesion: '2026-07-25T12:00:00.000Z' },
+      sesiones_pasadas: [{ id: 1, fecha_sesion: '2026-07-18T12:00:00.000Z', titulo: 'Pasada', estado: 'completada', notas_texto: 'nota' }],
+    }),
+    error => error.statusCode === 403,
+  );
+});
+
+test('generateSessionPrepAsync rechaza si ninguna sesion pasada tiene contenido de nota', async () => {
+  const service = new ReporteProfesionalService();
+  service.VinculoProfesionalPertenecienteRepository = {
+    getByProfesionalYPertenecienteAsync: async () => ({ id_profesional: 10, estado_vinculo: 'activo' }),
+  };
+  await assert.rejects(
+    () => service.generateSessionPrepAsync(10, {
+      id_perteneciente: 5,
+      sesion_objetivo: { titulo: 'Sesion', fecha_sesion: '2026-07-25T12:00:00.000Z' },
+      sesiones_pasadas: [{ id: 1, fecha_sesion: '2026-07-18T12:00:00.000Z', titulo: 'Pasada', estado: 'completada' }],
+    }),
+  );
+});
+
+test('answerPatientQuestionAsync nunca persiste y devuelve la respuesta', async () => {
+  const service = new ReporteProfesionalService();
+  service.VinculoProfesionalPertenecienteRepository = {
+    getByProfesionalYPertenecienteAsync: async () => ({ id_profesional: 10, estado_vinculo: 'activo' }),
+  };
+  service.PertenecienteRepository = { getByIdAsync: async () => ({ id: 5, id_usuario: 1, id_nivel_apoyo: null }) };
+  service.UsuarioRepository = { getByIdAsync: async () => ({ nombre: 'Juan Pered' }) };
+  service.NivelApoyoRepository = { getByIdAsync: async () => null };
+  service.AiReportService = {
+    answerPatientQuestionAsync: async ({ pregunta }) => ({ respuesta: `Respuesta a: ${pregunta}` }),
+  };
+
+  const result = await service.answerPatientQuestionAsync(10, {
+    id_perteneciente: 5,
+    pregunta: '¿Como venia con las rutinas?',
+    sesiones: [{ id: 1, fecha_sesion: '2026-07-18T12:00:00.000Z', titulo: 'Sesion', estado: 'completada', notas_texto: 'nota' }],
+  });
+
+  assert.equal(result.respuesta, 'Respuesta a: ¿Como venia con las rutinas?');
+});
+
+test('answerPatientQuestionAsync rechaza sin pregunta', async () => {
+  const service = new ReporteProfesionalService();
+  await assert.rejects(() => service.answerPatientQuestionAsync(10, {
+    id_perteneciente: 5,
+    pregunta: '',
+    sesiones: [{ id: 1, fecha_sesion: '2026-07-18T12:00:00.000Z', titulo: 'Sesion', estado: 'completada', notas_texto: 'nota' }],
+  }));
+});
+
+test('generatePatientHistoryPdfDataAsync calcula estadisticas correctas por paciente', async () => {
+  const service = new ReporteProfesionalService();
+  service.VinculoProfesionalPertenecienteRepository = {
+    getByProfesionalYPertenecienteAsync: async () => ({ id_profesional: 10, estado_vinculo: 'activo' }),
+  };
+  service.UsuarioRepository = { getByIdAsync: async () => ({ nombre: 'Lucia Fernandez' }) };
+  service.PertenecienteRepository = { getByIdAsync: async () => ({ id: 5, id_usuario: 1, id_nivel_apoyo: null }) };
+  service.NivelApoyoRepository = { getByIdAsync: async () => null };
+  // node-postgres devuelve objetos Date (no strings) para columnas
+  // timestamptz cuando se consulta directo desde el repositorio (recien se
+  // vuelven string al pasar por JSON.stringify en la respuesta HTTP) — el
+  // mock usa Date a proposito para no ocultar bugs como el de
+  // "fecha_sesion.localeCompare is not a function" que este test detecto.
+  service.SesionProfesionalRepository = {
+    getByProfesionalIdAsync: async () => [
+      { id: 1, id_perteneciente: 5, fecha_sesion: new Date('2026-07-01T12:00:00.000Z'), titulo: 'A', estado: 'completada', duracion_minutos: 60, has_note: true },
+      { id: 2, id_perteneciente: 5, fecha_sesion: new Date('2026-07-08T12:00:00.000Z'), titulo: 'B', estado: 'ausente', duracion_minutos: 60, has_note: false },
+      { id: 3, id_perteneciente: 99, fecha_sesion: new Date('2026-07-08T12:00:00.000Z'), titulo: 'Otro paciente', estado: 'completada', duracion_minutos: 60, has_note: false },
+    ],
+  };
+
+  const data = await service.generatePatientHistoryPdfDataAsync(10, 1, 5);
+
+  assert.equal(data.sesiones.length, 2);
+  assert.equal(data.stats.total, 2);
+  assert.equal(data.stats.completadas, 1);
+  assert.equal(data.stats.ausentes, 1);
+  assert.equal(data.stats.asistenciaPct, 50);
+});
+
+test('PacienteInactivoRepository.getInactivosAsync no revienta y devuelve un array', async () => {
+  const { default: PacienteInactivoRepository } = await import('../src/repositories/PacienteInactivoRepository.js');
+  const repo = new PacienteInactivoRepository();
+  const rows = await repo.getInactivosAsync(14);
+  assert.ok(Array.isArray(rows));
+});

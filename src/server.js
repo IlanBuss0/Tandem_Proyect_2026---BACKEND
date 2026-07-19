@@ -100,6 +100,7 @@ import { startNotificationWorker } from './workers/notificationWorker.js';
 import { startPictogramaSyncJob } from './jobs/pictogramaSyncJob.js';
 import { startRoutineReminderWorker } from './workers/routineReminderWorker.js';
 import { startScheduledReportWorker } from './workers/scheduledReportWorker.js';
+import { startInactivePatientWorker } from './workers/inactivePatientWorker.js';
 
 // Configuración para usar __dirname con ES Modules (import)
 const __filename = fileURLToPath(import.meta.url);
@@ -265,6 +266,7 @@ async function startServer() {
     startPictogramaSyncJob();
     startRoutineReminderWorker();
     startScheduledReportWorker();
+    startInactivePatientWorker();
 
     httpServer.listen(envConfig.port, () => {
       console.log(`Servidor escuchando en puerto ${envConfig.port}`);

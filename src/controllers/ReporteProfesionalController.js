@@ -84,6 +84,38 @@ router.get('/pdf-mensual', async (req, res) => {
   }
 });
 
+router.get('/pdf-paciente/:idPerteneciente', async (req, res) => {
+  try {
+    const context = await professionalContext(req);
+    const idPerteneciente = Number(req.params.idPerteneciente);
+    if (!idPerteneciente) return res.status(StatusCodes.BAD_REQUEST).json({ error: 'idPerteneciente invalido.' });
+    const data = await reporteService.generatePatientHistoryPdfDataAsync(context.profesional.id, req.user.id, idPerteneciente);
+    await pdfService.streamPatientHistoryPdfAsync(res, data);
+  } catch (error) {
+    return sendError(res, error, StatusCodes.BAD_REQUEST);
+  }
+});
+
+router.post('/preparar-sesion', reporteProfesionalCreateRateLimiter, async (req, res) => {
+  try {
+    const context = await professionalContext(req);
+    const prep = await reporteService.generateSessionPrepAsync(context.profesional.id, req.body);
+    return res.status(StatusCodes.OK).json(prep);
+  } catch (error) {
+    return sendError(res, error, StatusCodes.BAD_REQUEST);
+  }
+});
+
+router.post('/preguntar', reporteProfesionalCreateRateLimiter, async (req, res) => {
+  try {
+    const context = await professionalContext(req);
+    const answer = await reporteService.answerPatientQuestionAsync(context.profesional.id, req.body);
+    return res.status(StatusCodes.OK).json(answer);
+  } catch (error) {
+    return sendError(res, error, StatusCodes.BAD_REQUEST);
+  }
+});
+
 router.post('/:id/send', async (req, res) => {
   try {
     const context = await professionalContext(req);
