@@ -5,7 +5,7 @@ import ActividadPersonalizadaService from '../services/ActividadPersonalizadaSer
 import ActividadPersonalizada from '../entities/ActividadPersonalizada.js';
 import AuthorizationService from '../services/AuthorizationService.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
-import { PERTENECIENTE_PERMISSIONS } from '../modules/security/permissions.constants.js';
+import { PERTENECIENTE_PERMISSIONS, PROFESIONAL_PERMISSIONS } from '../modules/security/permissions.constants.js';
 
 const router = Router();
 const currentService = new ActividadPersonalizadaService();
@@ -26,6 +26,7 @@ router.get('', async (req, res) => {
       await AuthorizationService.assertCanReadPertenecienteResource(
         req.user.id,
         idPerteneciente,
+        PROFESIONAL_PERMISSIONS.VER_HISTORIAL,
       );
       const returnArray = await currentService.getByPertenecienteIdAsync(idPerteneciente);
       return res.status(StatusCodes.OK).json(returnArray ?? []);
