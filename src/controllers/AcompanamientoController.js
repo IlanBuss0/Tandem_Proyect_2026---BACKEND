@@ -24,6 +24,10 @@ router.get('/perteneciente/:idPerteneciente', async (req, res) => {
   try { return res.status(StatusCodes.OK).json(await service.getForUserAsync(req.user.id, idFrom(req))); } catch (error) { return sendError(res, error); }
 });
 
+router.get('/perteneciente/:idPerteneciente/red-apoyo', async (req, res) => {
+  try { return res.status(StatusCodes.OK).json(await service.getSupportNetworkAsync(req.user.id, idFrom(req))); } catch (error) { return sendError(res, error); }
+});
+
 router.post('/perteneciente/:idPerteneciente/notas', async (req, res) => {
   try { return res.status(StatusCodes.CREATED).json(await service.createNoteAsync(req.user.id, idFrom(req), req.body?.contenido)); } catch (error) { return sendError(res, error); }
 });

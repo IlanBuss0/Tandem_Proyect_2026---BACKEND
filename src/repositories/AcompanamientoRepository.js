@@ -31,11 +31,36 @@ export default class AcompanamientoRepository {
   );
 
   getObjectivesAsync = async (idPerteneciente) => BD.query(`
-    SELECT id, id_perteneciente, id_usuario_creador, titulo, descripcion, estado, progreso,
-           fecha_creacion, fecha_actualizacion
-    FROM acompanamiento_objetivos
-    WHERE id_perteneciente = $1
-    ORDER BY CASE estado WHEN 'activo' THEN 0 WHEN 'pausado' THEN 1 ELSE 2 END, fecha_actualizacion DESC
+    SELECT o.id, o.id_perteneciente, o.id_usuario_creador, o.titulo, o.descripcion, o.estado, o.progreso,
+           o.fecha_creacion, o.fecha_actualizacion,
+           a.autor_nombre, a.autor_rol
+    FROM acompanamiento_objetivos o
+    LEFT JOIN (${AUTHOR_SQL}) a ON a.id_usuario = o.id_usuario_creador
+    WHERE o.id_perteneciente = $1
+    ORDER BY CASE o.estado WHEN 'activo' THEN 0 WHEN 'pausado' THEN 1 ELSE 2 END, o.fecha_actualizacion DESC
+  `, [idPerteneciente]);
+
+  getSupportNetworkAsync = async (idPerteneciente) => BD.query(`
+    SELECT u.id AS id_usuario,
+           COALESCE(NULLIF(btrim(concat_ws(' ', u.nombre, u.apellido)), ''), u.nombre_usuario) AS nombre,
+           'tutor' AS rol
+    FROM vinculos_tutor_pertenecientes v
+    JOIN tutores t ON t.id = v.id_tutor
+    JOIN usuarios u ON u.id = t.id_usuario
+    JOIN estados_vinculos ev ON ev.id = v.id_estado_vinculo
+    WHERE v.id_perteneciente = $1 AND v.fecha_fin IS NULL AND u.activo = true
+      AND LOWER(ev.nombre) IN ('activo', 'activa', 'aprobado', 'aprobada', 'aceptado', 'aceptada')
+    UNION
+    SELECT u.id AS id_usuario,
+           COALESCE(NULLIF(btrim(concat_ws(' ', u.nombre, u.apellido)), ''), u.nombre_usuario) AS nombre,
+           'profesional' AS rol
+    FROM vinculos_profesional_pertenecientes v
+    JOIN profesionales p ON p.id = v.id_profesional
+    JOIN usuarios u ON u.id = p.id_usuario
+    JOIN estados_vinculos ev ON ev.id = v.id_estado_vinculo
+    WHERE v.id_perteneciente = $1 AND u.activo = true
+      AND LOWER(ev.nombre) IN ('activo', 'activa', 'aprobado', 'aprobada', 'aceptado', 'aceptada')
+    ORDER BY rol, nombre
   `, [idPerteneciente]);
 
   createObjectiveAsync = async ({ idPerteneciente, idUsuarioCreador, titulo, descripcion }) => BD.queryOne(`

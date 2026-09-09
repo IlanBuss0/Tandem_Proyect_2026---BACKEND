@@ -4,6 +4,8 @@ import { PROFESIONAL_PERMISSIONS } from '../modules/security/permissions.constan
 import PertenecienteRepository from '../repositories/PertenecienteRepository.js';
 import UsuarioRepository from '../repositories/UsuarioRepository.js';
 import SesionProfesionalRepository from '../repositories/SesionProfesionalRepository.js';
+import ActividadAsignadaRepository from '../repositories/ActividadAsignadaRepository.js';
+import ConfiguracionUsuarioRepository from '../repositories/ConfiguracionUsuarioRepository.js';
 import AiReportService from './AiReportService.js';
 
 const MAX_NOTE_LENGTH = 2000;
@@ -15,6 +17,8 @@ export default class AcompanamientoService {
     this.pertenecienteRepository = new PertenecienteRepository();
     this.usuarioRepository = new UsuarioRepository();
     this.sesionRepository = new SesionProfesionalRepository();
+    this.actividadAsignadaRepository = new ActividadAsignadaRepository();
+    this.configuracionUsuarioRepository = new ConfiguracionUsuarioRepository();
     this.aiReportService = new AiReportService();
   }
 
@@ -60,7 +64,51 @@ export default class AcompanamientoService {
       this.repository.getAgreementsAsync(id),
     ]);
     return { id_perteneciente: id, notas, objetivos, acuerdos };
+  }
+
+  getSupportNetworkAsync = async (idUsuario, idPerteneciente) => {
+    const id = this.assertPertenecienteId(idPerteneciente);
+    await this.assertCanReadAsync(idUsuario, id);
+    return this.repository.getSupportNetworkAsync(id);
   };
+
+  buildPertenecienteSummaryAsync = async (idPerteneciente, idUsuarioPerteneciente) => {
+    const asignadas = await this.actividadAsignadaRepository.getByPertenecienteIdAsync(idPerteneciente);
+    const completadas = asignadas.filter((row) => row.fecha_completada).length;
+    const resumenActividades = {
+      total: asignadas.length,
+      completadas,
+      adherenciaPct: asignadas.length ? Math.round((completadas / asignadas.length) * 100) : 0,
+      ultimas: asignadas.slice(0, 5).map((row) => ({
+        estado: row.fecha_completada ? 'completada' : 'pendiente',
+        fecha: row.fecha_completada || row.fecha_asignacion,
+      })),
+    };
+
+    const configs = idUsuarioPerteneciente
+      ? await this.configuracionUsuarioRepository.getByUsuarioIdAsync(idUsuarioPerteneciente)
+      : [];
+    const emociones = configs
+      .filter((config) => String(config.clave || '').startsWith('emotion:'))
+      .map((config) => {
+        try {
+          const value = JSON.parse(config.valor || '{}');
+          if (!value || typeof value.emotion !== 'string' || !value.emotion.trim()) return null;
+          return {
+            emotion: value.emotion.trim(),
+            intensity: Number.isFinite(Number(value.intensity)) ? Number(value.intensity) : null,
+            date: typeof value.date === 'string' ? value.date : String(config.fecha_modificacion || '').split('T')[0],
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const resumenEmociones = { total: emociones.length, ultimas: emociones.slice(0, 5) };
+
+    return { resumenActividades, resumenEmociones };
+  };;
 
   createNoteAsync = async (idUsuario, idPerteneciente, contenido) => {
     const id = this.assertPertenecienteId(idPerteneciente);
@@ -155,6 +203,7 @@ export default class AcompanamientoService {
     const sessions = (await this.sesionRepository.getByPertenecienteIdAsync(id)).map((session) => ({
       titulo: session.titulo, fecha_sesion: session.fecha_sesion, estado: session.estado,
     }));
+    const { resumenActividades, resumenEmociones } = await this.buildPertenecienteSummaryAsync(id, belonging.id_usuario);
     return this.aiReportService.answerSharedSupportQuestionAsync({
       personaNombre: user.nombre || user.nombre_usuario || 'Perteneciente',
       pregunta: question,
@@ -162,6 +211,8 @@ export default class AcompanamientoService {
       objetivos: context.objetivos,
       acuerdos: context.acuerdos,
       sesiones: sessions,
+      resumenActividades,
+      resumenEmociones,
     });
   };
 }
