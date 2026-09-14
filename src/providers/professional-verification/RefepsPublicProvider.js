@@ -39,13 +39,15 @@ export default class RefepsPublicProvider {
     if (official.dni !== document || !namesMatch(official.nombre, candidate.nombre) || !namesMatch(official.apellido, candidate.apellido)) {
       throw new RefepsProviderError('Los datos oficiales no coinciden entre las fuentes.', 'OFFICIAL_DATA_MISMATCH');
     }
-    // The CUIL and auxiliary personal fields are used internally, never sent to the client.
     return {
       nombre: official.nombre, apellido: official.apellido, dni: official.dni,
       matricula: official.matricula, profesion: official.profesion,
       jurisdiccion: official.jurisdiccion, habilitado: official.habilitado && candidate.habilitado,
       estado: official.estado, especialidades: official.especialidades,
+      nombreCompleto: `${official.nombre} ${official.apellido}`.trim(), cuil: official.cuil,
       titulo: official.formacion[0]?.['Título'] || null, source: official.source,
+      fechaNacimiento: official.fechaNacimiento, sexo: official.sexo,
+      nacionalidad: official.nacionalidad, fechaEmision: official.fechaEmision,
     };
   }
 

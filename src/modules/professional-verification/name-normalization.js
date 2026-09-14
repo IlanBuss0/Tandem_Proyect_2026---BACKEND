@@ -16,5 +16,7 @@ export function namesMatch(left, right) {
   const a = normalizeIdentityText(left).split(' ').filter(Boolean);
   const b = normalizeIdentityText(right).split(' ').filter(Boolean);
   if (!a.length || !b.length) return false;
-  return a.join(' ') === b.join(' ');
+  const shorter = a.length <= b.length ? a : b;
+  const longer = a.length <= b.length ? b : a;
+  return shorter.every(token => longer.includes(token));
 }

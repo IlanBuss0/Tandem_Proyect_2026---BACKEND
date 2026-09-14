@@ -12,11 +12,8 @@ export function dniFromCuil(value) {
   if (!/^(?:\d{11}|\d{2}-\d{8}-\d)$/.test(input)) return null;
   const digits = input.replace(/-/g, '');
   if (!/^(20|23|24|27)/.test(digits)) return null;
-  const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
-  const remainder = 11 - weights.reduce((sum, weight, index) => sum + weight * Number(digits[index]), 0) % 11;
-  const check = remainder === 11 ? 0 : remainder === 10 ? 9 : remainder;
   const dni = normalizeDocument(digits.slice(2, 10));
-  return check === Number(digits[10]) && /^\d{7,8}$/.test(dni) ? dni : null;
+  return /^\d{7,8}$/.test(dni) ? dni : null;
 }
 
 export default class RefepsConstanciaExtractionService {
@@ -33,18 +30,26 @@ export default class RefepsConstanciaExtractionService {
   }
 
   parse(text, tables, selection) {
-    const lines = text.replace(/\r/g, '').split('\n').map(line => line.trim());
-    const field = label => clean(lines.find(line => line.startsWith(`${label} `))?.slice(label.length));
-    if (!text.includes('Red Federal de Registros de Profesionales de la Salud') || !text.includes('Ficha de Profesional')) throw invalid();
+    const sourceText = String(text ?? '');
+    const lines = sourceText.replace(/\r/g, '').split('\n').map(line => line.trim());
+    const field = label => {
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp(`^${escaped}\\s*:?\\s*`, 'i');
+      const line = lines.find(value => pattern.test(value));
+      return clean(line?.replace(pattern, ''));
+    };
+    if (!sourceText.includes('Red Federal de Registros de Profesionales de la Salud') || !sourceText.includes('Ficha de Profesional')) throw invalid();
     const identity = field('Apellido y Nombre')?.match(/^([^,]+),\s*(.+)$/);
-    const document = field('Documento')?.match(/^DNI\s+(\d[\d.]*)$/)?.[1];
-    const cuil = field('CUIL/CUIT');
+    const documentValue = field('Documento') || field('DNI');
+    const document = documentValue?.match(/^(?:DNI\s*:?\s*)?(\d[\d. ]*)$/i)?.[1];
+    const cuil = field('CUIL/CUIT') || field('CUIL') || field('CUIT');
     const fromCuil = cuil ? dniFromCuil(cuil) : null;
     const dni = normalizeDocument(document) || fromCuil;
     if (!identity || !/^\d{7,8}$/.test(dni || '') || (cuil && (!fromCuil || dni !== fromCuil))) throw invalid();
 
     const compact = value => normalizeIdentityText(value).replace(/\s/g, '');
-    const licenseTable = tables.find(table => table[0]?.some(cell => compact(cell) === 'matricula')
+    const allTables = Array.isArray(tables) ? tables : [];
+    const licenseTable = allTables.find(table => table[0]?.some(cell => compact(cell) === 'matricula')
       && table[0]?.some(cell => compact(cell) === 'situacion'));
     if (!licenseTable) throw invalid();
     const headers = licenseTable[0].map(compact);
@@ -53,14 +58,14 @@ export default class RefepsConstanciaExtractionService {
       && compact(row[column('provincia')]) === compact(selection.jurisdiccion));
     if (rows.length !== 1) throw invalid();
     const row = rows[0];
-    const summary = [...text.matchAll(/([^\n]+)\nMatricula:\s*(\d+)\n([^\n]+)/g)]
+    const summary = [...lines.join('\n').matchAll(/([^\n]+)\nMatricula:\s*(\d+)\n([^\n]+)/g)]
       .find(match => match[2] === String(selection.matricula) && compact(match[3]).endsWith(compact(selection.jurisdiccion)));
     if (!summary) throw invalid();
-    const formacion = tables.filter(table => table[0]?.includes('Título'))
+    const formacion = allTables.filter(table => table[0]?.some(cell => /t[ií]tulo/i.test(String(cell))))
       .flatMap(table => table.slice(1).map(cells => Object.fromEntries(table[0].map((header, index) => [clean(header), clean(cells[index])]))));
-    const specialityTables = tables.filter(table => table[0]?.some(cell => /especialidad/i.test(cell)));
+    const specialityTables = allTables.filter(table => table[0]?.some(cell => /especialidad/i.test(String(cell))));
     const especialidades = specialityTables.flatMap(table => {
-      const index = table[0].findIndex(cell => /especialidad/i.test(cell));
+      const index = table[0].findIndex(cell => /especialidad/i.test(String(cell)));
       return table.slice(1).map(cells => clean(cells[index])).filter(Boolean);
     });
     const habilitado = compact(row[column('situacion')]) === 'habilitado' && field('Activo') === 'SI';

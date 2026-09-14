@@ -38,26 +38,31 @@ export default class DniExtractionService {
 
   parsePdf417(raw) {
     if (typeof raw !== 'string' || raw.length > 4096) return { success: false, reason: 'INVALID_PDF417_FORMAT' };
-    // Keep empty positions: the ninth field may be empty. See docs/professional-verification.md.
-    const fields = raw.trim().split('@').map(value => value.trim());
+    // Keep empty positions: the barcode layouts use positional fields.
+    const fields = raw.replace(/[\r\n]/g, '').split('@').map(value => value.trim());
+    if (![8, 9, 16, 17].includes(fields.length) && fields.at(-1) === '') fields.pop();
     const modern = fields.length === 8 || fields.length === 9;
-    if (!modern && fields.length !== 15) return { success: false, reason: 'INVALID_PDF417_FORMAT' };
-    const [apellido, nombre, sexo, document, birth] = modern
-      ? [fields[1], fields[2], fields[3], fields[4], fields[6]]
-      : [fields[4], fields[5], fields[8], fields[1], fields[7]];
+    const legacy = fields.length === 16 || fields.length === 17;
+    if (!modern && !legacy) return { success: false, reason: 'INVALID_PDF417_FORMAT' };
+    const [apellido, nombre, sexo, document, birth, issue, expiry] = modern
+      ? [fields[1], fields[2], fields[3], fields[4], fields[6], fields[7], null]
+      : [fields[4], fields[5], fields[8], fields[1], fields[7], fields[9], fields[12]];
     const validDocument = /^(?:\d{7,8}|\d{1,2}\.\d{3}\.\d{3})$/.test(document);
     const dni = normalizeDocument(document);
     const fechaNacimiento = this.parseDate(birth);
+    const fechaEmision = this.parseDate(issue);
+    const fechaVencimiento = expiry ? this.parseDate(expiry) : null;
     if (!validDocument || !/^\d{7,8}$/.test(dni) || !this.validName(nombre) || !this.validName(apellido)
-      || !/^[FMX]$/.test(sexo) || !fechaNacimiento || fechaNacimiento > new Date().toISOString().slice(0, 10)) {
+      || !/^[FMX]$/.test(sexo) || !fechaNacimiento || fechaNacimiento > new Date().toISOString().slice(0, 10)
+      || (issue && !fechaEmision) || (expiry && !fechaVencimiento)) {
       return { success: false, reason: 'INVALID_DNI_DATA' };
     }
     return {
       success: true, reason: null, source: 'PDF417', nombre, apellido, dni, sexo,
       nombreCompleto: `${nombre} ${apellido}`, fechaNacimiento,
-      // Neither documented layout identifies an expiry field.
-      fechaVencimiento: null, ejemplar: modern ? fields[5] || null : null,
-      confidence: 100, detectedFields: ['nombre', 'apellido', 'dni', 'sexo', 'fechaNacimiento'],
+      fechaEmision, fechaVencimiento, ejemplar: modern ? fields[5] || null : null,
+      confidence: 100,
+      detectedFields: ['nombre', 'apellido', 'dni', 'sexo', 'fechaNacimiento', ...(fechaEmision ? ['fechaEmision'] : []), ...(fechaVencimiento ? ['fechaVencimiento'] : [])],
     };
   }
 

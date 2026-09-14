@@ -2,11 +2,13 @@
 
 ## Flujo
 
-`DNI frontal -> OCR -> REFEPS publico -> matching -> estado persistido`
+`matricula -> REFEPS -> constancia -> preview -> PDF417 -> OCR fallback -> vigencia -> matching -> cuenta`
 
-El registro profesional recibe `multipart/form-data`; la imagen debe enviarse en `dni_frente`. Se procesa unicamente en memoria y no se guarda. Tesseract.js extrae nombre, apellido y DNI, pero esto no prueba la autenticidad fisica del documento.
+La matricula se valida antes de consultar REFEPS y debe contener solo numeros con al menos cuatro digitos. Una busqueda ambigua se muestra con nombre, apellido, profesion y matricula para que la persona seleccione su registro. La seleccion llama a `POST /api/refeps/constancia`; el backend genera la constancia SISA, descarga el PDF y extrae los datos oficiales. Si la constancia contiene un CUIL valido por formato, el DNI se obtiene de sus ocho digitos centrales y se comprueba contra el documento.
 
-La identidad declarada se compara primero con el OCR. Despues se compara matricula, nombre, apellido y DNI contra REFEPS. Solo se asigna `VERIFIED` si existe un unico resultado coincidente y su `situacionMatricula` es `Habilitado`. OCR inseguro, ambiguedad o matricula inactiva pasan a `MANUAL_REVIEW`. Un timeout, error HTTP o cambio de estructura queda registrado como `VERIFICATION_ERROR`, pero el perfil permanece en `MANUAL_REVIEW`; nunca se rechaza como falso por una falla tecnica.
+El registro profesional recibe `multipart/form-data`; la imagen debe enviarse en `dni_frente`. La camara intenta leer primero el PDF417 del frente del DNI y envia su texto en `pdf417Raw`. El backend valida el formato posicional, nombre, sexo, DNI y fechas. Para el layout moderno, la fecha de vencimiento se completa con OCR de esa fecha; si PDF417 no se puede decodificar, Tesseract.js procesa el frente completo como fallback. La imagen se procesa unicamente en memoria y no se guarda.
+
+La vigencia se comprueba antes de consultar REFEPS para el matching final. Despues se normalizan tildes, mayusculas, espacios y nombres compuestos, y se comparan nombre, apellido y DNI contra la constancia seleccionada. Solo se asigna `VERIFIED` si existe un unico resultado coincidente y su situacion es `Habilitado`. Un documento ilegible, vencido, ambiguo, una matricula inactiva o datos que no coinciden bloquean la creacion de la cuenta. Un timeout, error HTTP o cambio de estructura queda registrado como `VERIFICATION_ERROR`; no se implementa biometria en este flujo.
 
 ## Proveedor REFEPS
 
@@ -23,11 +25,11 @@ El proveedor encapsula ese detalle y normaliza nombre, apellido, DNI, profesion,
 
 Si cambia el sitio, actualizar unicamente `RefepsPublicProvider.parseHtml` y sus fixtures. Una respuesta sin la estructura conocida debe producir `STRUCTURE_MISMATCH`, nunca `NOT_FOUND`.
 
-El proveedor implementa el contrato `buscarPorMatricula`. Un futuro cliente del WS020 oficial puede reemplazarlo mediante inyeccion en `ValidacionProfesionalService` sin cambiar OCR, matching, persistencia ni registro. Del mismo modo, una futura capa biometrica puede agregarse como otro proveedor coordinado por el servicio, sin acoplarla a Auth ni al OCR.
+El proveedor implementa `buscarPorMatricula`, `buscarPorDni` y `obtenerConstancia`. Un futuro cliente del WS020 oficial puede reemplazarlo mediante inyeccion en `ValidacionProfesionalService` sin cambiar PDF417, OCR, matching, persistencia ni registro.
 
 ## Base de datos y pruebas
 
-Ejecutar `npm run db:professional-verification` para agregar estados y metadatos minimos. Ejecutar `npm run test:professional-verification` para OCR, matching, parser y coordinacion deterministas.
+Ejecutar `npm run db:professional-verification` para agregar estados y metadatos minimos. Ejecutar `npm run test:professional-verification` para PDF417, OCR fallback, CUIL/DNI, constancia, matching y coordinacion deterministas.
 
 La suite automatica no depende de Internet. Para probar el buscador publico real:
 
@@ -45,7 +47,7 @@ No usar `REFEPS_ALLOW_INSECURE_TLS=1` en produccion.
 
 ## Google
 
-`POST /api/auth/google` sigue aceptando JSON para login y para crear cuentas no profesionales. Si se crea una cuenta nueva con rol `profesional`, debe enviarse `multipart/form-data` con `accessToken`, `rol`, `profesion`, `matricula` y `dni_frente`. El flujo reutiliza la misma verificacion automatica que el registro tradicional.
+`POST /api/auth/google` sigue aceptando JSON para login y para crear cuentas no profesionales. Si se crea una cuenta nueva con rol `profesional`, debe enviarse `multipart/form-data` con `accessToken`, `rol`, `profesion`, `matricula`, `dni_frente`, `pdf417Raw`, `refepsDni` y `jurisdiccion`. El flujo reutiliza la misma verificacion automatica que el registro tradicional.
 
 ## Restricciones
 

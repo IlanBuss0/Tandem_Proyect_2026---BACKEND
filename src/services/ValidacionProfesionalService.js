@@ -2,9 +2,9 @@ import ValidacionProfesionalRepository from '../repositories/ValidacionProfesion
 import ProfesionalRepository from '../repositories/ProfesionalRepository.js';
 import AppError from '../modules/errors/AppError.js';
 import DniExtractionService from './DniExtractionService.js';
-import RefepsPublicProvider, { RefepsProviderError } from '../providers/professional-verification/RefepsPublicProvider.js';
+import RefepsPublicProvider from '../providers/professional-verification/RefepsPublicProvider.js';
 import ProfessionalIdentityMatcher from './ProfessionalIdentityMatcher.js';
-import { namesMatch } from '../modules/professional-verification/name-normalization.js';
+import { namesMatch, normalizeDocument } from '../modules/professional-verification/name-normalization.js';
 import { VERIFICATION_METHOD, VERIFICATION_SOURCE, VERIFICATION_STATUS } from '../modules/professional-verification/verification.constants.js';
 
 export default class ValidacionProfesionalService {
@@ -73,10 +73,14 @@ export default class ValidacionProfesionalService {
       throw new AppError('Nombre y apellido son obligatorios para validar la identidad profesional.', 400);
     }
 
-    const pdf417Data = pdf417Raw
+    const pdf417Data = pdf417Raw && typeof this.DniExtractionService.parsePdf417 === 'function'
       ? this.DniExtractionService.parsePdf417(pdf417Raw)
-      : null;
-    const ocrData = await this.DniExtractionService.extractAsync(imageBuffer, { expiryOnly: Boolean(pdf417Data?.success) });
+      : pdf417Raw && typeof this.DniExtractionService.parseText === 'function'
+        ? this.DniExtractionService.parseText(pdf417Raw, 100)
+        : null;
+    const ocrData = pdf417Data?.success && pdf417Data.fechaVencimiento
+      ? { success: true, fechaVencimiento: pdf417Data.fechaVencimiento, confidence: pdf417Data.confidence }
+      : await this.DniExtractionService.extractAsync(imageBuffer, { expiryOnly: Boolean(pdf417Data?.success) });
     const dniData = pdf417Data?.success
       ? { ...pdf417Data, fechaVencimiento: ocrData.fechaVencimiento, success: ocrData.success, reason: ocrData.reason, expiryConfidence: ocrData.confidence }
       : ocrData;
@@ -92,14 +96,18 @@ export default class ValidacionProfesionalService {
     if (!namesMatch(dniData.nombre, identity.nombre) || !namesMatch(dniData.apellido, identity.apellido)) {
       return this.verificationResult(VERIFICATION_STATUS.DATA_MISMATCH, { reason: 'DECLARED_IDENTITY_MISMATCH', dniData });
     }
-    if (refepsDni && dniData.dni !== String(refepsDni).replace(/\D/g, '').replace(/^0+/, '')) {
+    if (refepsDni && normalizeDocument(dniData.dni) !== normalizeDocument(refepsDni)) {
       return this.verificationResult(VERIFICATION_STATUS.DATA_MISMATCH, { reason: 'DOCUMENT_MISMATCH', dniData });
     }
 
     let refeps;
     try {
-      const official = await this.RefepsProvider.obtenerConstancia({ matricula: numeroMatricula, dni: refepsDni, jurisdiccion });
-      refeps = { found: true, results: [official] };
+      if (refepsDni && jurisdiccion && typeof this.RefepsProvider.obtenerConstancia === 'function') {
+        const official = await this.RefepsProvider.obtenerConstancia({ matricula: numeroMatricula, dni: refepsDni, jurisdiccion });
+        refeps = { found: true, results: [official] };
+      } else {
+        refeps = await this.RefepsProvider.buscarPorMatricula(numeroMatricula);
+      }
     } catch (error) {
       const reason = error.code || 'REFEPS_ERROR';
       return this.verificationResult(VERIFICATION_STATUS.VERIFICATION_ERROR, { reason, dniData });
@@ -132,7 +140,7 @@ export default class ValidacionProfesionalService {
   validateMatricula(value) {
     const matricula = String(value || '').trim();
     if (!/^\d{4,}$/.test(matricula)) {
-      throw new AppError('La matricula debe tener al menos 4 digitos y solo numeros.', 400, 'INVALID_LICENSE');
+      throw new AppError('La matrícula debe tener al menos 4 dígitos.', 400, 'INVALID_LICENSE');
     }
     return matricula;
   }

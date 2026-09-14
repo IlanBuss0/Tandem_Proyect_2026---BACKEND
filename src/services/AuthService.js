@@ -101,11 +101,15 @@ class AuthService {
       throw new AppError('La fotografia del frente del DNI es obligatoria para profesionales.', 400);
     }
 
+    let professionalVerification;
     if (idTipoUsuario === ROLES_REGISTRABLES.profesional) {
-      await this._assertProfessionalDniVerified({
+      professionalVerification = await this._assertProfessionalDniVerified({
         imageBuffer: dniFrente.buffer,
         matricula: data?.matricula,
         declaredIdentity: { nombre, apellido },
+        pdf417Raw: data?.pdf417Raw,
+        refepsDni: data?.refepsDni,
+        jurisdiccion: data?.jurisdiccion,
       });
     }
 
@@ -137,12 +141,10 @@ class AuthService {
     }
 
     const user = await AuthRepository.findSafeById(newId);
-    let professionalVerification;
     if (idTipoUsuario === ROLES_REGISTRABLES.profesional) {
       professionalVerification = await this._verifyProfessionalRegistrationSafely({
         idUsuario: newId,
-        imageBuffer: dniFrente.buffer,
-        declaredIdentity: { nombre, apellido },
+        verifiedResult: professionalVerification,
       });
     }
 
@@ -368,18 +370,22 @@ class AuthService {
       throw new AppError('Elegi tu rol para terminar de crear tu cuenta.', 422, 'GOOGLE_NEEDS_ROL');
     }
 
+    let professionalVerification;
     if (idTipoUsuario === ROLES_REGISTRABLES.profesional && (!data?.profesion || !data?.matricula)) {
       throw new AppError('profesion y matricula son obligatorios para registrarte como profesional.', 400);
     }
 
     if (idTipoUsuario === ROLES_REGISTRABLES.profesional) {
-      await this._assertProfessionalDniVerified({
+      professionalVerification = await this._assertProfessionalDniVerified({
         imageBuffer: dniFrente.buffer,
         matricula: data?.matricula,
         declaredIdentity: {
           nombre: payload.given_name || payload.name || 'Usuario',
           apellido: payload.family_name || '',
         },
+        pdf417Raw: data?.pdf417Raw,
+        refepsDni: data?.refepsDni,
+        jurisdiccion: data?.jurisdiccion,
       });
     }
 
@@ -413,24 +419,19 @@ class AuthService {
     await AuthRepository.markEmailVerified(newId);
 
     const user = await AuthRepository.findSafeById(newId);
-    let professionalVerification;
     if (idTipoUsuario === ROLES_REGISTRABLES.profesional) {
       professionalVerification = await this._verifyProfessionalRegistrationSafely({
         idUsuario: newId,
-        imageBuffer: dniFrente.buffer,
-        declaredIdentity: {
-          nombre: payload.given_name || payload.name || 'Usuario',
-          apellido: payload.family_name || '',
-        },
+        verifiedResult: professionalVerification,
       });
     }
     const session = await this.createSession(user);
     return professionalVerification ? { ...session, professionalVerification } : session;
   }
 
-  _verifyProfessionalRegistrationSafely = async ({ idUsuario, imageBuffer, declaredIdentity }) => {
+  _verifyProfessionalRegistrationSafely = async ({ idUsuario, verifiedResult }) => {
     try {
-      return await ValidacionProfesionalService.verifyRegistrationAsync({ idUsuario, imageBuffer, declaredIdentity });
+      return await ValidacionProfesionalService.verifyRegistrationAsync({ idUsuario, verifiedResult });
     } catch (error) {
       console.error('[ProfessionalVerification] automated verification persistence failed:', error.message);
       return {
@@ -450,6 +451,8 @@ class AuthService {
       imageBuffer: dniFrente.buffer,
       matricula: data?.matricula,
       pdf417Raw: data?.pdf417Raw,
+      refepsDni: data?.refepsDni,
+      jurisdiccion: data?.jurisdiccion,
       declaredIdentity: {
         nombre: data?.nombre,
         apellido: data?.apellido,
@@ -457,8 +460,8 @@ class AuthService {
     });
   };
 
-  _assertProfessionalDniVerified = async ({ imageBuffer, matricula, declaredIdentity }) => {
-    const result = await ValidacionProfesionalService.verifyIdentityDataAsync({ imageBuffer, matricula, declaredIdentity });
+  _assertProfessionalDniVerified = async ({ imageBuffer, matricula, declaredIdentity, pdf417Raw, refepsDni, jurisdiccion }) => {
+    const result = await ValidacionProfesionalService.verifyIdentityDataAsync({ imageBuffer, matricula, declaredIdentity, pdf417Raw, refepsDni, jurisdiccion });
     if (result.status === VERIFICATION_STATUS.VERIFIED) return result;
 
     const message = result.status === VERIFICATION_STATUS.DATA_MISMATCH

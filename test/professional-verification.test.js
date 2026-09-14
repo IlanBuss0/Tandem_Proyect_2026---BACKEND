@@ -8,6 +8,7 @@ import { normalizeDocument, normalizeIdentityText, namesMatch } from '../src/mod
 import DniExtractionService from '../src/services/DniExtractionService.js';
 import ProfessionalIdentityMatcher from '../src/services/ProfessionalIdentityMatcher.js';
 import RefepsPublicProvider, { RefepsProviderError } from '../src/providers/professional-verification/RefepsPublicProvider.js';
+import RefepsConstanciaExtractionService, { dniFromCuil } from '../src/services/RefepsConstanciaExtractionService.js';
 import ValidacionProfesionalServiceClass from '../src/services/ValidacionProfesionalService.js';
 import AuthService from '../src/services/AuthService.js';
 import AuthorizationService from '../src/services/AuthorizationService.js';
@@ -197,6 +198,53 @@ test('DNI OCR parseText falla por baja confidence o campos faltantes', () => {
   assert.equal(service.parseText('APELLIDO PEREZ\nNOMBRE JUAN', 80).reason, 'NOT_ARGENTINE_DNI');
 });
 
+test('PDF417 extrae identidad del layout moderno y acepta separador final', () => {
+  const result = new DniExtractionService().parsePdf417('@PEREZ GOMEZ@JUAN CARLOS@M@30123456@A@01/01/1990@01/01/2020@');
+  assert.equal(result.success, true);
+  assert.equal(result.nombre, 'JUAN CARLOS');
+  assert.equal(result.apellido, 'PEREZ GOMEZ');
+  assert.equal(result.dni, '30123456');
+  assert.equal(result.fechaVencimiento, null);
+});
+
+test('PDF417 extrae fecha de vencimiento del layout legado', () => {
+  const fields = Array.from({ length: 16 }, () => '');
+  fields[1] = '30123456'; fields[4] = 'PEREZ'; fields[5] = 'JUAN'; fields[7] = '01/01/1990';
+  fields[8] = 'M'; fields[9] = '01/01/2020'; fields[12] = '31/12/2035';
+  const result = new DniExtractionService().parsePdf417(fields.join('@'));
+  assert.equal(result.success, true);
+  assert.equal(result.fechaEmision, '2020-01-01');
+  assert.equal(result.fechaVencimiento, '2035-12-31');
+});
+
+test('CUIL permite obtener el DNI aun cuando la constancia no lo separa', () => {
+  assert.equal(dniFromCuil('20-30123456-7'), '30123456');
+});
+
+test('constancia extrae datos oficiales, CUIL, matrícula y especialidad', () => {
+  const result = new RefepsConstanciaExtractionService().parse(`
+    Red Federal de Registros de Profesionales de la Salud
+    Ficha de Profesional
+    Apellido y Nombre: PEREZ, JUAN CARLOS
+    Documento: DNI 30123456
+    CUIL/CUIT: 20-30123456-7
+    Activo: SI
+    Licenciado en Psicología
+    Matricula: 1234
+    CABA
+  `, [
+    [['Matricula', 'Provincia', 'Situacion'], ['1234', 'CABA', 'Habilitado']],
+    [['Título', 'Institución'], ['Licenciado en Psicología', 'Universidad']],
+    [['Especialidad'], ['Psicología clínica']],
+  ], { matricula: '1234', jurisdiccion: 'CABA' });
+  assert.equal(result.nombre, 'JUAN CARLOS');
+  assert.equal(result.apellido, 'PEREZ');
+  assert.equal(result.dni, '30123456');
+  assert.equal(result.cuil, '20-30123456-7');
+  assert.equal(result.habilitado, true);
+  assert.deepEqual(result.especialidades, ['Psicología clínica']);
+});
+
 test('verificacion profesional rechaza DNI vencido antes de consultar REFEPS', async () => {
   const service = new ValidacionProfesionalServiceClass();
   let refepsCalled = false;
@@ -263,6 +311,31 @@ test('REFEPS parser reporta STRUCTURE_MISMATCH si cambia la estructura', () => {
   );
 });
 
+test('generar constancia usa el profesional seleccionado y devuelve datos oficiales', async () => {
+  const provider = new RefepsPublicProvider();
+  provider.buscarPorMatricula = async () => ({
+    found: true,
+    ambiguous: true,
+    results: [{ nombre: 'Juan', apellido: 'Perez', dni: '30123456', matricula: '1234', jurisdiccion: 'CABA', habilitado: true }],
+  });
+  provider.constancias.downloadAsync = async dni => {
+    assert.equal(dni, '30123456');
+    return Buffer.from('%PDF-');
+  };
+  provider.constanciaExtractor.extractAsync = async (_pdf, selection) => {
+    assert.equal(selection.matricula, '1234');
+    return {
+      nombre: 'Juan', apellido: 'Perez', dni: '30123456', cuil: '20-30123456-7', matricula: '1234',
+      profesion: 'Psicología', jurisdiccion: 'CABA', habilitado: true, estado: 'Habilitado',
+      especialidades: ['Psicología clínica'], formacion: [{ Título: 'Licenciado en Psicología' }], source: 'SISA_CONSTANCIA',
+    };
+  };
+  const result = await provider.obtenerConstancia({ matricula: '1234', dni: '30123456', jurisdiccion: 'CABA' });
+  assert.equal(result.cuil, '20-30123456-7');
+  assert.equal(result.titulo, 'Licenciado en Psicología');
+  assert.equal(result.source, 'SISA_CONSTANCIA');
+});
+
 test('verificacion profesional rechaza matricula menor a 4 digitos antes de REFEPS', async () => {
   const service = new ValidacionProfesionalServiceClass();
   let refepsCalled = false;
@@ -296,6 +369,27 @@ test('verificacion profesional no consulta REFEPS si la imagen no parece DNI', a
   assert.equal(result.status, 'MANUAL_REVIEW');
   assert.equal(result.reason, 'NOT_ARGENTINE_DNI');
   assert.equal(refepsCalled, false);
+});
+
+test('PDF417 fallido activa OCR completo como fallback', async () => {
+  const service = new ValidacionProfesionalServiceClass();
+  let ocrOptions;
+  service.DniExtractionService = {
+    parsePdf417: () => ({ success: false, reason: 'INVALID_PDF417_FORMAT' }),
+    extractAsync: async (_image, options) => {
+      ocrOptions = options;
+      return { success: true, nombre: 'Juan', apellido: 'Perez', dni: '12345678', fechaVencimiento: '2035-12-31', confidence: 90 };
+    },
+  };
+  service.RefepsProvider = {
+    buscarPorMatricula: async () => ({ found: true, ambiguous: false, results: [{ nombre: 'Juan', apellido: 'Perez', dni: '12345678', matricula: '1234', habilitado: true }] }),
+  };
+  const result = await service.verifyIdentityDataAsync({
+    imageBuffer: Buffer.from('dni'), matricula: '1234', pdf417Raw: 'bad',
+    declaredIdentity: { nombre: 'Juan', apellido: 'Perez' },
+  });
+  assert.equal(ocrOptions.expiryOnly, false);
+  assert.equal(result.status, 'VERIFIED');
 });
 
 test('verificacion profesional devuelve DATA_MISMATCH si el DNI es de otra persona', async () => {
@@ -332,6 +426,41 @@ test('verificacion profesional devuelve VERIFIED si DNI, identidad y REFEPS coin
   });
   assert.equal(result.status, 'VERIFIED');
   assert.equal(result.verified, true);
+});
+
+test('verificacion consulta la constancia para el registro seleccionado', async () => {
+  const service = new ValidacionProfesionalServiceClass();
+  service.DniExtractionService = {
+    parsePdf417: () => ({ success: true, nombre: 'Juan', apellido: 'Perez', dni: '12345678', fechaVencimiento: '2035-12-31', confidence: 100 }),
+    extractAsync: async () => { throw new Error('No debe ejecutar OCR cuando PDF417 ya informa vencimiento'); },
+  };
+  let selection;
+  service.RefepsProvider = {
+    obtenerConstancia: async args => {
+      selection = args;
+      return { nombre: 'Juan', apellido: 'Perez', dni: '12345678', matricula: '1234', jurisdiccion: 'CABA', habilitado: true };
+    },
+  };
+  const result = await service.verifyIdentityDataAsync({
+    imageBuffer: Buffer.from('dni'), matricula: '1234', pdf417Raw: 'valid', refepsDni: '12345678', jurisdiccion: 'CABA',
+    declaredIdentity: { nombre: 'Juan', apellido: 'Perez' },
+  });
+  assert.deepEqual(selection, { matricula: '1234', dni: '12345678', jurisdiccion: 'CABA' });
+  assert.equal(result.status, 'VERIFIED');
+});
+
+test('verificacion rechaza documento vencido aun cuando PDF417 identifica al titular', async () => {
+  const service = new ValidacionProfesionalServiceClass();
+  service.DniExtractionService = {
+    parsePdf417: () => ({ success: true, nombre: 'Juan', apellido: 'Perez', dni: '12345678', fechaVencimiento: '2020-01-01', confidence: 100 }),
+    extractAsync: async () => { throw new Error('No debe ejecutar OCR cuando PDF417 ya informa vencimiento'); },
+  };
+  service.RefepsProvider = { obtenerConstancia: async () => { throw new Error('No debe consultar REFEPS'); } };
+  const result = await service.verifyIdentityDataAsync({
+    imageBuffer: Buffer.from('dni'), matricula: '1234', pdf417Raw: 'valid', refepsDni: '12345678', jurisdiccion: 'CABA',
+    declaredIdentity: { nombre: 'Juan', apellido: 'Perez' },
+  });
+  assert.equal(result.status, 'EXPIRED_DOCUMENT');
 });
 
 test('Google profesional nuevo exige frente del DNI', async () => {

@@ -28,7 +28,7 @@ router.post('/search-refeps', async (req, res) => {
     if (matricula && !dni && !hasMatricula) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         ok: false,
-        error: 'La matricula debe tener al menos 4 digitos y solo numeros.',
+        error: 'La matrícula debe tener al menos 4 dígitos.',
         code: 'INVALID_LICENSE',
       });
     }
@@ -46,7 +46,7 @@ router.post('/search-refeps', async (req, res) => {
     return res.status(StatusCodes.OK).json({ ok: true, data: result });
   } catch (error) {
     console.error('[RefepsSearch] Error:', error.message);
-    return res.status(StatusCodes.BAD_GATEWAY).json({ ok: false, error: 'No se pudo consultar REFEPS. Intentá nuevamente.' });
+    return res.status(StatusCodes.BAD_GATEWAY).json({ ok: false, error: 'No pudimos verificar tu matrícula en este momento. Intentá nuevamente.' });
   }
 });
 
