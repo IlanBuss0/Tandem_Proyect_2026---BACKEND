@@ -8,7 +8,6 @@ import { normalizeDocument, normalizeIdentityText, namesMatch } from '../src/mod
 import DniExtractionService from '../src/services/DniExtractionService.js';
 import ProfessionalIdentityMatcher from '../src/services/ProfessionalIdentityMatcher.js';
 import RefepsPublicProvider, { RefepsProviderError } from '../src/providers/professional-verification/RefepsPublicProvider.js';
-import RefepsConstanciaExtractionService, { dniFromCuil } from '../src/services/RefepsConstanciaExtractionService.js';
 import ValidacionProfesionalServiceClass from '../src/services/ValidacionProfesionalService.js';
 import AuthService from '../src/services/AuthService.js';
 import AuthorizationService from '../src/services/AuthorizationService.js';
@@ -217,34 +216,6 @@ test('PDF417 extrae fecha de vencimiento del layout legado', () => {
   assert.equal(result.fechaVencimiento, '2035-12-31');
 });
 
-test('CUIL permite obtener el DNI aun cuando la constancia no lo separa', () => {
-  assert.equal(dniFromCuil('20-30123456-7'), '30123456');
-});
-
-test('constancia extrae datos oficiales, CUIL, matrícula y especialidad', () => {
-  const result = new RefepsConstanciaExtractionService().parse(`
-    Red Federal de Registros de Profesionales de la Salud
-    Ficha de Profesional
-    Apellido y Nombre: PEREZ, JUAN CARLOS
-    Documento: DNI 30123456
-    CUIL/CUIT: 20-30123456-7
-    Activo: SI
-    Licenciado en Psicología
-    Matricula: 1234
-    CABA
-  `, [
-    [['Matricula', 'Provincia', 'Situacion'], ['1234', 'CABA', 'Habilitado']],
-    [['Título', 'Institución'], ['Licenciado en Psicología', 'Universidad']],
-    [['Especialidad'], ['Psicología clínica']],
-  ], { matricula: '1234', jurisdiccion: 'CABA' });
-  assert.equal(result.nombre, 'JUAN CARLOS');
-  assert.equal(result.apellido, 'PEREZ');
-  assert.equal(result.dni, '30123456');
-  assert.equal(result.cuil, '20-30123456-7');
-  assert.equal(result.habilitado, true);
-  assert.deepEqual(result.especialidades, ['Psicología clínica']);
-});
-
 test('verificacion profesional rechaza DNI vencido antes de consultar REFEPS', async () => {
   const service = new ValidacionProfesionalServiceClass();
   let refepsCalled = false;
@@ -288,12 +259,19 @@ test('REFEPS parser normaliza profesional activo', () => {
   assert.equal(result.results[0].dni, '12.345.678');
 });
 
-test('REFEPS parser permite buscar por DNI sin perder la matrícula del resultado', () => {
+test('REFEPS parser conserva el detalle necesario para la ficha seleccionada', () => {
+  const provider = new RefepsPublicProvider();
+  const result = provider.parseHtml(fixture('professional-active.html'), '12345');
+  assert.equal(result.found, true);
+  assert.equal(result.results[0].dni, '12.345.678');
+  assert.equal(result.results[0].matricula, '12345');
+});
+
+test('REFEPS parser encuentra el profesional al buscar por DNI', () => {
   const provider = new RefepsPublicProvider();
   const result = provider.parseHtml(fixture('professional-active.html'), { searchBy: 'dni', value: '12345678' });
   assert.equal(result.found, true);
   assert.equal(result.results[0].dni, '12.345.678');
-  assert.equal(result.results[0].matricula, '12345');
 });
 
 test('REFEPS parser normaliza matricula inactiva, multiples y sin resultados', () => {
@@ -311,29 +289,40 @@ test('REFEPS parser reporta STRUCTURE_MISMATCH si cambia la estructura', () => {
   );
 });
 
-test('generar constancia usa el profesional seleccionado y devuelve datos oficiales', async () => {
+test('obtiene la ficha estructurada del profesional seleccionado', async () => {
   const provider = new RefepsPublicProvider();
   provider.buscarPorMatricula = async () => ({
     found: true,
     ambiguous: true,
     results: [{ nombre: 'Juan', apellido: 'Perez', dni: '30123456', matricula: '1234', jurisdiccion: 'CABA', habilitado: true }],
   });
-  provider.constancias.downloadAsync = async dni => {
-    assert.equal(dni, '30123456');
-    return Buffer.from('%PDF-');
-  };
-  provider.constanciaExtractor.extractAsync = async (_pdf, selection) => {
-    assert.equal(selection.matricula, '1234');
-    return {
-      nombre: 'Juan', apellido: 'Perez', dni: '30123456', cuil: '20-30123456-7', matricula: '1234',
-      profesion: 'Psicología', jurisdiccion: 'CABA', habilitado: true, estado: 'Habilitado',
-      especialidades: ['Psicología clínica'], formacion: [{ Título: 'Licenciado en Psicología' }], source: 'SISA_CONSTANCIA',
-    };
-  };
-  const result = await provider.obtenerConstancia({ matricula: '1234', dni: '30123456', jurisdiccion: 'CABA' });
-  assert.equal(result.cuil, '20-30123456-7');
-  assert.equal(result.titulo, 'Licenciado en Psicología');
-  assert.equal(result.source, 'SISA_CONSTANCIA');
+  const result = await provider.obtenerPerfil({ matricula: '1234', dni: '30123456', jurisdiccion: 'CABA' });
+  assert.equal(result.dni, '30123456');
+  assert.equal(result.habilitado, true);
+});
+
+test('reutiliza la selección temporal sin volver a consultar Argentina.gob.ar', async () => {
+  const provider = new RefepsPublicProvider();
+  const selected = provider.parseHtml(fixture('professional-active.html'), '12345').results[0];
+  provider.buscarPorMatricula = async () => { throw new Error('No debe consultar nuevamente'); };
+  const result = await provider.obtenerPerfil({
+    selectionId: selected.selectionId,
+    matricula: selected.matricula,
+    dni: selected.dni,
+    jurisdiccion: selected.jurisdiccion,
+    profesion: selected.profesion,
+  });
+  assert.equal(result.selectionId, selected.selectionId);
+  assert.equal(result.profesion, selected.profesion);
+});
+
+test('rechaza una selección temporal si la profesión no coincide', async () => {
+  const provider = new RefepsPublicProvider();
+  const selected = provider.parseHtml(fixture('professional-active.html'), '12345').results[0];
+  assert.throws(
+    () => provider.getCachedSelection({ selectionId: selected.selectionId, matricula: selected.matricula, dni: selected.dni, jurisdiccion: selected.jurisdiccion, profesion: 'Otra profesión' }),
+    error => error instanceof RefepsProviderError && error.code === 'INVALID_SELECTION',
+  );
 });
 
 test('verificacion profesional rechaza matricula menor a 4 digitos antes de REFEPS', async () => {
@@ -428,7 +417,7 @@ test('verificacion profesional devuelve VERIFIED si DNI, identidad y REFEPS coin
   assert.equal(result.verified, true);
 });
 
-test('verificacion consulta la constancia para el registro seleccionado', async () => {
+test('verificacion consulta la ficha para el registro seleccionado', async () => {
   const service = new ValidacionProfesionalServiceClass();
   service.DniExtractionService = {
     parsePdf417: () => ({ success: true, nombre: 'Juan', apellido: 'Perez', dni: '12345678', fechaVencimiento: '2035-12-31', confidence: 100 }),
@@ -436,7 +425,7 @@ test('verificacion consulta la constancia para el registro seleccionado', async 
   };
   let selection;
   service.RefepsProvider = {
-    obtenerConstancia: async args => {
+    obtenerPerfil: async args => {
       selection = args;
       return { nombre: 'Juan', apellido: 'Perez', dni: '12345678', matricula: '1234', jurisdiccion: 'CABA', habilitado: true };
     },
@@ -455,7 +444,7 @@ test('verificacion rechaza documento vencido aun cuando PDF417 identifica al tit
     parsePdf417: () => ({ success: true, nombre: 'Juan', apellido: 'Perez', dni: '12345678', fechaVencimiento: '2020-01-01', confidence: 100 }),
     extractAsync: async () => { throw new Error('No debe ejecutar OCR cuando PDF417 ya informa vencimiento'); },
   };
-  service.RefepsProvider = { obtenerConstancia: async () => { throw new Error('No debe consultar REFEPS'); } };
+  service.RefepsProvider = { obtenerPerfil: async () => { throw new Error('No debe consultar REFEPS'); } };
   const result = await service.verifyIdentityDataAsync({
     imageBuffer: Buffer.from('dni'), matricula: '1234', pdf417Raw: 'valid', refepsDni: '12345678', jurisdiccion: 'CABA',
     declaredIdentity: { nombre: 'Juan', apellido: 'Perez' },

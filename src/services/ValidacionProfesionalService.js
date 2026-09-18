@@ -62,7 +62,7 @@ export default class ValidacionProfesionalService {
     return await this.ValidacionProfesionalRepository.createAsync(entity);
   };
 
-  verifyIdentityDataAsync = async ({ imageBuffer, matricula, declaredIdentity, pdf417Raw = null, refepsDni, jurisdiccion } = {}) => {
+  verifyIdentityDataAsync = async ({ imageBuffer, matricula, declaredIdentity, pdf417Raw = null, refepsDni, jurisdiccion, codigo, profesion, selectionId } = {}) => {
     const numeroMatricula = this.validateMatricula(matricula);
     const identity = {
       nombre: String(declaredIdentity?.nombre || '').trim(),
@@ -102,8 +102,16 @@ export default class ValidacionProfesionalService {
 
     let refeps;
     try {
-      if (refepsDni && jurisdiccion && typeof this.RefepsProvider.obtenerConstancia === 'function') {
-        const official = await this.RefepsProvider.obtenerConstancia({ matricula: numeroMatricula, dni: refepsDni, jurisdiccion });
+      if (refepsDni && jurisdiccion && typeof this.RefepsProvider.obtenerPerfil === 'function') {
+        const selection = {
+          matricula: numeroMatricula,
+          dni: refepsDni,
+          jurisdiccion,
+          ...(selectionId ? { selectionId } : {}),
+          ...(codigo ? { codigo } : {}),
+          ...(profesion ? { profesion } : {}),
+        };
+        const official = await this.RefepsProvider.obtenerPerfil(selection);
         refeps = { found: true, results: [official] };
       } else {
         refeps = await this.RefepsProvider.buscarPorMatricula(numeroMatricula);

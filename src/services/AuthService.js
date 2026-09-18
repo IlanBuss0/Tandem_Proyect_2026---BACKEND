@@ -110,6 +110,9 @@ class AuthService {
         pdf417Raw: data?.pdf417Raw,
         refepsDni: data?.refepsDni,
         jurisdiccion: data?.jurisdiccion,
+        codigo: data?.codigo,
+        profesion: data?.profesion,
+        selectionId: data?.selectionId,
       });
     }
 
@@ -386,6 +389,9 @@ class AuthService {
         pdf417Raw: data?.pdf417Raw,
         refepsDni: data?.refepsDni,
         jurisdiccion: data?.jurisdiccion,
+        codigo: data?.codigo,
+        profesion: data?.profesion,
+        selectionId: data?.selectionId,
       });
     }
 
@@ -453,6 +459,9 @@ class AuthService {
       pdf417Raw: data?.pdf417Raw,
       refepsDni: data?.refepsDni,
       jurisdiccion: data?.jurisdiccion,
+      codigo: data?.codigo,
+      profesion: data?.profesion,
+      selectionId: data?.selectionId,
       declaredIdentity: {
         nombre: data?.nombre,
         apellido: data?.apellido,
@@ -460,8 +469,8 @@ class AuthService {
     });
   };
 
-  _assertProfessionalDniVerified = async ({ imageBuffer, matricula, declaredIdentity, pdf417Raw, refepsDni, jurisdiccion }) => {
-    const result = await ValidacionProfesionalService.verifyIdentityDataAsync({ imageBuffer, matricula, declaredIdentity, pdf417Raw, refepsDni, jurisdiccion });
+  _assertProfessionalDniVerified = async ({ imageBuffer, matricula, declaredIdentity, pdf417Raw, refepsDni, jurisdiccion, codigo, profesion, selectionId }) => {
+    const result = await ValidacionProfesionalService.verifyIdentityDataAsync({ imageBuffer, matricula, declaredIdentity, pdf417Raw, refepsDni, jurisdiccion, codigo, profesion, selectionId });
     if (result.status === VERIFICATION_STATUS.VERIFIED) return result;
 
     const message = result.status === VERIFICATION_STATUS.DATA_MISMATCH
