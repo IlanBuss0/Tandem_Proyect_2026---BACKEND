@@ -2,9 +2,9 @@ import ValidacionProfesionalRepository from '../repositories/ValidacionProfesion
 import ProfesionalRepository from '../repositories/ProfesionalRepository.js';
 import AppError from '../modules/errors/AppError.js';
 import DniExtractionService from './DniExtractionService.js';
-import RefepsPublicProvider, { RefepsProviderError } from '../providers/professional-verification/RefepsPublicProvider.js';
+import RefepsPublicProvider from '../providers/professional-verification/RefepsPublicProvider.js';
 import ProfessionalIdentityMatcher from './ProfessionalIdentityMatcher.js';
-import { namesMatch } from '../modules/professional-verification/name-normalization.js';
+import { namesMatch, normalizeDocument } from '../modules/professional-verification/name-normalization.js';
 import { VERIFICATION_METHOD, VERIFICATION_SOURCE, VERIFICATION_STATUS } from '../modules/professional-verification/verification.constants.js';
 
 export default class ValidacionProfesionalService {
@@ -62,7 +62,7 @@ export default class ValidacionProfesionalService {
     return await this.ValidacionProfesionalRepository.createAsync(entity);
   };
 
-  verifyIdentityDataAsync = async ({ imageBuffer, matricula, declaredIdentity, pdf417Raw = null } = {}) => {
+  verifyIdentityDataAsync = async ({ imageBuffer, matricula, declaredIdentity, pdf417Raw = null, refepsDni, jurisdiccion, codigo, profesion, selectionId } = {}) => {
     const numeroMatricula = this.validateMatricula(matricula);
     const identity = {
       nombre: String(declaredIdentity?.nombre || '').trim(),
@@ -73,12 +73,22 @@ export default class ValidacionProfesionalService {
       throw new AppError('Nombre y apellido son obligatorios para validar la identidad profesional.', 400);
     }
 
-    const pdf417Data = pdf417Raw && typeof this.DniExtractionService.parseText === 'function'
-      ? this.DniExtractionService.parseText(pdf417Raw, 100)
-      : null;
-    const dniData = pdf417Data?.success ? pdf417Data : await this.DniExtractionService.extractAsync(imageBuffer);
+    const pdf417Data = pdf417Raw && typeof this.DniExtractionService.parsePdf417 === 'function'
+      ? this.DniExtractionService.parsePdf417(pdf417Raw)
+      : pdf417Raw && typeof this.DniExtractionService.parseText === 'function'
+        ? this.DniExtractionService.parseText(pdf417Raw, 100)
+        : null;
+    const ocrData = pdf417Data?.success && pdf417Data.fechaVencimiento
+      ? { success: true, fechaVencimiento: pdf417Data.fechaVencimiento, confidence: pdf417Data.confidence }
+      : await this.DniExtractionService.extractAsync(imageBuffer, { expiryOnly: Boolean(pdf417Data?.success) });
+    const dniData = pdf417Data?.success
+      ? { ...pdf417Data, fechaVencimiento: ocrData.fechaVencimiento, success: ocrData.success, reason: ocrData.reason, expiryConfidence: ocrData.confidence }
+      : ocrData;
     if (!dniData.success) {
       return this.verificationResult(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: dniData.reason, dniData });
+    }
+    if (!dniData.fechaVencimiento) {
+      return this.verificationResult(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: 'UNVERIFIABLE_EXPIRY', dniData });
     }
     if (this.isExpired(dniData.fechaVencimiento)) {
       return this.verificationResult(VERIFICATION_STATUS.EXPIRED_DOCUMENT, { reason: 'EXPIRED_DOCUMENT', dniData });
@@ -86,12 +96,28 @@ export default class ValidacionProfesionalService {
     if (!namesMatch(dniData.nombre, identity.nombre) || !namesMatch(dniData.apellido, identity.apellido)) {
       return this.verificationResult(VERIFICATION_STATUS.DATA_MISMATCH, { reason: 'DECLARED_IDENTITY_MISMATCH', dniData });
     }
+    if (refepsDni && normalizeDocument(dniData.dni) !== normalizeDocument(refepsDni)) {
+      return this.verificationResult(VERIFICATION_STATUS.DATA_MISMATCH, { reason: 'DOCUMENT_MISMATCH', dniData });
+    }
 
     let refeps;
     try {
-      refeps = await this.RefepsProvider.buscarPorMatricula(numeroMatricula);
+      if (refepsDni && jurisdiccion && typeof this.RefepsProvider.obtenerPerfil === 'function') {
+        const selection = {
+          matricula: numeroMatricula,
+          dni: refepsDni,
+          jurisdiccion,
+          ...(selectionId ? { selectionId } : {}),
+          ...(codigo ? { codigo } : {}),
+          ...(profesion ? { profesion } : {}),
+        };
+        const official = await this.RefepsProvider.obtenerPerfil(selection);
+        refeps = { found: true, results: [official] };
+      } else {
+        refeps = await this.RefepsProvider.buscarPorMatricula(numeroMatricula);
+      }
     } catch (error) {
-      const reason = error instanceof RefepsProviderError ? error.code : 'REFEPS_ERROR';
+      const reason = error.code || 'REFEPS_ERROR';
       return this.verificationResult(VERIFICATION_STATUS.VERIFICATION_ERROR, { reason, dniData });
     }
     if (!refeps.found) return this.verificationResult(VERIFICATION_STATUS.NOT_FOUND, { dniData });
@@ -106,17 +132,13 @@ export default class ValidacionProfesionalService {
     return this.verificationResult(VERIFICATION_STATUS.VERIFIED, { result: match.result, dniData });
   };
 
-  verifyRegistrationAsync = async ({ idUsuario, imageBuffer, declaredIdentity }) => {
+  verifyRegistrationAsync = async ({ idUsuario, verifiedResult }) => {
     const profesional = await this.ProfesionalRepository.getByUsuarioIdAsync(idUsuario);
     if (!profesional) throw new AppError('No tenes un perfil profesional creado.', 404);
 
-    const result = await this.verifyIdentityDataAsync({
-      imageBuffer,
-      matricula: profesional.matricula,
-      declaredIdentity,
-    });
-    if (result.status !== VERIFICATION_STATUS.VERIFIED) {
-      return this.persistResult(profesional, result.status, { reason: result.reason, result: result.result });
+    const result = verifiedResult;
+    if (result?.status !== VERIFICATION_STATUS.VERIFIED || String(result.result?.matricula) !== String(profesional.matricula)) {
+      throw new AppError('La identidad profesional debe verificarse antes de crear la cuenta.', 422);
     }
 
     console.info('[ProfessionalVerification] verification succeeded');
@@ -126,15 +148,17 @@ export default class ValidacionProfesionalService {
   validateMatricula(value) {
     const matricula = String(value || '').trim();
     if (!/^\d{4,}$/.test(matricula)) {
-      throw new AppError('La matricula debe tener al menos 4 digitos y solo numeros.', 400, 'INVALID_LICENSE');
+      throw new AppError('La matrícula debe tener al menos 4 dígitos.', 400, 'INVALID_LICENSE');
     }
     return matricula;
   }
 
   isExpired(value, now = new Date()) {
-    if (!value) return true;
-    const expiry = new Date(`${value}T23:59:59.999Z`);
-    return Number.isNaN(expiry.getTime()) || expiry.getTime() < now.getTime();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return true;
+    const expiry = new Date(`${value}T00:00:00Z`);
+    if (Number.isNaN(expiry.getTime()) || expiry.toISOString().slice(0, 10) !== value) return true;
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+    return value <= today;
   }
 
   verificationResult(status, { reason = null, result = null, dniData = null } = {}) {
