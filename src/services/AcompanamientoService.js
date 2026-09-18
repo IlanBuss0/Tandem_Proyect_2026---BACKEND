@@ -50,8 +50,6 @@ export default class AcompanamientoService {
   };
 
   assertCanManageObjectiveAsync = async (idUsuario, idPerteneciente) => {
-    const context = await AuthorizationService.getUserContext(idUsuario);
-    if (!context?.profesional?.id) throw Object.assign(new Error('Solo un profesional puede gestionar objetivos.'), { statusCode: 403 });
     await this.assertCanReadAsync(idUsuario, idPerteneciente);
   };
 
