@@ -4,6 +4,9 @@ import { groqProvider } from '../providers/ai/aiProviders.js';
 
 const MODEL_NAME = 'openai/gpt-oss-20b';
 
+const SHARED_SUPPORT_QA_SYSTEM_PROMPT = `Sos TÁNDEM, un asistente de acompañamiento para tutores y profesionales que trabajan en red con una persona.
+Basate únicamente en el contexto compartido provisto: notas y acuerdos compartidos, objetivos, metadata de sesiones y los resúmenes de actividades y de emociones del perteneciente. Podés apoyarte en esos resúmenes para responder sobre participación, adherencia o estado emocional, siempre como observación y nunca como diagnóstico. No inventes datos, diagnósticos, emociones ni avances. Si algo no aparece, decilo explícitamente. No diagnostiques ni prescribas. No reveles información privada ni contenido de notas clínicas. Respondé en español rioplatense, con tono humano y profesional, entre 60 y 160 palabras, sin markdown complejo.`;
+
 const PATIENT_SUMMARY_SYSTEM_PROMPT = `Sos un asistente que ayuda a profesionales (psicologos, terapeutas) a redactar resumenes de progreso para las familias/tutores de pacientes con TEA (Trastorno del Espectro Autista). Tu resumen va a ser leido directamente por un padre/madre/tutor, NO por otro profesional.
 
 Reglas:
@@ -184,5 +187,50 @@ export default class AiReportService {
 
     const respuesta = await this.generateContentSafe(PATIENT_QA_SYSTEM_PROMPT, lines.join('\n'));
     return { respuesta };
+  };
+
+  answerSharedSupportQuestionAsync = async ({
+    personaNombre, pregunta, notas, objetivos, acuerdos, sesiones,
+    resumenActividades = null, resumenEmociones = null,
+  }) => {
+    const lines = [
+      `Persona: ${personaNombre}`,
+      `Pregunta: ${pregunta}`,
+      '',
+      'Notas compartidas:',
+      ...(notas.length ? notas.map((n) => `- ${n.fecha_creacion}: ${n.contenido}`) : ['- No hay notas compartidas.']),
+      '',
+      'Objetivos compartidos:',
+      ...(objetivos.length ? objetivos.map((o) => `- ${o.titulo} (${o.estado}, progreso ${o.progreso}%)${o.descripcion ? `: ${o.descripcion}` : ''}`) : ['- No hay objetivos compartidos.']),
+      '',
+      'Acuerdos:',
+      ...(acuerdos.length ? acuerdos.map((a) => `- ${a.completado ? '[completado]' : '[pendiente]'} ${a.texto}`) : ['- No hay acuerdos registrados.']),
+      '',
+      'Sesiones compartibles (solo metadata, sin notas privadas):',
+      ...(sesiones.length ? sesiones.map((s) => `- ${s.titulo} (${new Date(s.fecha_sesion).toLocaleDateString('es-AR')}) — ${s.estado}`) : ['- No hay sesiones compartibles.']),
+    ];
+
+    if (resumenActividades) {
+      lines.push(
+        '',
+        'Resumen de actividades del perteneciente:',
+        `- Asignadas: ${resumenActividades.total} · Completadas: ${resumenActividades.completadas} · Adherencia: ${resumenActividades.adherenciaPct}%`,
+        ...(resumenActividades.ultimas?.length
+          ? resumenActividades.ultimas.map((a) => `- ${a.estado}${a.fecha ? ` (${new Date(a.fecha).toLocaleDateString('es-AR')})` : ''}`)
+          : ['- Sin actividades registradas.']),
+      );
+    }
+    if (resumenEmociones) {
+      lines.push(
+        '',
+        'Resumen emocional del perteneciente (registros propios):',
+        `- Registros totales: ${resumenEmociones.total}`,
+        ...(resumenEmociones.ultimas?.length
+          ? resumenEmociones.ultimas.map((e) => `- ${e.emotion}${e.intensity ? ` (intensidad ${e.intensity}/5)` : ''}${e.date ? ` — ${e.date}` : ''}`)
+          : ['- Sin registros emocionales.']),
+      );
+    }
+
+    return { respuesta: await this.generateContentSafe(SHARED_SUPPORT_QA_SYSTEM_PROMPT, lines.join('\n')) };
   };
 }
