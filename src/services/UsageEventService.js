@@ -41,4 +41,9 @@ export default class UsageEventService {
     await this.ensureSchemaAsync();
     return await this.UsageEventRepository.getForUsuarioAsync(idUsuario, options);
   }
+
+  async getForUsuarioSinceAsync(idUsuario, options) {
+    await this.ensureSchemaAsync();
+    return await this.UsageEventRepository.getForUsuarioSinceAsync(idUsuario, options);
+  }
 }

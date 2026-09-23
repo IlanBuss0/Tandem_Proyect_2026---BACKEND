@@ -12,7 +12,7 @@ import { buildVocabularyReport } from '../modules/usage/vocabulary-report.js';
 import { USAGE_EVENT_TYPES } from '../modules/usage/event-types.js';
 import { parseEmotionsFromConfigs } from '../modules/usage/config-parsing.js';
 import { detectEventTypePatterns, evaluateAnticipationSupport } from '../modules/usage/pattern-detection.js';
-import { buildEvolutionReport } from '../modules/usage/evolution.js';
+import { buildEvolutionReport, parseWeeksParam } from '../modules/usage/evolution.js';
 
 const router = Router();
 const usageEventService = new UsageEventService();
@@ -120,15 +120,28 @@ router.get('/usuario/:idUsuario/patrones', authMiddleware, async (req, res, next
 });
 
 // Evolucion en el tiempo (Sesion 21, item 44): pasos completados y animo
-// semana a semana, ultimas 8 semanas. Sin piso minimo (a diferencia de
-// /patrones): esto describe lo que paso, no afirma una relacion causal.
+// semana a semana. Sin piso minimo (a diferencia de /patrones): esto
+// describe lo que paso, no afirma una relacion causal. `semanas` (8 o 13,
+// Prompt 2 del selector de periodo) filtra por fecha en vez de traer las
+// ultimas 200 filas de cualquier tipo de evento — con el limite fijo,
+// 13 semanas de datos no entraban siempre en esas 200 filas.
 router.get('/usuario/:idUsuario/evolucion', authMiddleware, async (req, res, next) => {
   try {
     const idUsuario = parseInt(req.params.idUsuario, 10);
     await AuthorizationService.assertCanReadUsuarioConfig(req.user.id, idUsuario);
 
-    const events = await usageEventService.getForUsuarioAsync(idUsuario, { limit: 200 });
-    res.status(StatusCodes.OK).json(buildEvolutionReport(events));
+    const weeks = parseWeeksParam(req.query.semanas);
+    if (weeks === null) {
+      return res.status(StatusCodes.BAD_REQUEST).send('Error: el parámetro semanas debe ser 8 o 13.');
+    }
+
+    const desde = new Date();
+    desde.setUTCDate(desde.getUTCDate() - weeks * 7);
+    const events = await usageEventService.getForUsuarioSinceAsync(idUsuario, {
+      tipos: [USAGE_EVENT_TYPES.RUTINA_PASO_COMPLETADO, USAGE_EVENT_TYPES.EMOCION_REGISTRADA],
+      desde: desde.toISOString(),
+    });
+    res.status(StatusCodes.OK).json(buildEvolutionReport(events, { maxWeeks: weeks }));
   } catch (error) {
     res.status(error.statusCode ?? StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
   }

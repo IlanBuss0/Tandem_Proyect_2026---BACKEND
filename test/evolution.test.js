@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildEvolutionReport } from '../src/modules/usage/evolution.js';
+import { buildEvolutionReport, parseWeeksParam } from '../src/modules/usage/evolution.js';
 
 function event(tipo, ocurridoEn, valor) {
   return { tipo_evento: tipo, ocurrido_en: ocurridoEn, valor };
@@ -64,4 +64,25 @@ test('buildEvolutionReport: ordena semanas cronologicamente', () => {
   ];
   const report = buildEvolutionReport(events);
   assert.ok(report[0].week < report[1].week);
+});
+
+test('parseWeeksParam: sin valor, default 8', () => {
+  assert.equal(parseWeeksParam(undefined), 8);
+  assert.equal(parseWeeksParam(''), 8);
+});
+
+test('parseWeeksParam: 8 y 13 son validos', () => {
+  assert.equal(parseWeeksParam('8'), 8);
+  assert.equal(parseWeeksParam('13'), 13);
+});
+
+test('parseWeeksParam: texto invalido devuelve null', () => {
+  assert.equal(parseWeeksParam('abc'), null);
+});
+
+test('parseWeeksParam: 0, negativo y otros numeros devuelven null', () => {
+  assert.equal(parseWeeksParam('0'), null);
+  assert.equal(parseWeeksParam('-1'), null);
+  assert.equal(parseWeeksParam('9'), null);
+  assert.equal(parseWeeksParam('99'), null);
 });

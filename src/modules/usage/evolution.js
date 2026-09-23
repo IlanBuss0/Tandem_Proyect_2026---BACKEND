@@ -21,6 +21,20 @@ function isoWeekKey(dateInput) {
   return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
+const ALLOWED_WEEKS_PARAMS = new Set([8, 13]);
+
+// Whitelist del selector de periodo del frontend ("Este mes" = 8 semanas,
+// "Ultimos 3 meses" = 13 semanas). Puro: sin valor -> default 8; cualquier
+// otra cosa (texto, 0, negativo, 9, etc.) -> null, que el controller
+// traduce a 400. No se acepta un numero arbitrario de semanas para no
+// abrir una consulta sin tope real controlada por el cliente.
+export function parseWeeksParam(value) {
+  if (value === undefined || value === null || value === '') return 8;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || !ALLOWED_WEEKS_PARAMS.has(parsed)) return null;
+  return parsed;
+}
+
 /**
  * @param {{tipo_evento: string, ocurrido_en: string, valor?: {emotion?: string}}[]} events
  * @param {{maxWeeks?: number}} [options]
