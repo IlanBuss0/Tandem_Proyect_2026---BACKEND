@@ -11,7 +11,7 @@ export default class DniExtractionService {
     this.timeoutMs = timeoutMs;
   }
 
-  extractAsync = async (imageBuffer, { expiryOnly = false } = {}) => {
+  extractAsync = async (imageBuffer) => {
     if (!Buffer.isBuffer(imageBuffer) || imageBuffer.length === 0) {
       return { success: false, reason: 'INVALID_IMAGE', confidence: 0 };
     }
@@ -21,14 +21,7 @@ export default class DniExtractionService {
         this.ocr(imageBuffer, 'spa', { logger: () => {} }),
         this.timeoutMs,
       );
-      if (!expiryOnly) return this.parseText(data.text, data.confidence);
-      const fechaVencimiento = this.dateField(data.text, ['FECHA DE VENCIMIENTO', 'DATE OF EXPIRY', 'VENCIMIENTO']);
-      const confidence = Number(data.confidence) || 0;
-      return {
-        success: Boolean(fechaVencimiento && confidence >= MIN_CONFIDENCE),
-        fechaVencimiento, confidence,
-        reason: confidence < MIN_CONFIDENCE ? 'LOW_CONFIDENCE' : fechaVencimiento ? null : 'UNVERIFIABLE_EXPIRY',
-      };
+      return this.parseText(data.text, data.confidence);
     } catch (error) {
       const reason = error.message === 'OCR_TIMEOUT' ? 'OCR_TIMEOUT' : 'OCR_ERROR';
       console.error('[ProfessionalVerification] DNI OCR failed:', reason);
@@ -51,19 +44,41 @@ export default class DniExtractionService {
     const dni = normalizeDocument(document);
     const fechaNacimiento = this.parseDate(birth);
     const fechaEmision = this.parseDate(issue);
-    const fechaVencimiento = expiry ? this.parseDate(expiry) : null;
+    let fechaVencimiento = expiry ? this.parseDate(expiry) : null;
     if (!validDocument || !/^\d{7,8}$/.test(dni) || !this.validName(nombre) || !this.validName(apellido)
       || !/^[FMX]$/.test(sexo) || !fechaNacimiento || fechaNacimiento > new Date().toISOString().slice(0, 10)
       || (issue && !fechaEmision) || (expiry && !fechaVencimiento)) {
       return { success: false, reason: 'INVALID_DNI_DATA' };
     }
+    // The modern layout has no expiry: RENAPER gives 15 years from issue to people aged 14+ at issue.
+    let fechaVencimientoEstimada = false;
+    let expiryReason = null;
+    if (modern) {
+      const estimate = this.estimateExpiryFromIssue(fechaNacimiento, fechaEmision);
+      fechaVencimiento = estimate.fechaVencimiento;
+      fechaVencimientoEstimada = Boolean(fechaVencimiento);
+      expiryReason = estimate.reason;
+    }
     return {
-      success: true, reason: null, source: 'PDF417', nombre, apellido, dni, sexo,
+      success: true, reason: null, expiryReason, source: 'PDF417', fechaVencimientoEstimada, nombre, apellido, dni, sexo,
       nombreCompleto: `${nombre} ${apellido}`, fechaNacimiento,
       fechaEmision, fechaVencimiento, ejemplar: modern ? fields[5] || null : null,
       confidence: 100,
       detectedFields: ['nombre', 'apellido', 'dni', 'sexo', 'fechaNacimiento', ...(fechaEmision ? ['fechaEmision'] : []), ...(fechaVencimiento ? ['fechaVencimiento'] : [])],
     };
+  }
+
+  // Dates are YYYY-MM-DD, computed in UTC. A 29/02 issue expires on 28/02 (conservative).
+  estimateExpiryFromIssue(fechaNacimiento, fechaEmision) {
+    if (!fechaNacimiento || !fechaEmision) return { fechaVencimiento: null, reason: 'UNVERIFIABLE_EXPIRY' };
+    const shiftYears = (value, years, clampToFeb28) => {
+      const [year, month, day] = value.split('-').map(Number);
+      const clamp = clampToFeb28 && month === 2 && day === 29;
+      return new Date(Date.UTC(year + years, month - 1, clamp ? 28 : day)).toISOString().slice(0, 10);
+    };
+    // A 29/02 birth turns 14 on 01/03 in non-leap years (conservative).
+    if (fechaEmision < shiftYears(fechaNacimiento, 14, false)) return { fechaVencimiento: null, reason: 'ISSUED_UNDER_14' };
+    return { fechaVencimiento: shiftYears(fechaEmision, 15, true), reason: null };
   }
 
   validName(value) {
