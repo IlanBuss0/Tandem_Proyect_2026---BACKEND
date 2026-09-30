@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { DEFAULT_INCLUIR_HISTORIAL, DEFAULT_INCLUIR_MENSUAL, formatFechaAr } from './ReportePdfOptions.js';
 
 const MESES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -11,12 +12,14 @@ export default class ReportePdfService {
    * Nunca incluye texto de notas de sesion — solo estadisticas agregadas y
    * el parrafo introductorio generado por Gemini.
    */
-  streamCaseloadPdfAsync = async (res, { profesionalNombre, mes, anio, overviewText, pacientes }) => {
+  streamCaseloadPdfAsync = async (res, { profesionalNombre, mes, anio, desde = null, hasta = null, overviewText, pacientes, incluir }) => {
+    const secciones = new Set(incluir ?? DEFAULT_INCLUIR_MENSUAL);
     console.log(`ReportePdfService.streamCaseloadPdfAsync(profesional=${profesionalNombre}, mes=${mes}, anio=${anio}, pacientes=${pacientes?.length ?? 0})`);
     const mesNombre = MESES[Number(mes) - 1] || String(mes);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="reporte-mensual-${anio}-${String(mes).padStart(2, '0')}.pdf"`);
+    const filename = desde && hasta ? `reporte-${desde}-${hasta}` : `reporte-mensual-${anio}-${String(mes).padStart(2, '0')}`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
 
     const doc = new PDFDocument({ margin: 50 });
     doc.on('error', (error) => {
@@ -26,7 +29,7 @@ export default class ReportePdfService {
     });
     doc.pipe(res);
 
-    doc.fontSize(18).text(`Reporte mensual — ${mesNombre} ${anio}`, { align: 'center' });
+    doc.fontSize(18).text(desde && hasta ? `Reporte — del ${formatFechaAr(desde)} al ${formatFechaAr(hasta)}` : `Reporte mensual — ${mesNombre} ${anio}`, { align: 'center' });
     doc.moveDown(0.3);
     doc.fontSize(11).fillColor('#666666').text(profesionalNombre, { align: 'center' });
     doc.fillColor('#000000');
@@ -47,9 +50,18 @@ export default class ReportePdfService {
 
     for (const paciente of pacientes || []) {
       doc.fontSize(13).text(paciente.pacienteNombre);
-      doc.fontSize(10).fillColor('#444444').text(
-        `Sesiones: ${paciente.totalSesiones}  ·  Completadas: ${paciente.completadas}  ·  Canceladas: ${paciente.canceladas}  ·  Ausencias: ${paciente.ausentes}  ·  Asistencia: ${paciente.asistenciaPct}%`,
-      );
+      if (secciones.has('asistencia')) {
+        doc.fontSize(10).fillColor('#444444').text(
+          `Sesiones: ${paciente.totalSesiones}  ·  Completadas: ${paciente.completadas}  ·  Canceladas: ${paciente.canceladas}  ·  Ausencias: ${paciente.ausentes}  ·  Asistencia: ${paciente.asistenciaPct}%`,
+        );
+      }
+      if (secciones.has('detalle')) {
+        doc.fontSize(9).fillColor('#444444');
+        for (const sesion of paciente.sesiones || []) {
+          if (doc.y > 720) doc.addPage();
+          doc.text(`${new Date(sesion.fecha_sesion).toLocaleDateString('es-AR')}  ·  ${sesion.titulo}  ·  ${sesion.estado}  ·  ${sesion.duracion_minutos} min`);
+        }
+      }
       doc.fillColor('#000000');
       doc.moveDown(0.7);
     }
@@ -63,7 +75,8 @@ export default class ReportePdfService {
    * imprimir o mandar a una obra social/institucion. Nunca incluye el
    * contenido de las notas, solo si existen o no.
    */
-  streamPatientHistoryPdfAsync = async (res, { profesionalNombre, pacienteNombre, stats, sesiones }) => {
+  streamPatientHistoryPdfAsync = async (res, { profesionalNombre, pacienteNombre, stats, sesiones, desde = null, hasta = null, incluir }) => {
+    const secciones = new Set(incluir ?? DEFAULT_INCLUIR_HISTORIAL);
     console.log(`ReportePdfService.streamPatientHistoryPdfAsync(paciente=${pacienteNombre}, sesiones=${sesiones?.length ?? 0})`);
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -81,12 +94,23 @@ export default class ReportePdfService {
     doc.moveDown(0.3);
     doc.fontSize(11).fillColor('#666666').text(`Profesional: ${profesionalNombre} · Generado el ${new Date().toLocaleDateString('es-AR')}`, { align: 'center' });
     doc.fillColor('#000000');
+    if (desde && hasta) {
+      doc.fontSize(10).fillColor('#666666').text(`Periodo: del ${formatFechaAr(desde)} al ${formatFechaAr(hasta)}`, { align: 'center' });
+      doc.fillColor('#000000');
+    }
     doc.moveDown(1.5);
 
-    doc.fontSize(12).text(
-      `Total de sesiones: ${stats.total}  ·  Completadas: ${stats.completadas}  ·  Canceladas: ${stats.canceladas}  ·  Ausencias: ${stats.ausentes}  ·  Asistencia: ${stats.asistenciaPct}%`,
-    );
-    doc.moveDown(1.5);
+    if (secciones.has('asistencia')) {
+      doc.fontSize(12).text(
+        `Total de sesiones: ${stats.total}  ·  Completadas: ${stats.completadas}  ·  Canceladas: ${stats.canceladas}  ·  Ausencias: ${stats.ausentes}  ·  Asistencia: ${stats.asistenciaPct}%`,
+      );
+      doc.moveDown(1.5);
+    }
+
+    if (!secciones.has('detalle')) {
+      doc.end();
+      return;
+    }
 
     doc.fontSize(14).text('Detalle de sesiones', { underline: true });
     doc.moveDown(0.5);

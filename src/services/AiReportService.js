@@ -124,7 +124,7 @@ export default class AiReportService {
     return { titulo, contenido };
   };
 
-  generateCaseloadOverviewAsync = async ({ profesionalNombre, mes, anio, resumenPorPaciente }) => {
+  generateCaseloadOverviewAsync = async ({ profesionalNombre, mes, anio, resumenPorPaciente, periodoTexto }) => {
     console.log(`AiReportService.generateCaseloadOverviewAsync(pacientes=${resumenPorPaciente?.length ?? 0})`);
 
     const statsLines = resumenPorPaciente.map((p) =>
@@ -133,7 +133,7 @@ export default class AiReportService {
 
     const prompt = [
       `Profesional: ${profesionalNombre}`,
-      `Periodo: ${mes}/${anio}`,
+      `Periodo: ${periodoTexto ?? `${mes}/${anio}`}`,
       '',
       'Estadisticas por paciente:',
       ...statsLines,
