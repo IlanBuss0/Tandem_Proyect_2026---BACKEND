@@ -57,6 +57,17 @@ export default class ReporteProfesionalRepository {
     return decryptFieldInRows(await BD.query(sql, [idUsuarioTutor]), 'contenido');
   };
 
+  updateAsync = async (id, { titulo, contenido }) => {
+    console.log(`ReporteProfesionalRepository.updateAsync(${id})`);
+    const sql = `UPDATE reportes_profesionales SET titulo = COALESCE($2, titulo), contenido = COALESCE($3, contenido) WHERE id = $1 RETURNING ${REPORTE_COLUMNS}`;
+    return decryptFieldInRow(await BD.queryOne(sql, [id, titulo ?? null, contenido === undefined ? null : encryptField(contenido)]), 'contenido');
+  };
+
+  deleteAsync = async (id) => {
+    console.log(`ReporteProfesionalRepository.deleteAsync(${id})`);
+    return await BD.execute('DELETE FROM reportes_profesionales WHERE id = $1', [id]);
+  };
+
   markSentAsync = async (id) => {
     console.log(`ReporteProfesionalRepository.markSentAsync(${id})`);
     const sql = `UPDATE reportes_profesionales SET enviado_al_tutor = true, fecha_envio = $2 WHERE id = $1 RETURNING ${REPORTE_COLUMNS}`;
