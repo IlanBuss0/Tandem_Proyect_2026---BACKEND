@@ -6,6 +6,7 @@ import ReportePdfService from '../services/ReportePdfService.js';
 import AuthorizationService from '../services/AuthorizationService.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { reporteProfesionalCreateRateLimiter } from '../middlewares/rate-limit.middleware.js';
+import { DEFAULT_INCLUIR_HISTORIAL, DEFAULT_INCLUIR_MENSUAL, parseIncluir, parsePacientes, parseRango } from '../services/ReportePdfOptions.js';
 
 const router = Router();
 const reporteService = new ReporteProfesionalService();
@@ -72,12 +73,14 @@ router.get('/tutor', async (req, res) => {
 router.get('/pdf-mensual', async (req, res) => {
   try {
     const context = await professionalContext(req);
+    const rango = parseRango(req.query);
+    const options = { rango, pacientes: parsePacientes(req.query), incluir: parseIncluir(req.query, DEFAULT_INCLUIR_MENSUAL) };
     const anio = Number(req.query.anio);
     const mes = Number(req.query.mes);
-    if (!anio || !mes || mes < 1 || mes > 12) {
-      return res.status(StatusCodes.BAD_REQUEST).json({ error: 'anio y mes son obligatorios (mes entre 1 y 12).' });
+    if (!rango && (!anio || !mes || mes < 1 || mes > 12)) {
+      return res.status(StatusCodes.BAD_REQUEST).json({ error: 'anio y mes son obligatorios (mes entre 1 y 12), o desde y hasta.' });
     }
-    const data = await reporteService.generateMonthlyPdfDataAsync(context.profesional.id, req.user.id, anio, mes);
+    const data = await reporteService.generateMonthlyPdfDataAsync(context.profesional.id, req.user.id, anio, mes, options);
     await pdfService.streamCaseloadPdfAsync(res, data);
   } catch (error) {
     return sendError(res, error, StatusCodes.BAD_REQUEST);
@@ -89,7 +92,8 @@ router.get('/pdf-paciente/:idPerteneciente', async (req, res) => {
     const context = await professionalContext(req);
     const idPerteneciente = Number(req.params.idPerteneciente);
     if (!idPerteneciente) return res.status(StatusCodes.BAD_REQUEST).json({ error: 'idPerteneciente invalido.' });
-    const data = await reporteService.generatePatientHistoryPdfDataAsync(context.profesional.id, req.user.id, idPerteneciente);
+    const options = { rango: parseRango(req.query), incluir: parseIncluir(req.query, DEFAULT_INCLUIR_HISTORIAL) };
+    const data = await reporteService.generatePatientHistoryPdfDataAsync(context.profesional.id, req.user.id, idPerteneciente, options);
     await pdfService.streamPatientHistoryPdfAsync(res, data);
   } catch (error) {
     return sendError(res, error, StatusCodes.BAD_REQUEST);
@@ -121,6 +125,26 @@ router.post('/:id/send', async (req, res) => {
     const context = await professionalContext(req);
     const reporte = await reporteService.sendToTutorAsync(Number(req.params.id), req.user.id, context.profesional.id);
     return res.status(StatusCodes.OK).json(reporte);
+  } catch (error) {
+    return sendError(res, error, StatusCodes.BAD_REQUEST);
+  }
+});
+
+router.patch('/:id', async (req, res) => {
+  try {
+    const context = await professionalContext(req);
+    const reporte = await reporteService.updateAsync(Number(req.params.id), context.profesional.id, req.body ?? {});
+    return res.status(StatusCodes.OK).json(reporte);
+  } catch (error) {
+    return sendError(res, error, StatusCodes.BAD_REQUEST);
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const context = await professionalContext(req);
+    const result = await reporteService.deleteAsync(Number(req.params.id), context.profesional.id);
+    return res.status(StatusCodes.OK).json(result);
   } catch (error) {
     return sendError(res, error, StatusCodes.BAD_REQUEST);
   }
