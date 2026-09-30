@@ -9,7 +9,6 @@ import { VERIFICATION_METHOD, VERIFICATION_SOURCE, VERIFICATION_STATUS } from '.
 
 export default class ValidacionProfesionalService {
   constructor() {
-    console.log('Estoy en: ValidacionProfesionalService.constructor()');
     this.ValidacionProfesionalRepository = new ValidacionProfesionalRepository();
     this.ProfesionalRepository = new ProfesionalRepository();
     this.DniExtractionService = new DniExtractionService();
@@ -78,17 +77,13 @@ export default class ValidacionProfesionalService {
       : pdf417Raw && typeof this.DniExtractionService.parseText === 'function'
         ? this.DniExtractionService.parseText(pdf417Raw, 100)
         : null;
-    const ocrData = pdf417Data?.success && pdf417Data.fechaVencimiento
-      ? { success: true, fechaVencimiento: pdf417Data.fechaVencimiento, confidence: pdf417Data.confidence }
-      : await this.DniExtractionService.extractAsync(imageBuffer, { expiryOnly: Boolean(pdf417Data?.success) });
-    const dniData = pdf417Data?.success
-      ? { ...pdf417Data, fechaVencimiento: ocrData.fechaVencimiento, success: ocrData.success, reason: ocrData.reason, expiryConfidence: ocrData.confidence }
-      : ocrData;
+    // A successful PDF417 read is authoritative: OCR only runs when the barcode is missing or unreadable.
+    const dniData = pdf417Data?.success ? pdf417Data : await this.DniExtractionService.extractAsync(imageBuffer);
     if (!dniData.success) {
       return this.verificationResult(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: dniData.reason, dniData });
     }
     if (!dniData.fechaVencimiento) {
-      return this.verificationResult(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: 'UNVERIFIABLE_EXPIRY', dniData });
+      return this.verificationResult(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: dniData.expiryReason || 'UNVERIFIABLE_EXPIRY', dniData });
     }
     if (this.isExpired(dniData.fechaVencimiento)) {
       return this.verificationResult(VERIFICATION_STATUS.EXPIRED_DOCUMENT, { reason: 'EXPIRED_DOCUMENT', dniData });
@@ -177,6 +172,7 @@ export default class ValidacionProfesionalService {
         dni: dniData.dni,
         nombreCompleto: dniData.nombreCompleto,
         fechaVencimiento: dniData.fechaVencimiento,
+        fechaVencimientoEstimada: Boolean(dniData.fechaVencimientoEstimada),
         confidence: dniData.confidence,
         structureScore: dniData.structureScore,
         detectedFields: dniData.detectedFields,
