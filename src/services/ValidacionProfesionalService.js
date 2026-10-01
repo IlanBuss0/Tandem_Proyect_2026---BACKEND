@@ -78,7 +78,12 @@ export default class ValidacionProfesionalService {
         ? this.DniExtractionService.parseText(pdf417Raw, 100)
         : null;
     // A successful PDF417 read is authoritative: OCR only runs when the barcode is missing or unreadable.
+    if (pdf417Raw && !pdf417Data?.success) {
+      // No personal data: only the reason and which positions failed validation.
+      console.warn('[ProfessionalVerification] PDF417 no utilizable, se usa OCR:', pdf417Data?.reason, JSON.stringify(pdf417Data?.diagnostics ?? {}));
+    }
     const dniData = pdf417Data?.success ? pdf417Data : await this.DniExtractionService.extractAsync(imageBuffer);
+    if (!dniData.success) console.warn('[ProfessionalVerification] DNI no verificable:', dniData.reason, 'confianza:', dniData.confidence ?? null);
     if (!dniData.success) {
       return this.verificationResult(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: dniData.reason, dniData });
     }
