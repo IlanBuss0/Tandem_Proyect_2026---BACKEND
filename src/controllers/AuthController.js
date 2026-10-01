@@ -90,6 +90,10 @@ router.post('/register', uploadDniFrente.single('dni_frente'), async (req, res, 
 
 router.post('/verify-professional-dni', uploadDniFrente.single('dni_frente'), async (req, res, next) => {
   try {
+    console.log('[DniVerify] POST /verify-professional-dni', JSON.stringify({
+      archivo: req.file ? { mime: req.file.mimetype, bytes: req.file.size } : null,
+      pdf417Largo: typeof req.body?.pdf417Raw === 'string' ? req.body.pdf417Raw.length : 0,
+    }));
     if (req.file && !validateMagicBytes(req.file.buffer, req.file.mimetype)) {
       throw new AppError('El archivo del DNI no coincide con el formato declarado.', 400);
     }
@@ -98,6 +102,7 @@ router.post('/verify-professional-dni', uploadDniFrente.single('dni_frente'), as
       data: await AuthService.verifyProfessionalDniForRegistration(req.body, req.file),
     });
   } catch (e) {
+    console.error('[DniVerify] verify-professional-dni fallo:', e.statusCode ?? '', e.message);
     next(e);
   }
 });
