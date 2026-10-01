@@ -88,14 +88,16 @@ export default class DniExtractionService {
     // The modern layout has no expiry: RENAPER gives 15 years from issue to people aged 14+ at issue.
     let fechaVencimientoEstimada = false;
     let expiryReason = null;
+    let expiryBasis = null;
     if (modern) {
       const estimate = this.estimateExpiryFromIssue(fechaNacimiento, fechaEmision);
       fechaVencimiento = estimate.fechaVencimiento;
       fechaVencimientoEstimada = Boolean(fechaVencimiento);
       expiryReason = estimate.reason;
+      expiryBasis = estimate.basis ?? null;
     }
     return {
-      success: true, reason: null, expiryReason, source: 'PDF417', layout: modern ? 'modern' : 'legacy', fechaVencimientoEstimada, nombre, apellido, dni, sexo,
+      success: true, reason: null, expiryReason, expiryBasis, source: 'PDF417', layout: modern ? 'modern' : 'legacy', fechaVencimientoEstimada, nombre, apellido, dni, sexo,
       nombreCompleto: `${nombre} ${apellido}`, fechaNacimiento,
       fechaEmision, fechaVencimiento, ejemplar: modern ? fields[5] || null : null,
       confidence: 100,
@@ -112,8 +114,11 @@ export default class DniExtractionService {
       return new Date(Date.UTC(year + years, month - 1, clamp ? 28 : day)).toISOString().slice(0, 10);
     };
     // A 29/02 birth turns 14 on 01/03 in non-leap years (conservative).
-    if (fechaEmision < shiftYears(fechaNacimiento, 14, false)) return { fechaVencimiento: null, reason: 'ISSUED_UNDER_14' };
-    return { fechaVencimiento: shiftYears(fechaEmision, 15, true), reason: null };
+    // A DNI issued before 14 is only valid until the holder turns 14 (RENAPER), so it expires on the 14th birthday.
+    if (fechaEmision < shiftYears(fechaNacimiento, 14, false)) {
+      return { fechaVencimiento: shiftYears(fechaNacimiento, 14, true), reason: null, basis: 'AGE_14' };
+    }
+    return { fechaVencimiento: shiftYears(fechaEmision, 15, true), reason: null, basis: 'ISSUE_PLUS_15' };
   }
 
   validName(value) {
