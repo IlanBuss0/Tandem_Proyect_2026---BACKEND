@@ -580,3 +580,26 @@ test('PDF417 tolera caracteres de control y espacios no separables del lector', 
   const raw = '\u0000006@PEREZ GOMEZ@JUAN@M@30123456@A@01/01/1990@15/05/2015@239\r\n';
   assert.equal(new DniExtractionService().parsePdf417(raw).success, true);
 });
+
+test('PDF417 informa el layout leido', () => {
+  const service = new DniExtractionService();
+  assert.equal(service.parsePdf417(modernPdf417('01/01/1990', '15/05/2015')).layout, 'modern');
+  const fields = Array.from({ length: 16 }, () => '');
+  fields[1] = '30123456'; fields[4] = 'PEREZ'; fields[5] = 'JUAN'; fields[7] = '01/01/1990'; fields[8] = 'M'; fields[9] = '01/01/2020'; fields[12] = '31/12/2035';
+  assert.equal(service.parsePdf417(fields.join('@')).layout, 'legacy');
+});
+
+test('OCR reintenta sobre una copia mejorada cuando la primera lectura falla', async () => {
+  const { default: sharp } = await import('sharp');
+  const image = await sharp({ create: { width: 200, height: 120, channels: 3, background: '#888' } }).png().toBuffer();
+  const goodText = 'REPUBLICA ARGENTINA\nDOCUMENTO NACIONAL DE IDENTIDAD\nAPELLIDO PEREZ\nNOMBRE JUAN\nDNI 30123456\nFECHA DE NACIMIENTO 01 ENE/JAN 1990\nFECHA DE VENCIMIENTO 01 ENE/JAN 2035\nNACIONALIDAD ARG\nSEXO M';
+  const calls = [];
+  const ocr = async buffer => {
+    calls.push(buffer);
+    return { data: calls.length === 1 ? { text: 'ruido', confidence: 30 } : { text: goodText, confidence: 80 } };
+  };
+  const result = await new DniExtractionService(ocr).extractAsync(image);
+  assert.equal(calls.length, 2);
+  assert.equal(result.success, true);
+  assert.equal(result.dni, '30123456');
+});
