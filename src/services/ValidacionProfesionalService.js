@@ -92,7 +92,7 @@ export default class ValidacionProfesionalService {
     if (!pdf417Raw) trace('2. PDF417 no enviado por el cliente: se usara OCR');
     else if (pdf417Data?.success) {
       trace('2. PDF417 OK', {
-        formato: pdf417Data.fechaVencimientoEstimada ? 'moderno' : 'legado',
+        formato: pdf417Data.layout ?? null,
         vencimientoEstimado: pdf417Data.fechaVencimientoEstimada, expiryReason: pdf417Data.expiryReason ?? null,
       });
     } else {

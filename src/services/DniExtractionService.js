@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import tesseract from 'tesseract.js';
 import { normalizeDocument } from '../modules/professional-verification/name-normalization.js';
 
@@ -17,15 +18,34 @@ export default class DniExtractionService {
     }
 
     try {
-      const { data = {} } = await this.withTimeout(
-        this.ocr(imageBuffer, 'spa', { logger: () => {} }),
-        this.timeoutMs,
-      );
-      return this.parseText(data.text, data.confidence);
+      const first = await this.recognize(imageBuffer);
+      if (first.success) return first;
+      // Phone frames of a plastic card (glare, low contrast) often fail as-is: retry once on an enhanced copy.
+      const enhanced = await this.enhanceForOcr(imageBuffer);
+      if (!enhanced) return first;
+      const second = await this.recognize(enhanced);
+      console.log('[ProfessionalVerification] OCR reintento mejorado:', JSON.stringify({
+        confianzaOriginal: first.confidence, confianzaMejorada: second.confidence, exito: second.success,
+      }));
+      return second.success || (second.confidence ?? 0) > (first.confidence ?? 0) ? second : first;
     } catch (error) {
       const reason = error.message === 'OCR_TIMEOUT' ? 'OCR_TIMEOUT' : 'OCR_ERROR';
       console.error('[ProfessionalVerification] DNI OCR failed:', reason);
       return { success: false, reason, confidence: 0 };
+    }
+  };
+
+  recognize = async (image) => {
+    const { data = {} } = await this.withTimeout(this.ocr(image, 'spa', { logger: () => {} }), this.timeoutMs);
+    return this.parseText(data.text, data.confidence);
+  };
+
+  enhanceForOcr = async (imageBuffer) => {
+    try {
+      return await sharp(imageBuffer, { animated: false }).rotate().grayscale().normalise()
+        .resize({ width: 2000, withoutEnlargement: false }).sharpen().png().toBuffer();
+    } catch {
+      return null;
     }
   };
 
@@ -75,7 +95,7 @@ export default class DniExtractionService {
       expiryReason = estimate.reason;
     }
     return {
-      success: true, reason: null, expiryReason, source: 'PDF417', fechaVencimientoEstimada, nombre, apellido, dni, sexo,
+      success: true, reason: null, expiryReason, source: 'PDF417', layout: modern ? 'modern' : 'legacy', fechaVencimientoEstimada, nombre, apellido, dni, sexo,
       nombreCompleto: `${nombre} ${apellido}`, fechaNacimiento,
       fechaEmision, fechaVencimiento, ejemplar: modern ? fields[5] || null : null,
       confidence: 100,
