@@ -567,3 +567,16 @@ test('permisos profesionales aceptan VERIFIED y rechazan estados no verificados'
     requiere_aprobacion_tutor: false,
   }), false);
 });
+
+test('PDF417 rechazado informa campos invalidos sin exponer datos personales', () => {
+  const result = new DniExtractionService().parsePdf417('006@PEREZ@JUAN9@M@30123456@A@01/01/1990@15/05/2015@239');
+  assert.equal(result.success, false);
+  assert.equal(result.reason, 'INVALID_DNI_DATA');
+  assert.deepEqual(result.diagnostics.invalidFields, ['nombre']);
+  assert.equal(JSON.stringify(result.diagnostics).includes('PEREZ'), false);
+});
+
+test('PDF417 tolera caracteres de control y espacios no separables del lector', () => {
+  const raw = '\u0000006@PEREZ GOMEZ@JUAN@M@30123456@A@01/01/1990@15/05/2015@239\r\n';
+  assert.equal(new DniExtractionService().parsePdf417(raw).success, true);
+});

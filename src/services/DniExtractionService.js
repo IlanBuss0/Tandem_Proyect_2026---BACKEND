@@ -29,14 +29,22 @@ export default class DniExtractionService {
     }
   };
 
+  // Layout of the barcode text with letters/digits masked (e.g. "9{11}@A{5} A{5}@..."): safe to log.
+  pdf417Shape(raw) {
+    return String(raw ?? '').replace(/(\p{L}+)|(\d+)|(\r?\n)/gu, (_m, letters, digits, newline) => (
+      letters ? `A{${letters.length}}` : digits ? `9{${digits.length}}` : newline ? '\\n' : _m
+    )).slice(0, 300);
+  }
+
   parsePdf417(raw) {
-    if (typeof raw !== 'string' || raw.length > 4096) return { success: false, reason: 'INVALID_PDF417_FORMAT' };
-    // Keep empty positions: the barcode layouts use positional fields.
-    const fields = raw.replace(/[\r\n]/g, '').split('@').map(value => value.trim());
+    if (typeof raw !== 'string' || raw.length > 4096) return { success: false, reason: 'INVALID_PDF417_FORMAT', diagnostics: { length: typeof raw === 'string' ? raw.length : null, shape: this.pdf417Shape(raw) } };
+    // Keep empty positions: the barcode layouts use positional fields. Scanners sometimes add control/NBSP chars.
+    // eslint-disable-next-line no-control-regex
+    const fields = raw.replace(/[\u0000-\u001f\u007f\u00a0\ufeff]/g, ' ').split('@').map(value => value.trim());
     if (![8, 9, 16, 17].includes(fields.length) && fields.at(-1) === '') fields.pop();
     const modern = fields.length === 8 || fields.length === 9;
     const legacy = fields.length === 16 || fields.length === 17;
-    if (!modern && !legacy) return { success: false, reason: 'INVALID_PDF417_FORMAT' };
+    if (!modern && !legacy) return { success: false, reason: 'INVALID_PDF417_FORMAT', diagnostics: { length: raw.length, fieldCount: fields.length, shape: this.pdf417Shape(raw) } };
     const [apellido, nombre, sexo, document, birth, issue, expiry] = modern
       ? [fields[1], fields[2], fields[3], fields[4], fields[6], fields[7], null]
       : [fields[4], fields[5], fields[8], fields[1], fields[7], fields[9], fields[12]];
@@ -45,10 +53,17 @@ export default class DniExtractionService {
     const fechaNacimiento = this.parseDate(birth);
     const fechaEmision = this.parseDate(issue);
     let fechaVencimiento = expiry ? this.parseDate(expiry) : null;
-    if (!validDocument || !/^\d{7,8}$/.test(dni) || !this.validName(nombre) || !this.validName(apellido)
-      || !/^[FMX]$/.test(sexo) || !fechaNacimiento || fechaNacimiento > new Date().toISOString().slice(0, 10)
-      || (issue && !fechaEmision) || (expiry && !fechaVencimiento)) {
-      return { success: false, reason: 'INVALID_DNI_DATA' };
+    const invalidFields = Object.entries({
+      dni: !validDocument || !/^\d{7,8}$/.test(dni),
+      nombre: !this.validName(nombre),
+      apellido: !this.validName(apellido),
+      sexo: !/^[FMX]$/.test(sexo),
+      fechaNacimiento: !fechaNacimiento || fechaNacimiento > new Date().toISOString().slice(0, 10),
+      fechaEmision: Boolean(issue && !fechaEmision),
+      fechaVencimiento: Boolean(expiry && !fechaVencimiento),
+    }).filter(([, invalid]) => invalid).map(([name]) => name);
+    if (invalidFields.length) {
+      return { success: false, reason: 'INVALID_DNI_DATA', diagnostics: { length: raw.length, fieldCount: fields.length, layout: modern ? 'modern' : 'legacy', invalidFields, shape: this.pdf417Shape(raw) } };
     }
     // The modern layout has no expiry: RENAPER gives 15 years from issue to people aged 14+ at issue.
     let fechaVencimientoEstimada = false;
