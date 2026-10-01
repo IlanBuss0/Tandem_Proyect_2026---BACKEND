@@ -76,6 +76,20 @@ export default class UsageEventRepository {
     return await BD.query(sql, params);
   };
 
+  // Para reportes que necesitan mas de las ultimas 200 filas (evolucion
+  // con periodo "ultimos 3 meses", Sesion 21 Prompt 2): filtra por fecha
+  // en vez de por cantidad fija, tope real en LIMIT igual que el resto.
+  getForUsuarioSinceAsync = async (idUsuario, { tipos, desde, limit = 5000 } = {}) => {
+    const sql = `
+      SELECT id, id_usuario, tipo_evento, entidad_tipo, entidad_id, id_pictograma, valor, origen, ocurrido_en
+      FROM eventos_uso
+      WHERE id_usuario = $1 AND tipo_evento = ANY($2) AND ocurrido_en >= $3
+      ORDER BY ocurrido_en DESC
+      LIMIT $4
+    `;
+    return await BD.query(sql, [idUsuario, tipos, desde, Math.min(Number(limit) || 5000, 5000)]);
+  };
+
   existsForUsuarioAndTimestampAsync = async (idUsuario, tipoEvento, ocurrioEn) => {
     const row = await BD.queryOne(
       `SELECT id FROM eventos_uso WHERE id_usuario = $1 AND tipo_evento = $2 AND ocurrido_en = $3 LIMIT 1`,

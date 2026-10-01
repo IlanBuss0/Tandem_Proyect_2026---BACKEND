@@ -12,6 +12,16 @@ import AiReportService from './AiReportService.js';
 import ChatService from './ChatService.js';
 import MensajeService from './MensajeService.js';
 import NotificationProducerService from './NotificationProducerService.js';
+import { DEFAULT_INCLUIR_HISTORIAL, DEFAULT_INCLUIR_MENSUAL } from './ReportePdfOptions.js';
+
+const MAX_TITULO = 200;
+const MAX_CONTENIDO = 20000;
+
+function badRequest(message) {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+}
 
 const ACTIVE_VINCULO_ESTADOS = ['activo', 'activa', 'aprobado', 'aprobada', 'aceptado', 'aceptada'];
 
@@ -211,6 +221,56 @@ export default class ReporteProfesionalService {
     return texto?.id ?? 1;
   };
 
+  /** Trae el reporte y tira 404/403 si no existe o no es del profesional. */
+  getOwnedReporteAsync = async (idReporte, idProfesional) => {
+    if (!Number.isInteger(idReporte) || idReporte <= 0) throw badRequest('id de reporte invalido.');
+    const reporte = await this.ReporteProfesionalRepository.getByIdAsync(idReporte);
+    if (!reporte) {
+      const error = new Error('Reporte no encontrado.');
+      error.statusCode = 404;
+      throw error;
+    }
+    if (Number(reporte.id_profesional) !== Number(idProfesional)) {
+      const error = new Error('No autorizado para modificar este reporte.');
+      error.statusCode = 403;
+      throw error;
+    }
+    return reporte;
+  };
+
+  /** Edita titulo y/o contenido de un reporte propio que todavia no se envio al tutor. */
+  updateAsync = async (idReporte, idProfesional, { titulo, contenido } = {}) => {
+    console.log(`ReporteProfesionalService.updateAsync(${idReporte})`);
+    const changes = {};
+    if (titulo !== undefined) {
+      const text = String(titulo).trim();
+      if (!text || text.length > MAX_TITULO) throw badRequest(`El titulo es obligatorio (hasta ${MAX_TITULO} caracteres).`);
+      changes.titulo = text;
+    }
+    if (contenido !== undefined) {
+      const text = String(contenido).trim();
+      if (!text || text.length > MAX_CONTENIDO) throw badRequest(`El texto del reporte es obligatorio (hasta ${MAX_CONTENIDO} caracteres).`);
+      changes.contenido = text;
+    }
+    if (Object.keys(changes).length === 0) throw badRequest('Nada para actualizar: manda titulo o contenido.');
+
+    const reporte = await this.getOwnedReporteAsync(idReporte, idProfesional);
+    if (reporte.enviado_al_tutor) {
+      const error = new Error('Este reporte ya se envio al tutor y no se puede editar.');
+      error.statusCode = 409;
+      throw error;
+    }
+    return await this.ReporteProfesionalRepository.updateAsync(reporte.id, changes);
+  };
+
+  /** Borra un reporte propio. */
+  deleteAsync = async (idReporte, idProfesional) => {
+    console.log(`ReporteProfesionalService.deleteAsync(${idReporte})`);
+    const reporte = await this.getOwnedReporteAsync(idReporte, idProfesional);
+    await this.ReporteProfesionalRepository.deleteAsync(reporte.id);
+    return { rowsAffected: 1 };
+  };
+
   sendToTutorAsync = async (idReporte, idUsuarioProfesional, idProfesional) => {
     console.log(`ReporteProfesionalService.sendToTutorAsync(${idReporte})`);
     const reporte = await this.ReporteProfesionalRepository.getByIdAsync(idReporte);
@@ -253,18 +313,25 @@ export default class ReporteProfesionalService {
     return await this.ReporteProfesionalRepository.markSentAsync(reporte.id);
   };
 
-  generateMonthlyPdfDataAsync = async (idProfesional, idUsuarioProfesional, anio, mes) => {
-    console.log(`ReporteProfesionalService.generateMonthlyPdfDataAsync(${idProfesional}, ${anio}, ${mes})`);
+  /**
+   * Opciones (todas opcionales; sin ellas el PDF sale como siempre):
+   * rango {desde, hasta, inicio, finExclusivo} reemplaza a anio/mes, pacientes limita a esos ids (con vinculo activo),
+   * incluir es el Set de secciones (ia, asistencia, detalle). Sin 'ia' no se llama a la IA.
+   */
+  generateMonthlyPdfDataAsync = async (idProfesional, idUsuarioProfesional, anio, mes, { rango = null, pacientes: pacienteIds = null, incluir = new Set(DEFAULT_INCLUIR_MENSUAL) } = {}) => {
+    console.log(`ReporteProfesionalService.generateMonthlyPdfDataAsync(${idProfesional}, ${rango ? `${rango.desde}..${rango.hasta}` : `${anio}, ${mes}`}, pacientes=${pacienteIds?.length ?? 'todos'})`);
+    if (pacienteIds) await Promise.all(pacienteIds.map((id) => this.assertVinculoActivoAsync(idProfesional, id)));
     const [usuario, sesiones] = await Promise.all([
       this.UsuarioRepository.getByIdAsync(idUsuarioProfesional),
       this.SesionProfesionalRepository.getByProfesionalIdAsync(idProfesional),
     ]);
 
-    const inicioMes = new Date(Date.UTC(anio, mes - 1, 1));
-    const finMes = new Date(Date.UTC(anio, mes, 1));
+    const inicioMes = rango ? rango.inicio : new Date(Date.UTC(anio, mes - 1, 1));
+    const finMes = rango ? rango.finExclusivo : new Date(Date.UTC(anio, mes, 1));
+    const elegidos = pacienteIds ? new Set(pacienteIds) : null;
     const sesionesDelMes = sesiones.filter((s) => {
       const fecha = new Date(s.fecha_sesion);
-      return fecha >= inicioMes && fecha < finMes;
+      return fecha >= inicioMes && fecha < finMes && (!elegidos || elegidos.has(Number(s.id_perteneciente)));
     });
 
     const porPaciente = new Map();
@@ -281,18 +348,28 @@ export default class ReporteProfesionalService {
       const canceladas = sesionesPaciente.filter((s) => s.estado === 'cancelada').length;
       const ausentes = sesionesPaciente.filter((s) => s.estado === 'ausente').length;
       const asistenciaPct = completadas + ausentes > 0 ? Math.round((completadas / (completadas + ausentes)) * 100) : 0;
-      pacientes.push({ pacienteNombre, totalSesiones: sesionesPaciente.length, completadas, canceladas, ausentes, asistenciaPct });
+      const entry = { pacienteNombre, totalSesiones: sesionesPaciente.length, completadas, canceladas, ausentes, asistenciaPct };
+      // Solo fecha, titulo, estado, duracion y si tiene nota: el contenido de las notas privadas nunca sale.
+      if (incluir.has('detalle')) {
+        entry.sesiones = sesionesPaciente
+          .map((s) => ({ fecha_sesion: s.fecha_sesion, titulo: s.titulo, estado: s.estado, duracion_minutos: s.duracion_minutos, has_note: Boolean(s.has_note) }))
+          .sort((a, b) => new Date(a.fecha_sesion).getTime() - new Date(b.fecha_sesion).getTime());
+      }
+      pacientes.push(entry);
     }
 
     const profesionalNombre = usuario?.nombre || usuario?.nombre_usuario || 'Profesional';
-    const overviewText = pacientes.length > 0
-      ? await this.AiReportService.generateCaseloadOverviewAsync({ profesionalNombre, mes, anio, resumenPorPaciente: pacientes })
+    const overviewText = incluir.has('ia') && pacientes.length > 0
+      ? await this.AiReportService.generateCaseloadOverviewAsync({
+        profesionalNombre, mes, anio, resumenPorPaciente: pacientes, periodoTexto: rango ? `${rango.desde} a ${rango.hasta}` : undefined,
+      })
       : null;
 
-    return { profesionalNombre, mes, anio, overviewText, pacientes };
+    return { profesionalNombre, mes, anio, desde: rango?.desde ?? null, hasta: rango?.hasta ?? null, overviewText, pacientes, incluir: [...incluir] };
   };
 
-  generatePatientHistoryPdfDataAsync = async (idProfesional, idUsuarioProfesional, idPerteneciente) => {
+  /** Opciones opcionales: rango {desde, hasta, inicio, finExclusivo} acota las sesiones; incluir es el Set (asistencia, detalle). */
+  generatePatientHistoryPdfDataAsync = async (idProfesional, idUsuarioProfesional, idPerteneciente, { rango = null, incluir = new Set(DEFAULT_INCLUIR_HISTORIAL) } = {}) => {
     console.log(`ReporteProfesionalService.generatePatientHistoryPdfDataAsync(${idProfesional}, ${idPerteneciente})`);
     await this.assertVinculoActivoAsync(idProfesional, idPerteneciente);
 
@@ -304,6 +381,7 @@ export default class ReporteProfesionalService {
 
     const sesiones = sesionesProfesional
       .filter((s) => Number(s.id_perteneciente) === Number(idPerteneciente))
+      .filter((s) => !rango || (new Date(s.fecha_sesion) >= rango.inicio && new Date(s.fecha_sesion) < rango.finExclusivo))
       .sort((a, b) => new Date(a.fecha_sesion).getTime() - new Date(b.fecha_sesion).getTime());
 
     const completadas = sesiones.filter((s) => s.estado === 'completada').length;
@@ -316,6 +394,9 @@ export default class ReporteProfesionalService {
       pacienteNombre,
       stats: { total: sesiones.length, completadas, canceladas, ausentes, asistenciaPct },
       sesiones,
+      desde: rango?.desde ?? null,
+      hasta: rango?.hasta ?? null,
+      incluir: [...incluir],
     };
   };
 }
