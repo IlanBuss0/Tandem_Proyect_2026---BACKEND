@@ -203,7 +203,120 @@ test('PDF417 extrae identidad del layout moderno y acepta separador final', () =
   assert.equal(result.nombre, 'JUAN CARLOS');
   assert.equal(result.apellido, 'PEREZ GOMEZ');
   assert.equal(result.dni, '30123456');
-  assert.equal(result.fechaVencimiento, null);
+  assert.equal(result.fechaVencimiento, '2035-01-01');
+});
+
+const modernPdf417 = (birth, issue) => `00612345678@PEREZ GOMEZ@JUAN CARLOS@M@30123456@A@${birth}@${issue}@239`;
+const ddmmyyyy = date => `${String(date.getUTCDate()).padStart(2, '0')}/${String(date.getUTCMonth() + 1).padStart(2, '0')}/${date.getUTCFullYear()}`;
+const yearsAgo = years => { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - years, d.getUTCMonth(), 15); return d; };
+
+test('PDF417 moderno de 9 campos estima vencimiento en emision + 15 anios', () => {
+  const result = new DniExtractionService().parsePdf417(modernPdf417('01/01/1990', '15/05/2015'));
+  assert.equal(result.success, true);
+  assert.equal(result.fechaEmision, '2015-05-15');
+  assert.equal(result.fechaVencimiento, '2030-05-15');
+  assert.equal(result.fechaVencimientoEstimada, true);
+  assert.equal(result.expiryReason, null);
+});
+
+test('PDF417 moderno emitido antes de los 14 vence al cumplir 14', () => {
+  const result = new DniExtractionService().parsePdf417(modernPdf417('01/01/2005', '15/05/2015'));
+  assert.equal(result.success, true);
+  assert.equal(result.fechaVencimiento, '2019-01-01');
+  assert.equal(result.fechaVencimientoEstimada, true);
+  assert.equal(result.expiryBasis, 'AGE_14');
+});
+
+test('PDF417 moderno emitido justo a los 14 anios si estima vencimiento', () => {
+  const result = new DniExtractionService().parsePdf417(modernPdf417('15/05/2001', '15/05/2015'));
+  assert.equal(result.fechaVencimiento, '2030-05-15');
+});
+
+test('PDF417 moderno emitido un 29/02 vence el 28/02', () => {
+  const result = new DniExtractionService().parsePdf417(modernPdf417('01/01/1990', '29/02/2016'));
+  assert.equal(result.fechaVencimiento, '2031-02-28');
+  assert.equal(result.fechaVencimientoEstimada, true);
+});
+
+test('PDF417 legado conserva el vencimiento impreso y no lo marca como estimado', () => {
+  const fields = Array.from({ length: 16 }, () => '');
+  fields[1] = '30123456'; fields[4] = 'PEREZ'; fields[5] = 'JUAN'; fields[7] = '01/01/1990';
+  fields[8] = 'M'; fields[9] = '01/01/2020'; fields[12] = '31/12/2035';
+  const result = new DniExtractionService().parsePdf417(fields.join('@'));
+  assert.equal(result.fechaVencimiento, '2035-12-31');
+  assert.equal(result.fechaVencimientoEstimada, false);
+});
+
+function serviceWithRealParser() {
+  const service = new ValidacionProfesionalServiceClass();
+  service.DniExtractionService = new DniExtractionService();
+  service.DniExtractionService.extractAsync = async () => { throw new Error('No debe ejecutar OCR cuando el PDF417 se leyo bien'); };
+  return service;
+}
+
+test('PDF417 moderno valido llega a VERIFIED sin ejecutar OCR', async () => {
+  const service = serviceWithRealParser();
+  service.RefepsProvider = {
+    obtenerPerfil: async () => ({ nombre: 'Juan Carlos', apellido: 'Perez Gomez', dni: '30123456', matricula: '1234', jurisdiccion: 'CABA', habilitado: true }),
+  };
+  const result = await service.verifyIdentityDataAsync({
+    imageBuffer: Buffer.from('dni'), matricula: '1234', refepsDni: '30123456', jurisdiccion: 'CABA',
+    pdf417Raw: modernPdf417('01/01/1990', ddmmyyyy(yearsAgo(2))),
+    declaredIdentity: { nombre: 'Juan Carlos', apellido: 'Perez Gomez' },
+  });
+  assert.equal(result.status, 'VERIFIED');
+  assert.equal(result.dni.fechaVencimientoEstimada, true);
+});
+
+test('PDF417 moderno emitido hace mas de 15 anios da EXPIRED_DOCUMENT sin OCR', async () => {
+  const service = serviceWithRealParser();
+  service.RefepsProvider = { obtenerPerfil: async () => { throw new Error('No debe consultar REFEPS'); } };
+  const result = await service.verifyIdentityDataAsync({
+    imageBuffer: Buffer.from('dni'), matricula: '1234', refepsDni: '30123456', jurisdiccion: 'CABA',
+    pdf417Raw: modernPdf417('01/01/1970', ddmmyyyy(yearsAgo(20))),
+    declaredIdentity: { nombre: 'Juan Carlos', apellido: 'Perez Gomez' },
+  });
+  assert.equal(result.status, 'EXPIRED_DOCUMENT');
+});
+
+test('PDF417 moderno emitido antes de los 14 de un adulto da EXPIRED_DOCUMENT sin OCR', async () => {
+  const service = serviceWithRealParser();
+  service.RefepsProvider = { obtenerPerfil: async () => { throw new Error('No debe consultar REFEPS'); } };
+  const result = await service.verifyIdentityDataAsync({
+    imageBuffer: Buffer.from('dni'), matricula: '1234',
+    pdf417Raw: modernPdf417('01/01/2005', '15/05/2015'),
+    declaredIdentity: { nombre: 'Juan Carlos', apellido: 'Perez Gomez' },
+  });
+  assert.equal(result.status, 'EXPIRED_DOCUMENT');
+  assert.equal(result.reason, 'EXPIRED_DOCUMENT');
+  assert.equal(result.steps.find(step => step.id === 'vigencia').status, 'fail');
+});
+
+test('la verificacion devuelve un checklist de pasos que distingue codigo de barras y OCR', async () => {
+  const service = serviceWithRealParser();
+  service.RefepsProvider = {
+    obtenerPerfil: async () => ({ nombre: 'Juan Carlos', apellido: 'Perez Gomez', dni: '30123456', matricula: '1234', jurisdiccion: 'CABA', habilitado: true }),
+  };
+  const result = await service.verifyIdentityDataAsync({
+    imageBuffer: Buffer.from('dni'), matricula: '1234', refepsDni: '30123456', jurisdiccion: 'CABA',
+    pdf417Raw: modernPdf417('01/01/1990', ddmmyyyy(yearsAgo(2))),
+    declaredIdentity: { nombre: 'Juan Carlos', apellido: 'Perez Gomez' },
+  });
+  const byId = Object.fromEntries(result.steps.map(step => [step.id, step.status]));
+  assert.equal(byId.codigo_barras, 'ok');
+  assert.equal(byId.ocr, 'skipped');
+  assert.equal(byId.vigencia, 'ok');
+  assert.equal(byId.matricula, 'ok');
+  assert.equal(result.dni.fuente, 'PDF417');
+
+  const noBarcode = new ValidacionProfesionalServiceClass();
+  noBarcode.DniExtractionService = { extractAsync: async () => ({ success: false, reason: 'LOW_CONFIDENCE', confidence: 34 }) };
+  const failed = await noBarcode.verifyIdentityDataAsync({ imageBuffer: Buffer.from('dni'), matricula: '1234', declaredIdentity: { nombre: 'Juan', apellido: 'Perez' } });
+  const failedById = Object.fromEntries(failed.steps.map(step => [step.id, step]));
+  assert.equal(failedById.codigo_barras.status, 'fail');
+  assert.equal(failedById.ocr.status, 'fail');
+  assert.match(failedById.ocr.detail, /confianza 34%/);
+  assert.equal(failedById.vigencia.status, 'skipped');
 });
 
 test('PDF417 extrae fecha de vencimiento del layout legado', () => {
@@ -362,11 +475,12 @@ test('verificacion profesional no consulta REFEPS si la imagen no parece DNI', a
 
 test('PDF417 fallido activa OCR completo como fallback', async () => {
   const service = new ValidacionProfesionalServiceClass();
-  let ocrOptions;
+  let ocrCalls = 0;
   service.DniExtractionService = {
     parsePdf417: () => ({ success: false, reason: 'INVALID_PDF417_FORMAT' }),
-    extractAsync: async (_image, options) => {
-      ocrOptions = options;
+    extractAsync: async (...args) => {
+      assert.equal(args.length, 1, 'OCR completo: sin opciones');
+      ocrCalls += 1;
       return { success: true, nombre: 'Juan', apellido: 'Perez', dni: '12345678', fechaVencimiento: '2035-12-31', confidence: 90 };
     },
   };
@@ -377,7 +491,7 @@ test('PDF417 fallido activa OCR completo como fallback', async () => {
     imageBuffer: Buffer.from('dni'), matricula: '1234', pdf417Raw: 'bad',
     declaredIdentity: { nombre: 'Juan', apellido: 'Perez' },
   });
-  assert.equal(ocrOptions.expiryOnly, false);
+  assert.equal(ocrCalls, 1);
   assert.equal(result.status, 'VERIFIED');
 });
 
@@ -481,4 +595,40 @@ test('permisos profesionales aceptan VERIFIED y rechazan estados no verificados'
     usuario_perteneciente_activo: true,
     requiere_aprobacion_tutor: false,
   }), false);
+});
+
+test('PDF417 rechazado informa campos invalidos sin exponer datos personales', () => {
+  const result = new DniExtractionService().parsePdf417('006@PEREZ@JUAN9@M@30123456@A@01/01/1990@15/05/2015@239');
+  assert.equal(result.success, false);
+  assert.equal(result.reason, 'INVALID_DNI_DATA');
+  assert.deepEqual(result.diagnostics.invalidFields, ['nombre']);
+  assert.equal(JSON.stringify(result.diagnostics).includes('PEREZ'), false);
+});
+
+test('PDF417 tolera caracteres de control y espacios no separables del lector', () => {
+  const raw = '\u0000006@PEREZ GOMEZ@JUAN@M@30123456@A@01/01/1990@15/05/2015@239\r\n';
+  assert.equal(new DniExtractionService().parsePdf417(raw).success, true);
+});
+
+test('PDF417 informa el layout leido', () => {
+  const service = new DniExtractionService();
+  assert.equal(service.parsePdf417(modernPdf417('01/01/1990', '15/05/2015')).layout, 'modern');
+  const fields = Array.from({ length: 16 }, () => '');
+  fields[1] = '30123456'; fields[4] = 'PEREZ'; fields[5] = 'JUAN'; fields[7] = '01/01/1990'; fields[8] = 'M'; fields[9] = '01/01/2020'; fields[12] = '31/12/2035';
+  assert.equal(service.parsePdf417(fields.join('@')).layout, 'legacy');
+});
+
+test('OCR reintenta sobre una copia mejorada cuando la primera lectura falla', async () => {
+  const { default: sharp } = await import('sharp');
+  const image = await sharp({ create: { width: 200, height: 120, channels: 3, background: '#888' } }).png().toBuffer();
+  const goodText = 'REPUBLICA ARGENTINA\nDOCUMENTO NACIONAL DE IDENTIDAD\nAPELLIDO PEREZ\nNOMBRE JUAN\nDNI 30123456\nFECHA DE NACIMIENTO 01 ENE/JAN 1990\nFECHA DE VENCIMIENTO 01 ENE/JAN 2035\nNACIONALIDAD ARG\nSEXO M';
+  const calls = [];
+  const ocr = async buffer => {
+    calls.push(buffer);
+    return { data: calls.length === 1 ? { text: 'ruido', confidence: 30 } : { text: goodText, confidence: 80 } };
+  };
+  const result = await new DniExtractionService(ocr).extractAsync(image);
+  assert.equal(calls.length, 2);
+  assert.equal(result.success, true);
+  assert.equal(result.dni, '30123456');
 });

@@ -6,6 +6,15 @@ import ActividadPersonalizadaRepository from '../repositories/ActividadPersonali
 import AppError from '../modules/errors/AppError.js';
 import AuthorizationService from './AuthorizationService.js';
 import { PERTENECIENTE_PERMISSIONS } from '../modules/security/permissions.constants.js';
+import VinculoTutorPertenecienteRepository from '../repositories/VinculoTutorPertenecienteRepository.js';
+import ActividadRepository from '../repositories/ActividadRepository.js';
+import UsuarioRepository from '../repositories/UsuarioRepository.js';
+import UsageEventService from './UsageEventService.js';
+import { USAGE_EVENT_TYPES } from '../modules/usage/event-types.js';
+
+const HELP_MOTIVOS = ['ayuda', 'no_entiende', 'pausa'];
+const HELP_CACHE_TTL_SECONDS = 60;
+const HELP_PASO_TEXTO_MAX = 200;
 
 export default class ActividadAsignadaService {
   constructor() {
@@ -14,6 +23,10 @@ export default class ActividadAsignadaService {
     this.PertenecienteRepository = new PertenecienteRepository();
     this.NotificationProducerService = new NotificationProducerService();
     this.ActividadPersonalizadaRepository = new ActividadPersonalizadaRepository();
+    this.VinculoTutorPertenecienteRepository = new VinculoTutorPertenecienteRepository();
+    this.ActividadRepository = new ActividadRepository();
+    this.UsuarioRepository = new UsuarioRepository();
+    this.UsageEventService = new UsageEventService();
   }
 
   getAllAsync = async () => {
@@ -145,15 +158,101 @@ export default class ActividadAsignadaService {
         recipientUserId: previousEntity.id_usuario_asignador,
         actorUserId: Number(idUsuario),
         contextUserId: Number(idUsuario),
-        typeName: 'InformaciÃ³n',
+        typeName: 'Información',
         title: 'Actividad completada',
-        body: 'Se completÃ³ una actividad asignada.',
+        body: 'Se completó una actividad asignada.',
         referenceType: 'activity',
         referenceId: numericId,
       });
     }
 
     return completed;
+  };
+
+  requestHelpAsync = async (id, idUsuario, { motivo, paso, totalPasos, pasoTexto } = {}) => {
+    const numericId = Number(id);
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      throw new AppError('El id de la actividad asignada es invalido.', 400);
+    }
+    if (!HELP_MOTIVOS.includes(motivo)) {
+      throw new AppError('El motivo es invalido.', 400);
+    }
+    const numericPaso = Number(paso);
+    if (typeof paso === 'boolean' || paso === null || paso === '' || !Number.isInteger(numericPaso) || numericPaso < 1) {
+      throw new AppError('El paso debe ser un entero mayor o igual a 1.', 400);
+    }
+    let numericTotal = null;
+    if (totalPasos !== undefined && totalPasos !== null) {
+      numericTotal = Number(totalPasos);
+      if (typeof totalPasos === 'boolean' || totalPasos === '' || !Number.isInteger(numericTotal) || numericTotal < numericPaso) {
+        throw new AppError('totalPasos debe ser un entero mayor o igual al paso.', 400);
+      }
+    }
+    const cleanPasoTexto = typeof pasoTexto === 'string'
+      // eslint-disable-next-line no-control-regex
+      ? pasoTexto.replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, HELP_PASO_TEXTO_MAX).trim()
+      : '';
+
+    const asignada = await this.ActividadAsignadaRepository.getByIdAsync(numericId);
+    if (!asignada) throw new AppError('Actividad asignada no encontrada.', 404);
+
+    const context = await AuthorizationService.getUserContext(idUsuario);
+    if (Number(context?.perteneciente?.id) !== Number(asignada.id_perteneciente)) {
+      throw new AppError('Solo el perteneciente asignado puede pedir ayuda en esta actividad.', 403);
+    }
+
+    const cacheKey = `actividad-ayuda.${numericId}.${idUsuario}.${motivo}`;
+    const cached = await cacheService.get(cacheKey);
+    if (cached) return { avisados: Array.isArray(cached) ? cached : [], repetido: true };
+
+    const tutores = await this.VinculoTutorPertenecienteRepository.getActiveTutorUsersAsync(asignada.id_perteneciente);
+
+    const [actividad, usuario] = await Promise.all([
+      asignada.id_actividad_personalizada
+        ? this.ActividadPersonalizadaRepository.getByIdAsync(asignada.id_actividad_personalizada)
+        : this.ActividadRepository.getByIdAsync(asignada.id_actividad),
+      this.UsuarioRepository.getByIdAsync(Number(idUsuario)),
+    ]);
+    const titulo = String(actividad?.titulo || 'la actividad').trim();
+    const nombre = String(usuario?.nombre || '').trim().split(/\s+/)[0] || 'Tu familiar';
+
+    const pasoLabel = numericTotal ? `paso ${numericPaso} de ${numericTotal}` : `paso ${numericPaso}`;
+    const detalle = cleanPasoTexto ? `${pasoLabel}: ${cleanPasoTexto}` : `${pasoLabel}.`;
+    const messages = {
+      ayuda: { title: `${nombre} pidió ayuda`, body: `En «${titulo}», ${detalle}` },
+      no_entiende: { title: `${nombre} no entiende un paso`, body: `En «${titulo}», ${detalle}` },
+      pausa: { title: `${nombre} se está tomando una pausa`, body: `Estaba en «${titulo}», ${pasoLabel}. Quiso que lo sepas.` },
+    };
+    const { title, body } = messages[motivo];
+
+    const avisados = [];
+    for (const tutor of tutores || []) {
+      const notificationId = await this.NotificationProducerService.createAsync({
+        recipientUserId: tutor.id_usuario,
+        actorUserId: Number(idUsuario),
+        contextUserId: Number(idUsuario),
+        typeName: 'Alerta',
+        title,
+        body,
+        referenceType: `activity_help:${motivo}`,
+        referenceId: numericId,
+      });
+      if (notificationId) avisados.push(String(tutor.nombre || '').trim().split(/\s+/)[0]);
+    }
+
+    // Fire-and-forget: logAsync nunca tira, y no se espera su resultado.
+    this.UsageEventService.logAsync({
+      idUsuario: Number(idUsuario),
+      tipoEvento: USAGE_EVENT_TYPES.AYUDA_PEDIDA,
+      entidadTipo: 'actividad_asignada',
+      entidadId: String(numericId),
+      valor: { motivo, paso: numericPaso, avisados: avisados.length },
+      origen: 'perteneciente',
+    }).catch(() => {});
+
+    // Sin avisados no se cachea: "Probar de nuevo" tiene que volver a intentar.
+    if (avisados.length > 0) await cacheService.set(cacheKey, avisados, HELP_CACHE_TTL_SECONDS);
+    return { avisados, repetido: false };
   };
 
   deleteByIdAsync = async (id) => {

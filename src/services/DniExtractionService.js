@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import tesseract from 'tesseract.js';
 import { normalizeDocument } from '../modules/professional-verification/name-normalization.js';
 
@@ -11,24 +12,22 @@ export default class DniExtractionService {
     this.timeoutMs = timeoutMs;
   }
 
-  extractAsync = async (imageBuffer, { expiryOnly = false } = {}) => {
+  extractAsync = async (imageBuffer) => {
     if (!Buffer.isBuffer(imageBuffer) || imageBuffer.length === 0) {
       return { success: false, reason: 'INVALID_IMAGE', confidence: 0 };
     }
 
     try {
-      const { data = {} } = await this.withTimeout(
-        this.ocr(imageBuffer, 'spa', { logger: () => {} }),
-        this.timeoutMs,
-      );
-      if (!expiryOnly) return this.parseText(data.text, data.confidence);
-      const fechaVencimiento = this.dateField(data.text, ['FECHA DE VENCIMIENTO', 'DATE OF EXPIRY', 'VENCIMIENTO']);
-      const confidence = Number(data.confidence) || 0;
-      return {
-        success: Boolean(fechaVencimiento && confidence >= MIN_CONFIDENCE),
-        fechaVencimiento, confidence,
-        reason: confidence < MIN_CONFIDENCE ? 'LOW_CONFIDENCE' : fechaVencimiento ? null : 'UNVERIFIABLE_EXPIRY',
-      };
+      const first = await this.recognize(imageBuffer);
+      if (first.success) return first;
+      // Phone frames of a plastic card (glare, low contrast) often fail as-is: retry once on an enhanced copy.
+      const enhanced = await this.enhanceForOcr(imageBuffer);
+      if (!enhanced) return first;
+      const second = await this.recognize(enhanced);
+      console.log('[ProfessionalVerification] OCR reintento mejorado:', JSON.stringify({
+        confianzaOriginal: first.confidence, confianzaMejorada: second.confidence, exito: second.success,
+      }));
+      return second.success || (second.confidence ?? 0) > (first.confidence ?? 0) ? second : first;
     } catch (error) {
       const reason = error.message === 'OCR_TIMEOUT' ? 'OCR_TIMEOUT' : 'OCR_ERROR';
       console.error('[ProfessionalVerification] DNI OCR failed:', reason);
@@ -36,14 +35,36 @@ export default class DniExtractionService {
     }
   };
 
+  recognize = async (image) => {
+    const { data = {} } = await this.withTimeout(this.ocr(image, 'spa', { logger: () => {} }), this.timeoutMs);
+    return this.parseText(data.text, data.confidence);
+  };
+
+  enhanceForOcr = async (imageBuffer) => {
+    try {
+      return await sharp(imageBuffer, { animated: false }).rotate().grayscale().normalise()
+        .resize({ width: 2000, withoutEnlargement: false }).sharpen().png().toBuffer();
+    } catch {
+      return null;
+    }
+  };
+
+  // Layout of the barcode text with letters/digits masked (e.g. "9{11}@A{5} A{5}@..."): safe to log.
+  pdf417Shape(raw) {
+    return String(raw ?? '').replace(/(\p{L}+)|(\d+)|(\r?\n)/gu, (_m, letters, digits, newline) => (
+      letters ? `A{${letters.length}}` : digits ? `9{${digits.length}}` : newline ? '\\n' : _m
+    )).slice(0, 300);
+  }
+
   parsePdf417(raw) {
-    if (typeof raw !== 'string' || raw.length > 4096) return { success: false, reason: 'INVALID_PDF417_FORMAT' };
-    // Keep empty positions: the barcode layouts use positional fields.
-    const fields = raw.replace(/[\r\n]/g, '').split('@').map(value => value.trim());
+    if (typeof raw !== 'string' || raw.length > 4096) return { success: false, reason: 'INVALID_PDF417_FORMAT', diagnostics: { length: typeof raw === 'string' ? raw.length : null, shape: this.pdf417Shape(raw) } };
+    // Keep empty positions: the barcode layouts use positional fields. Scanners sometimes add control/NBSP chars.
+    // eslint-disable-next-line no-control-regex
+    const fields = raw.replace(/[\u0000-\u001f\u007f\u00a0\ufeff]/g, ' ').split('@').map(value => value.trim());
     if (![8, 9, 16, 17].includes(fields.length) && fields.at(-1) === '') fields.pop();
     const modern = fields.length === 8 || fields.length === 9;
     const legacy = fields.length === 16 || fields.length === 17;
-    if (!modern && !legacy) return { success: false, reason: 'INVALID_PDF417_FORMAT' };
+    if (!modern && !legacy) return { success: false, reason: 'INVALID_PDF417_FORMAT', diagnostics: { length: raw.length, fieldCount: fields.length, shape: this.pdf417Shape(raw) } };
     const [apellido, nombre, sexo, document, birth, issue, expiry] = modern
       ? [fields[1], fields[2], fields[3], fields[4], fields[6], fields[7], null]
       : [fields[4], fields[5], fields[8], fields[1], fields[7], fields[9], fields[12]];
@@ -51,19 +72,53 @@ export default class DniExtractionService {
     const dni = normalizeDocument(document);
     const fechaNacimiento = this.parseDate(birth);
     const fechaEmision = this.parseDate(issue);
-    const fechaVencimiento = expiry ? this.parseDate(expiry) : null;
-    if (!validDocument || !/^\d{7,8}$/.test(dni) || !this.validName(nombre) || !this.validName(apellido)
-      || !/^[FMX]$/.test(sexo) || !fechaNacimiento || fechaNacimiento > new Date().toISOString().slice(0, 10)
-      || (issue && !fechaEmision) || (expiry && !fechaVencimiento)) {
-      return { success: false, reason: 'INVALID_DNI_DATA' };
+    let fechaVencimiento = expiry ? this.parseDate(expiry) : null;
+    const invalidFields = Object.entries({
+      dni: !validDocument || !/^\d{7,8}$/.test(dni),
+      nombre: !this.validName(nombre),
+      apellido: !this.validName(apellido),
+      sexo: !/^[FMX]$/.test(sexo),
+      fechaNacimiento: !fechaNacimiento || fechaNacimiento > new Date().toISOString().slice(0, 10),
+      fechaEmision: Boolean(issue && !fechaEmision),
+      fechaVencimiento: Boolean(expiry && !fechaVencimiento),
+    }).filter(([, invalid]) => invalid).map(([name]) => name);
+    if (invalidFields.length) {
+      return { success: false, reason: 'INVALID_DNI_DATA', diagnostics: { length: raw.length, fieldCount: fields.length, layout: modern ? 'modern' : 'legacy', invalidFields, shape: this.pdf417Shape(raw) } };
+    }
+    // The modern layout has no expiry: RENAPER gives 15 years from issue to people aged 14+ at issue.
+    let fechaVencimientoEstimada = false;
+    let expiryReason = null;
+    let expiryBasis = null;
+    if (modern) {
+      const estimate = this.estimateExpiryFromIssue(fechaNacimiento, fechaEmision);
+      fechaVencimiento = estimate.fechaVencimiento;
+      fechaVencimientoEstimada = Boolean(fechaVencimiento);
+      expiryReason = estimate.reason;
+      expiryBasis = estimate.basis ?? null;
     }
     return {
-      success: true, reason: null, source: 'PDF417', nombre, apellido, dni, sexo,
+      success: true, reason: null, expiryReason, expiryBasis, source: 'PDF417', layout: modern ? 'modern' : 'legacy', fechaVencimientoEstimada, nombre, apellido, dni, sexo,
       nombreCompleto: `${nombre} ${apellido}`, fechaNacimiento,
       fechaEmision, fechaVencimiento, ejemplar: modern ? fields[5] || null : null,
       confidence: 100,
       detectedFields: ['nombre', 'apellido', 'dni', 'sexo', 'fechaNacimiento', ...(fechaEmision ? ['fechaEmision'] : []), ...(fechaVencimiento ? ['fechaVencimiento'] : [])],
     };
+  }
+
+  // Dates are YYYY-MM-DD, computed in UTC. A 29/02 issue expires on 28/02 (conservative).
+  estimateExpiryFromIssue(fechaNacimiento, fechaEmision) {
+    if (!fechaNacimiento || !fechaEmision) return { fechaVencimiento: null, reason: 'UNVERIFIABLE_EXPIRY' };
+    const shiftYears = (value, years, clampToFeb28) => {
+      const [year, month, day] = value.split('-').map(Number);
+      const clamp = clampToFeb28 && month === 2 && day === 29;
+      return new Date(Date.UTC(year + years, month - 1, clamp ? 28 : day)).toISOString().slice(0, 10);
+    };
+    // A 29/02 birth turns 14 on 01/03 in non-leap years (conservative).
+    // A DNI issued before 14 is only valid until the holder turns 14 (RENAPER), so it expires on the 14th birthday.
+    if (fechaEmision < shiftYears(fechaNacimiento, 14, false)) {
+      return { fechaVencimiento: shiftYears(fechaNacimiento, 14, true), reason: null, basis: 'AGE_14' };
+    }
+    return { fechaVencimiento: shiftYears(fechaEmision, 15, true), reason: null, basis: 'ISSUE_PLUS_15' };
   }
 
   validName(value) {

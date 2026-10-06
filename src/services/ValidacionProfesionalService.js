@@ -7,9 +7,21 @@ import ProfessionalIdentityMatcher from './ProfessionalIdentityMatcher.js';
 import { namesMatch, normalizeDocument } from '../modules/professional-verification/name-normalization.js';
 import { VERIFICATION_METHOD, VERIFICATION_SOURCE, VERIFICATION_STATUS } from '../modules/professional-verification/verification.constants.js';
 
+// Order shown to the user in the live verification checklist.
+const VERIFICATION_STEPS = [
+  { id: 'imagen', label: 'Foto del DNI recibida' },
+  { id: 'codigo_barras', label: 'Código de barras leído' },
+  { id: 'ocr', label: 'Lectura del texto (OCR, respaldo)' },
+  { id: 'datos', label: 'Datos del DNI leídos' },
+  { id: 'vigencia', label: 'DNI vigente' },
+  { id: 'identidad', label: 'Nombre y apellido coinciden' },
+  { id: 'documento', label: 'N° de DNI coincide con el registro' },
+  { id: 'refeps', label: 'Matrícula encontrada en REFEPS' },
+  { id: 'matricula', label: 'Matrícula habilitada' },
+];
+
 export default class ValidacionProfesionalService {
   constructor() {
-    console.log('Estoy en: ValidacionProfesionalService.constructor()');
     this.ValidacionProfesionalRepository = new ValidacionProfesionalRepository();
     this.ProfesionalRepository = new ProfesionalRepository();
     this.DniExtractionService = new DniExtractionService();
@@ -73,31 +85,77 @@ export default class ValidacionProfesionalService {
       throw new AppError('Nombre y apellido son obligatorios para validar la identidad profesional.', 400);
     }
 
+    // Step-by-step trace for production debugging. Never logs personal data, only flags, counts and reasons.
+    const traceId = Math.random().toString(36).slice(2, 8);
+    const trace = (step, info = {}) => console.log(`[DniVerify ${traceId}] ${step}`, JSON.stringify(info));
+    // Checklist returned to the client so the tester can see which stage passed or failed.
+    const marks = new Map();
+    const mark = (id, status, detail = null) => marks.set(id, { status, detail });
+    const finish = (status, options = {}) => {
+      trace('7. resultado', { status, reason: options.reason ?? null });
+      const steps = VERIFICATION_STEPS.map(({ id, label }) => ({ id, label, ...(marks.get(id) ?? { status: 'skipped', detail: null }) }));
+      return this.verificationResult(status, { ...options, steps });
+    };
+    mark('imagen', imageBuffer?.length ? 'ok' : 'fail', imageBuffer?.length ? null : 'No llegó la foto del DNI');
+    trace('1. solicitud', {
+      imageBytes: imageBuffer?.length ?? 0, pdf417Recibido: Boolean(pdf417Raw), pdf417Largo: pdf417Raw?.length ?? 0,
+      conRefepsDni: Boolean(refepsDni), jurisdiccion: jurisdiccion ?? null,
+    });
+
     const pdf417Data = pdf417Raw && typeof this.DniExtractionService.parsePdf417 === 'function'
       ? this.DniExtractionService.parsePdf417(pdf417Raw)
       : pdf417Raw && typeof this.DniExtractionService.parseText === 'function'
         ? this.DniExtractionService.parseText(pdf417Raw, 100)
         : null;
-    const ocrData = pdf417Data?.success && pdf417Data.fechaVencimiento
-      ? { success: true, fechaVencimiento: pdf417Data.fechaVencimiento, confidence: pdf417Data.confidence }
-      : await this.DniExtractionService.extractAsync(imageBuffer, { expiryOnly: Boolean(pdf417Data?.success) });
-    const dniData = pdf417Data?.success
-      ? { ...pdf417Data, fechaVencimiento: ocrData.fechaVencimiento, success: ocrData.success, reason: ocrData.reason, expiryConfidence: ocrData.confidence }
-      : ocrData;
-    if (!dniData.success) {
-      return this.verificationResult(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: dniData.reason, dniData });
+    if (!pdf417Raw) {
+      trace('2. PDF417 no enviado por el cliente: se usara OCR');
+      mark('codigo_barras', 'fail', 'La cámara no detectó el código de barras; se usó OCR');
+    } else if (pdf417Data?.success) {
+      mark('codigo_barras', 'ok', pdf417Data.layout === 'modern' ? 'Formato moderno' : 'Formato anterior');
+      trace('2. PDF417 OK', {
+        formato: pdf417Data.layout ?? null,
+        vencimientoEstimado: pdf417Data.fechaVencimientoEstimada, expiryReason: pdf417Data.expiryReason ?? null,
+      });
+    } else {
+      // diagnostics.shape is the layout with letters/digits masked, so it has no personal data.
+      trace('2. PDF417 RECHAZADO: se usara OCR', { reason: pdf417Data?.reason, ...(pdf417Data?.diagnostics ?? {}) });
+      mark('codigo_barras', 'fail', 'Se leyó el código pero no tiene el formato de un DNI; se usó OCR');
     }
+
+    let dniData = pdf417Data;
+    if (!pdf417Data?.success) {
+      // A successful PDF417 read is authoritative: OCR only runs when the barcode is missing or unreadable.
+      trace('3. OCR iniciado');
+      const started = Date.now();
+      dniData = await this.DniExtractionService.extractAsync(imageBuffer);
+      mark('ocr', dniData.success ? 'ok' : 'fail', dniData.success ? null : `No se pudo leer el texto (${dniData.reason}${dniData.confidence != null ? `, confianza ${Math.round(dniData.confidence)}%` : ''})`);
+      trace('3. OCR terminado', {
+        ms: Date.now() - started, success: dniData.success, reason: dniData.reason ?? null, confianza: dniData.confidence ?? null,
+        camposDetectados: dniData.detectedFields ?? [], conVencimiento: Boolean(dniData.fechaVencimiento),
+      });
+    }
+    mark('datos', dniData.success ? 'ok' : 'fail', dniData.success ? (pdf417Data?.success ? 'Leídos del código de barras' : 'Leídos por OCR') : null);
+    if (!dniData.success) return finish(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: dniData.reason, dniData });
     if (!dniData.fechaVencimiento) {
-      return this.verificationResult(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: 'UNVERIFIABLE_EXPIRY', dniData });
+      mark('vigencia', 'fail', 'No se pudo determinar la fecha de vencimiento');
+      trace('4. sin vencimiento', { expiryReason: dniData.expiryReason ?? null });
+      return finish(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: dniData.expiryReason || 'UNVERIFIABLE_EXPIRY', dniData });
     }
-    if (this.isExpired(dniData.fechaVencimiento)) {
-      return this.verificationResult(VERIFICATION_STATUS.EXPIRED_DOCUMENT, { reason: 'EXPIRED_DOCUMENT', dniData });
-    }
-    if (!namesMatch(dniData.nombre, identity.nombre) || !namesMatch(dniData.apellido, identity.apellido)) {
-      return this.verificationResult(VERIFICATION_STATUS.DATA_MISMATCH, { reason: 'DECLARED_IDENTITY_MISMATCH', dniData });
-    }
-    if (refepsDni && normalizeDocument(dniData.dni) !== normalizeDocument(refepsDni)) {
-      return this.verificationResult(VERIFICATION_STATUS.DATA_MISMATCH, { reason: 'DOCUMENT_MISMATCH', dniData });
+    const expired = this.isExpired(dniData.fechaVencimiento);
+    mark('vigencia', expired ? 'fail' : 'ok', expired ? 'El DNI ya expiró' : null);
+    trace('4. vigencia', { vencido: expired, estimado: Boolean(dniData.fechaVencimientoEstimada), base: dniData.expiryBasis ?? null });
+    if (expired) return finish(VERIFICATION_STATUS.EXPIRED_DOCUMENT, { reason: 'EXPIRED_DOCUMENT', dniData });
+
+    const nombreOk = namesMatch(dniData.nombre, identity.nombre);
+    const apellidoOk = namesMatch(dniData.apellido, identity.apellido);
+    mark('identidad', nombreOk && apellidoOk ? 'ok' : 'fail', nombreOk && apellidoOk ? null : 'El nombre del DNI no coincide con el declarado');
+    trace('5. nombre vs declarado', { nombreOk, apellidoOk });
+    if (!nombreOk || !apellidoOk) return finish(VERIFICATION_STATUS.DATA_MISMATCH, { reason: 'DECLARED_IDENTITY_MISMATCH', dniData });
+    if (refepsDni) {
+      const documentOk = normalizeDocument(dniData.dni) === normalizeDocument(refepsDni);
+      mark('documento', documentOk ? 'ok' : 'fail', documentOk ? null : 'El número de DNI no coincide con el del registro profesional');
+      trace('5. DNI vs REFEPS', { documentOk });
+      if (!documentOk) return finish(VERIFICATION_STATUS.DATA_MISMATCH, { reason: 'DOCUMENT_MISMATCH', dniData });
     }
 
     let refeps;
@@ -111,25 +169,34 @@ export default class ValidacionProfesionalService {
           ...(codigo ? { codigo } : {}),
           ...(profesion ? { profesion } : {}),
         };
+        trace('6. REFEPS obtenerPerfil');
         const official = await this.RefepsProvider.obtenerPerfil(selection);
         refeps = { found: true, results: [official] };
       } else {
+        trace('6. REFEPS buscarPorMatricula');
         refeps = await this.RefepsProvider.buscarPorMatricula(numeroMatricula);
       }
     } catch (error) {
       const reason = error.code || 'REFEPS_ERROR';
-      return this.verificationResult(VERIFICATION_STATUS.VERIFICATION_ERROR, { reason, dniData });
+      mark('refeps', 'fail', `No se pudo consultar el registro profesional (${reason})`);
+      console.error('[DniVerify] REFEPS fallo:', reason, error.message);
+      return finish(VERIFICATION_STATUS.VERIFICATION_ERROR, { reason, dniData });
     }
-    if (!refeps.found) return this.verificationResult(VERIFICATION_STATUS.NOT_FOUND, { dniData });
+    mark('refeps', refeps.found ? 'ok' : 'fail', refeps.found ? null : 'La matrícula no figura en el registro');
+    trace('6. REFEPS respuesta', { found: Boolean(refeps.found), resultados: refeps.results?.length ?? 0 });
+    if (!refeps.found) return finish(VERIFICATION_STATUS.NOT_FOUND, { dniData });
 
     const match = this.IdentityMatcher.match({ dniData, numeroMatricula, refepsResults: refeps.results });
-    if (match.ambiguous) return this.verificationResult(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: 'AMBIGUOUS_RESULTS', dniData });
-    if (!match.matched) return this.verificationResult(VERIFICATION_STATUS.DATA_MISMATCH, { dniData });
+    mark('matricula', match.matched && match.active && !match.ambiguous ? 'ok' : 'fail',
+      match.ambiguous ? 'Hay más de un resultado posible' : !match.matched ? 'Los datos no coinciden con el registro' : !match.active ? 'La matrícula no está habilitada' : null);
+    trace('6. matcher', { matched: Boolean(match.matched), ambiguous: Boolean(match.ambiguous), active: Boolean(match.active) });
+    if (match.ambiguous) return finish(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: 'AMBIGUOUS_RESULTS', dniData });
+    if (!match.matched) return finish(VERIFICATION_STATUS.DATA_MISMATCH, { dniData });
     if (!match.active) {
-      return this.verificationResult(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: 'INACTIVE_LICENSE', result: match.result, dniData });
+      return finish(VERIFICATION_STATUS.MANUAL_REVIEW, { reason: 'INACTIVE_LICENSE', result: match.result, dniData });
     }
 
-    return this.verificationResult(VERIFICATION_STATUS.VERIFIED, { result: match.result, dniData });
+    return finish(VERIFICATION_STATUS.VERIFIED, { result: match.result, dniData });
   };
 
   verifyRegistrationAsync = async ({ idUsuario, verifiedResult }) => {
@@ -161,7 +228,7 @@ export default class ValidacionProfesionalService {
     return value <= today;
   }
 
-  verificationResult(status, { reason = null, result = null, dniData = null } = {}) {
+  verificationResult(status, { reason = null, result = null, dniData = null, steps = undefined } = {}) {
     const reviewStatus = [VERIFICATION_STATUS.VERIFICATION_ERROR, VERIFICATION_STATUS.NOT_FOUND].includes(status)
       ? VERIFICATION_STATUS.MANUAL_REVIEW
       : status;
@@ -177,10 +244,13 @@ export default class ValidacionProfesionalService {
         dni: dniData.dni,
         nombreCompleto: dniData.nombreCompleto,
         fechaVencimiento: dniData.fechaVencimiento,
+        fechaVencimientoEstimada: Boolean(dniData.fechaVencimientoEstimada),
+        fuente: dniData.source === 'PDF417' ? 'PDF417' : 'OCR',
         confidence: dniData.confidence,
         structureScore: dniData.structureScore,
         detectedFields: dniData.detectedFields,
       } : null,
+      ...(steps ? { steps } : {}),
       messageCode: this.messageCode(status),
     };
   }

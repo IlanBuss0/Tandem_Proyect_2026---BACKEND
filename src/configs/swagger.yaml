@@ -1626,6 +1626,57 @@ paths:
           description: 'Actividad completada'
         '403':
           description: 'No autorizado para completar la asignación'
+  '/actividades-asignadas/{id}/ayuda':
+    post:
+      summary: 'Avisar a los tutores activos que el perteneciente necesita ayuda en una actividad'
+      tags:
+        - 'Actividades y Seguimiento'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo, paso]
+              properties:
+                motivo:
+                  type: string
+                  enum: [ayuda, no_entiende, pausa]
+                paso:
+                  type: integer
+                  minimum: 1
+                totalPasos:
+                  type: integer
+                  minimum: 1
+                pasoTexto:
+                  type: string
+                  maxLength: 200
+      responses:
+        '200':
+          description: 'Tutores avisados (repetido=true si ya se aviso hace menos de 60 s)'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  avisados:
+                    type: array
+                    items:
+                      type: string
+                  repetido:
+                    type: boolean
+        '400':
+          description: 'Motivo o paso invalido'
+        '403':
+          description: 'Quien llama no es el perteneciente de la actividad'
+        '404':
+          description: 'Actividad asignada no encontrada'
   /actividades-personalizadas:
     get:
       summary: 'Listar actividades-personalizadas'
