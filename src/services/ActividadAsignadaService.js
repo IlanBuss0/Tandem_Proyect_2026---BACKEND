@@ -250,7 +250,8 @@ export default class ActividadAsignadaService {
       origen: 'perteneciente',
     }).catch(() => {});
 
-    await cacheService.set(cacheKey, avisados, HELP_CACHE_TTL_SECONDS);
+    // Sin avisados no se cachea: "Probar de nuevo" tiene que volver a intentar.
+    if (avisados.length > 0) await cacheService.set(cacheKey, avisados, HELP_CACHE_TTL_SECONDS);
     return { avisados, repetido: false };
   };
 

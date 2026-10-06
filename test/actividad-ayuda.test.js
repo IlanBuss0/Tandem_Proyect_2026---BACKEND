@@ -116,3 +116,16 @@ test('requestHelpAsync no se rompe si el registro de uso falla', async () => {
   service.UsageEventService = { logAsync: async () => { throw new Error('boom'); } };
   assert.deepEqual(await service.requestHelpAsync(9, 7, body), { avisados: ['Laura'], repetido: false });
 });
+
+test('requestHelpAsync: si no se avisó a nadie no cachea y un segundo pedido vuelve a intentar', async () => {
+  const { service, calls } = setup({ tutores: [] });
+  assert.deepEqual(await service.requestHelpAsync(9, 7, body), { avisados: [], repetido: false });
+  assert.deepEqual(await service.requestHelpAsync(9, 7, body), { avisados: [], repetido: false });
+  assert.equal(calls.tutorQueries.length, 2);
+
+  const fails = setup();
+  fails.service.NotificationProducerService = { createAsync: async () => 0 };
+  assert.equal((await fails.service.requestHelpAsync(9, 7, body)).repetido, false);
+  assert.equal((await fails.service.requestHelpAsync(9, 7, body)).repetido, false);
+  assert.equal(fails.calls.tutorQueries.length, 2);
+});
