@@ -45,6 +45,30 @@ export default class VinculoTutorPertenecienteRepository {
     return await BD.queryOne(sql, [id]);
   };
 
+  // Tutores con vinculo activo: mismas condiciones que
+  // AuthorizationRepository.isTutorActivoForPerteneciente.
+  getActiveTutorUsersAsync = async (idPerteneciente) => {
+    console.log(`VinculoTutorPertenecienteRepository.getActiveTutorUsersAsync(${idPerteneciente})`);
+
+    const sql = `
+      SELECT DISTINCT ut.id AS id_usuario, ut.nombre
+      FROM vinculos_tutor_pertenecientes vtp
+      INNER JOIN estados_vinculos ev ON ev.id = vtp.id_estado_vinculo
+      INNER JOIN tutores t ON t.id = vtp.id_tutor
+      INNER JOIN usuarios ut ON ut.id = t.id_usuario
+      INNER JOIN pertenecientes p ON p.id = vtp.id_perteneciente
+      INNER JOIN usuarios up ON up.id = p.id_usuario
+      WHERE vtp.id_perteneciente = $1
+        AND vtp.fecha_fin IS NULL
+        AND ut.activo = true
+        AND up.activo = true
+        AND LOWER(ev.nombre) IN ('activo', 'activa', 'aprobado', 'aprobada', 'aceptado', 'aceptada')
+      ORDER BY ut.id
+    `;
+
+    return await BD.query(sql, [idPerteneciente]);
+  };
+
   getByPertenecienteIdAsync = async (idPerteneciente) => {
     console.log(`VinculoTutorPertenecienteRepository.getByPertenecienteIdAsync(${idPerteneciente})`);
 
