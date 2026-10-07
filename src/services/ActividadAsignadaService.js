@@ -246,7 +246,16 @@ export default class ActividadAsignadaService {
       tipoEvento: USAGE_EVENT_TYPES.AYUDA_PEDIDA,
       entidadTipo: 'actividad_asignada',
       entidadId: String(numericId),
-      valor: { motivo, paso: numericPaso, avisados: avisados.length },
+      // titulo y pasoTexto quedan guardados en el evento: "Donde se traba" los
+      // lee de ahi sin consultar la actividad, y el historial no cambia si
+      // despues la editan.
+      valor: {
+        motivo,
+        paso: numericPaso,
+        avisados: avisados.length,
+        ...(actividad?.titulo ? { titulo: titulo.slice(0, 200) } : {}),
+        ...(cleanPasoTexto ? { pasoTexto: cleanPasoTexto } : {}),
+      },
       origen: 'perteneciente',
     }).catch(() => {});
 

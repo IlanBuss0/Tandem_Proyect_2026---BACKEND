@@ -12,6 +12,7 @@ import { buildVocabularyReport } from '../modules/usage/vocabulary-report.js';
 import { USAGE_EVENT_TYPES } from '../modules/usage/event-types.js';
 import { parseEmotionsFromConfigs } from '../modules/usage/config-parsing.js';
 import { detectEventTypePatterns, evaluateAnticipationSupport } from '../modules/usage/pattern-detection.js';
+import { parseHelpDaysParam } from '../modules/usage/help-spots.js';
 import { buildDailyEvolutionReport, buildEvolutionReport, parseDaysParam, parseWeeksParam } from '../modules/usage/evolution.js';
 
 const router = Router();
@@ -169,6 +170,25 @@ router.get('/usuario/:idUsuario/evolucion-diaria', authMiddleware, async (req, r
 
     const events = await getEvolutionEvents(idUsuario, days);
     res.status(StatusCodes.OK).json(buildDailyEvolutionReport(events, days));
+  } catch (error) {
+    res.status(error.statusCode ?? StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
+  }
+});
+
+// "Donde se traba": pasos donde mas pidio ayuda en los ultimos `dias` (30 por
+// defecto, hasta 90). Solo cuenta lo que paso. Mismo guard de lectura que el
+// resto de los endpoints de usuario.
+router.get('/usuario/:idUsuario/ayudas', authMiddleware, async (req, res, next) => {
+  try {
+    const idUsuario = parseInt(req.params.idUsuario, 10);
+    await AuthorizationService.assertCanReadUsuarioConfig(req.user.id, idUsuario);
+
+    const dias = parseHelpDaysParam(req.query.dias);
+    if (dias === null) {
+      return res.status(StatusCodes.BAD_REQUEST).send('Error: el parámetro dias debe ser un entero entre 1 y 90.');
+    }
+
+    res.status(StatusCodes.OK).json(await usageEventService.getHelpSpotsAsync(idUsuario, dias));
   } catch (error) {
     res.status(error.statusCode ?? StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
   }

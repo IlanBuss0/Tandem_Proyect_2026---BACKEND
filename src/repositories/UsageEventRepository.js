@@ -90,6 +90,25 @@ export default class UsageEventRepository {
     return await BD.query(sql, [idUsuario, tipos, desde, Math.min(Number(limit) || 5000, 5000)]);
   };
 
+  // Pedidos de ayuda (actividades) y usos del boton "No puedo hablar" desde
+  // `desde`. Filtra en SQL porque tarjeta_autonomia_usada tiene muchas otras
+  // entidades que no son pedidos de ayuda.
+  getHelpEventsSinceAsync = async (idUsuario, desde, limit = 5000) => {
+    const sql = `
+      SELECT id, id_usuario, tipo_evento, entidad_tipo, entidad_id, valor, ocurrido_en
+      FROM eventos_uso
+      WHERE id_usuario = $1
+        AND ocurrido_en >= $2
+        AND (
+          tipo_evento = 'ayuda_pedida'
+          OR (tipo_evento = 'tarjeta_autonomia_usada' AND entidad_tipo = 'modo_no_puedo_hablar')
+        )
+      ORDER BY ocurrido_en DESC
+      LIMIT $3
+    `;
+    return await BD.query(sql, [idUsuario, desde, Math.min(Number(limit) || 5000, 5000)]);
+  };
+
   existsForUsuarioAndTimestampAsync = async (idUsuario, tipoEvento, ocurrioEn) => {
     const row = await BD.queryOne(
       `SELECT id FROM eventos_uso WHERE id_usuario = $1 AND tipo_evento = $2 AND ocurrido_en = $3 LIMIT 1`,
