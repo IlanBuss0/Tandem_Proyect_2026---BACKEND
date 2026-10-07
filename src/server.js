@@ -17,6 +17,7 @@ import ActividadPersonalizadaController from './controllers/ActividadPersonaliza
 import ActividadAsignadaController from './controllers/ActividadAsignadaController.js';
 import AyudaController from './controllers/AyudaController.js';
 import TarjetaAyudaController, { publicTarjetaAyudaRouter } from './controllers/TarjetaAyudaController.js';
+import DiagnosticoIpController from './controllers/DiagnosticoIpController.js';
 import FavoritoActividadController from './controllers/FavoritoActividadController.js';
 import CalificacionActividadController from './controllers/CalificacionActividadController.js';
 import PictogramaController from './controllers/PictogramaController.js';
@@ -101,6 +102,7 @@ import { errorMiddleware } from './middlewares/error.middleware.js';
 import { authRateLimiter, inviteRateLimiter, publicTarjetaRateLimiter, refreshRateLimiter, resendVerificationRateLimiter, setupRedisRateLimit } from './middlewares/rate-limit.middleware.js';
 import { envConfig, validateEnvConfig } from './configs/env.config.js';
 import { corsOptions } from './configs/cors.config.js';
+import { resolveTrustProxy } from './configs/trust-proxy.config.js';
 import BD from './db/BD.js';
 import { setupRealtime } from './realtime/socket.js';
 import { startNotificationWorker } from './workers/notificationWorker.js';
@@ -114,6 +116,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+// Antes que cualquier middleware: los rate limiters usan req.ip.
+app.set('trust proxy', resolveTrustProxy());
 const httpServer = createServer(app);
 
 validateEnvConfig();
@@ -182,6 +186,8 @@ app.use('/api', verifiedAccountMiddleware);
 app.use('/api', csrfMiddleware);
 app.use('/api/usuarios', UsuarioController);
 app.use('/api/tarjeta-ayuda', TarjetaAyudaController);
+// TEMPORAL (admin): borrar despues de verificar la IP real en produccion.
+app.use('/api/admin/diagnostico-ip', DiagnosticoIpController);
 app.use('/api/pertenecientes', PertenecienteController);
 app.use('/api/tutores', TutorController);
 app.use('/api/profesionales', ProfesionalController);

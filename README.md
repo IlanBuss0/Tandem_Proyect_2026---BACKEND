@@ -10,6 +10,16 @@
 
 Orden de despliegue: configurar y respaldar `DATA_ENCRYPTION_KEY`, desplegar el backend compatible y recien despues ejecutar `security:encrypt-sensitive`. La clave debe guardarse en el gestor de secretos del entorno; no se debe commitear ni perder.
 
+## IP real detras de proxies (`TRUST_PROXY_HOPS`)
+
+Los rate limiters (login, refresh, invitaciones, recuperacion de contrasena, tarjeta de ayuda publica) cuentan por `req.ip`. Detras de un proxy esa IP es la del proxy, asi que `server.js` configura `trust proxy` con `TRUST_PROXY_HOPS` (entero >= 0, nunca `true`):
+
+- `1` si el frontend llama directo a Railway.
+- `2` si pasa por el rewrite `/api` de Vercel (Vercel -> Railway -> app).
+- Sin definir: `1` en produccion y desactivado en desarrollo. `0` = no confiar en ningun proxy.
+
+No pongas mas saltos de los reales: un visitante podria falsificar su IP con `X-Forwarded-For`. Para verificar el valor en produccion, un admin con sesion puede abrir `GET /api/admin/diagnostico-ip` (endpoint temporal) y comprobar que `ip` es la del visitante.
+
 <p align="center">
   Platform focused on promoting autonomy and everyday independence for people with Autism Spectrum Disorder (ASD / TEA).
 </p>
