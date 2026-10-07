@@ -1,3 +1,4 @@
+import './helpers/test-env.js';
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
 import { createServer } from 'node:http';
