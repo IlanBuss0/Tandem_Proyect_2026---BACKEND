@@ -69,6 +69,35 @@ export default class VinculoTutorPertenecienteRepository {
     return await BD.query(sql, [idPerteneciente]);
   };
 
+  // Tutores activos con sus datos de contacto, el principal primero. Mismas
+  // condiciones de vinculo activo que getActiveTutorUsersAsync.
+  getActiveTutorContactsAsync = async (idPerteneciente) => {
+    console.log(`VinculoTutorPertenecienteRepository.getActiveTutorContactsAsync(${idPerteneciente})`);
+
+    const sql = `
+      SELECT * FROM (
+        SELECT DISTINCT ON (ut.id)
+          ut.id AS id_usuario, ut.nombre, ut.apellido, t.parentesco,
+          ut.telefono, ut.correo, vtp.es_tutor_principal
+        FROM vinculos_tutor_pertenecientes vtp
+        INNER JOIN estados_vinculos ev ON ev.id = vtp.id_estado_vinculo
+        INNER JOIN tutores t ON t.id = vtp.id_tutor
+        INNER JOIN usuarios ut ON ut.id = t.id_usuario
+        INNER JOIN pertenecientes p ON p.id = vtp.id_perteneciente
+        INNER JOIN usuarios up ON up.id = p.id_usuario
+        WHERE vtp.id_perteneciente = $1
+          AND vtp.fecha_fin IS NULL
+          AND ut.activo = true
+          AND up.activo = true
+          AND LOWER(ev.nombre) IN ('activo', 'activa', 'aprobado', 'aprobada', 'aceptado', 'aceptada')
+        ORDER BY ut.id, vtp.es_tutor_principal DESC
+      ) tutores_activos
+      ORDER BY es_tutor_principal DESC, nombre, id_usuario
+    `;
+
+    return await BD.query(sql, [idPerteneciente]);
+  };
+
   getByPertenecienteIdAsync = async (idPerteneciente) => {
     console.log(`VinculoTutorPertenecienteRepository.getByPertenecienteIdAsync(${idPerteneciente})`);
 
