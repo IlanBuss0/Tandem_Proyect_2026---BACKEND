@@ -6,6 +6,11 @@ import AppError from '../modules/errors/AppError.js';
 // mockData.ts) y las columnas de la tabla (en espanol, ver
 // RoutineRepository.js). El repository no sabe nada del frontend; este
 // service es la unica frontera entre los dos vocabularios.
+// Dia en que se completo un paso: lo decide el frontend (hora local de la
+// persona); aca solo se valida el formato YYYY-MM-DD para no guardar texto libre.
+const COMPLETED_ON_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
+const validCompletedOn = (value) => (typeof value === 'string' && COMPLETED_ON_FORMAT.test(value) ? value : null);
+
 function toDbRoutine(routine) {
   return {
     id: routine.id,
@@ -19,6 +24,7 @@ function toDbRoutine(routine) {
       icono: item.icon || null,
       categoria: item.category || null,
       completado: Boolean(item.completed),
+      completado_fecha: item.completed ? validCompletedOn(item.completedOn) : null,
       reminders: item.reminders,
       id_pictograma: item.pictogramId || null,
       pictograma_url: item.pictogramImageUrl || null,
@@ -43,6 +49,7 @@ function fromDbRoutine(row) {
       icon: item.icono || '⭐',
       category: item.categoria || 'mañana',
       completed: Boolean(item.completado),
+      completedOn: item.completado_fecha || undefined,
       reminders: item.reminders || undefined,
       pictogramId: item.id_pictograma || undefined,
       pictogramImageUrl: item.pictograma_url || undefined,
@@ -61,6 +68,7 @@ const ITEM_PATCH_FIELD_MAP = {
   pictogramId: 'id_pictograma', pictogramImageUrl: 'pictograma_url', pictogramName: 'pictograma_nombre',
   pictogramConfidence: 'pictograma_confianza', pictogramResolvedFor: 'pictograma_resuelto_para',
   pictogramLabel: 'pictograma_label', reminders: 'reminders',
+  completedOn: 'completado_fecha',
 };
 
 export default class RoutineService {
@@ -95,7 +103,7 @@ export default class RoutineService {
     const dbPatch = {};
     for (const [field, column] of Object.entries(ITEM_PATCH_FIELD_MAP)) {
       if (patch[field] === undefined) continue;
-      dbPatch[column] = patch[field];
+      dbPatch[column] = field === 'completedOn' ? validCompletedOn(patch[field]) : patch[field];
     }
     await this.RoutineRepository.updateItemAsync(itemId, dbPatch);
   };

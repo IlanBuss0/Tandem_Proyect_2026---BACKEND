@@ -6,7 +6,7 @@ import BD from '../db/BD.js';
 // entero cada vez que se tocaba un solo paso. Mismo patron que
 // UsageEventRepository.js / CalendarEventRepository.js.
 const ITEM_COLUMNS = `
-  id, id_rutina, orden, hora, titulo, icono, categoria, completado, reminders,
+  id, id_rutina, orden, hora, titulo, icono, categoria, completado, completado_fecha, reminders,
   id_pictograma, pictograma_url, pictograma_nombre, pictograma_confianza,
   pictograma_resuelto_para, pictograma_label
 `;
@@ -43,6 +43,8 @@ export default class RoutineRepository {
         pictograma_label TEXT
       )
     `);
+    // Dia (YYYY-MM-DD, hora local de la persona) en que se completo el paso.
+    await BD.execute(`ALTER TABLE rutina_items ADD COLUMN IF NOT EXISTS completado_fecha TEXT`);
     await BD.execute(`CREATE INDEX IF NOT EXISTS idx_rutinas_usuario ON rutinas (id_usuario)`);
     await BD.execute(`CREATE INDEX IF NOT EXISTS idx_rutina_items_rutina ON rutina_items (id_rutina, orden)`);
   };
@@ -104,19 +106,20 @@ export default class RoutineRepository {
 
       const itemValues = [];
       const itemPlaceholders = flatItems.map(({ item, idRutina, orden }, index) => {
-        const base = index * 15;
+        const base = index * 16;
         itemValues.push(
           item.id, idRutina, orden, item.hora, item.titulo, item.icono || null,
-          item.categoria || null, Boolean(item.completado), item.reminders ? JSON.stringify(item.reminders) : null,
+          item.categoria || null, Boolean(item.completado), item.completado_fecha || null,
+          item.reminders ? JSON.stringify(item.reminders) : null,
           item.id_pictograma || null, item.pictograma_url || null, item.pictograma_nombre || null,
           item.pictograma_confianza || null, item.pictograma_resuelto_para || null, item.pictograma_label || null,
         );
-        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, $${base + 15})`;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, $${base + 15}, $${base + 16})`;
       });
       await client.query(
         `
           INSERT INTO rutina_items (
-            id, id_rutina, orden, hora, titulo, icono, categoria, completado, reminders,
+            id, id_rutina, orden, hora, titulo, icono, categoria, completado, completado_fecha, reminders,
             id_pictograma, pictograma_url, pictograma_nombre, pictograma_confianza,
             pictograma_resuelto_para, pictograma_label
           ) VALUES ${itemPlaceholders.join(', ')}
@@ -138,7 +141,7 @@ export default class RoutineRepository {
     const fields = [];
     const values = [];
     const columnByField = {
-      hora: 'hora', titulo: 'titulo', icono: 'icono', categoria: 'categoria', completado: 'completado',
+      hora: 'hora', titulo: 'titulo', icono: 'icono', categoria: 'categoria', completado: 'completado', completado_fecha: 'completado_fecha',
       id_pictograma: 'id_pictograma', pictograma_url: 'pictograma_url', pictograma_nombre: 'pictograma_nombre',
       pictograma_confianza: 'pictograma_confianza', pictograma_resuelto_para: 'pictograma_resuelto_para',
       pictograma_label: 'pictograma_label',
