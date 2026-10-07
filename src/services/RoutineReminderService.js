@@ -54,9 +54,13 @@ export function buildReminderEntries(routines, requestedTimeZone, now = new Date
   const entries = [];
   for (const routine of routines) {
     for (const item of Array.isArray(routine.items) ? routine.items : []) {
-      if (item.completed || !/^\d{2}:\d{2}$/.test(String(item.time))) continue;
+      if (!/^\d{2}:\d{2}$/.test(String(item.time))) continue;
+      // Un paso completado solo salta el dia en que se completo. Sin
+      // completedOn (dato viejo) no se salta nada: el frontend lo muestra sin completar.
+      const completedOn = item.completed && /^\d{4}-\d{2}-\d{2}$/.test(String(item.completedOn)) ? String(item.completedOn) : null;
       const offsets = [...new Set(Array.isArray(item.reminders) ? item.reminders.map(Number) : [])].filter(offset => OFFSETS.has(offset));
       for (const date of datesFor(routine, timeZone, now)) {
+        if (date === completedOn) continue;
         const occurrenceAt = localDateTimeToUtc(date, item.time, timeZone);
         for (const offsetMinutes of offsets) {
           const scheduledAt = new Date(occurrenceAt.getTime() + offsetMinutes * 60_000);
