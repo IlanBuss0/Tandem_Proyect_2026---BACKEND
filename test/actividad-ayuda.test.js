@@ -15,16 +15,16 @@ function setup({ tutores = [{ id_usuario: 20, nombre: 'Laura Gomez' }], context 
 
   const service = new ActividadAsignadaService();
   service.ActividadAsignadaRepository = { getByIdAsync: async (id) => (Number(id) === 9 ? asignada : null) };
-  service.VinculoTutorPertenecienteRepository = {
+  service.HelpAlertService.VinculoTutorPertenecienteRepository = {
     getActiveTutorUsersAsync: async (idPerteneciente) => { calls.tutorQueries.push(idPerteneciente); return tutores; },
   };
   service.ActividadRepository = { getByIdAsync: async () => ({ titulo: 'Lavarse los dientes' }) };
   service.ActividadPersonalizadaRepository = { getByIdAsync: async () => ({ titulo: 'Personalizada' }) };
   service.UsuarioRepository = { getByIdAsync: async () => ({ nombre: 'Mateo Perez' }) };
-  service.NotificationProducerService = {
+  service.HelpAlertService.NotificationProducerService = {
     createAsync: async (n) => { calls.notifications.push(n); return calls.notifications.length; },
   };
-  service.UsageEventService = { logAsync: async (e) => { calls.events.push(e); return 1; } };
+  service.HelpAlertService.UsageEventService = { logAsync: async (e) => { calls.events.push(e); return 1; } };
   return { service, calls };
 }
 
@@ -46,7 +46,7 @@ test('requestHelpAsync avisa a los tutores activos con el texto correcto y regis
   assert.equal(n.title, 'Mateo no entiende un paso');
   assert.equal(n.body, 'En «Lavarse los dientes», paso 2 de 5: Poné pasta en el cepillo');
   assert.equal(calls.events[0].tipoEvento, 'ayuda_pedida');
-  assert.deepEqual(calls.events[0].valor, { motivo: 'no_entiende', paso: 2, avisados: 1, titulo: 'Lavarse los dientes', pasoTexto: 'Poné pasta en el cepillo' });
+  assert.deepEqual(calls.events[0].valor, { contexto: 'actividad', motivo: 'no_entiende', paso: 2, avisados: 1, titulo: 'Lavarse los dientes', pasoTexto: 'Poné pasta en el cepillo' });
 });
 
 test('requestHelpAsync arma los textos sin totalPasos / pasoTexto y para pausa', async () => {
@@ -113,7 +113,7 @@ test('requestHelpAsync: el segundo pedido igual dentro de 60 s es repetido y no 
 
 test('requestHelpAsync no se rompe si el registro de uso falla', async () => {
   const { service } = setup();
-  service.UsageEventService = { logAsync: async () => { throw new Error('boom'); } };
+  service.HelpAlertService.UsageEventService = { logAsync: async () => { throw new Error('boom'); } };
   assert.deepEqual(await service.requestHelpAsync(9, 7, body), { avisados: ['Laura'], repetido: false });
 });
 
@@ -124,7 +124,7 @@ test('requestHelpAsync: si no se avisó a nadie no cachea y un segundo pedido vu
   assert.equal(calls.tutorQueries.length, 2);
 
   const fails = setup();
-  fails.service.NotificationProducerService = { createAsync: async () => 0 };
+  fails.service.HelpAlertService.NotificationProducerService = { createAsync: async () => 0 };
   assert.equal((await fails.service.requestHelpAsync(9, 7, body)).repetido, false);
   assert.equal((await fails.service.requestHelpAsync(9, 7, body)).repetido, false);
   assert.equal(fails.calls.tutorQueries.length, 2);

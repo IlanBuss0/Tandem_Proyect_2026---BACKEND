@@ -6,14 +6,10 @@ import ActividadPersonalizadaRepository from '../repositories/ActividadPersonali
 import AppError from '../modules/errors/AppError.js';
 import AuthorizationService from './AuthorizationService.js';
 import { PERTENECIENTE_PERMISSIONS } from '../modules/security/permissions.constants.js';
-import VinculoTutorPertenecienteRepository from '../repositories/VinculoTutorPertenecienteRepository.js';
 import ActividadRepository from '../repositories/ActividadRepository.js';
 import UsuarioRepository from '../repositories/UsuarioRepository.js';
-import UsageEventService from './UsageEventService.js';
-import { USAGE_EVENT_TYPES } from '../modules/usage/event-types.js';
+import HelpAlertService, { HELP_MOTIVOS, cleanHelpText } from './HelpAlertService.js';
 
-const HELP_MOTIVOS = ['ayuda', 'no_entiende', 'pausa'];
-const HELP_CACHE_TTL_SECONDS = 60;
 const HELP_PASO_TEXTO_MAX = 200;
 
 export default class ActividadAsignadaService {
@@ -23,10 +19,9 @@ export default class ActividadAsignadaService {
     this.PertenecienteRepository = new PertenecienteRepository();
     this.NotificationProducerService = new NotificationProducerService();
     this.ActividadPersonalizadaRepository = new ActividadPersonalizadaRepository();
-    this.VinculoTutorPertenecienteRepository = new VinculoTutorPertenecienteRepository();
     this.ActividadRepository = new ActividadRepository();
     this.UsuarioRepository = new UsuarioRepository();
-    this.UsageEventService = new UsageEventService();
+    this.HelpAlertService = new HelpAlertService();
   }
 
   getAllAsync = async () => {
@@ -188,10 +183,7 @@ export default class ActividadAsignadaService {
         throw new AppError('totalPasos debe ser un entero mayor o igual al paso.', 400);
       }
     }
-    const cleanPasoTexto = typeof pasoTexto === 'string'
-      // eslint-disable-next-line no-control-regex
-      ? pasoTexto.replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, HELP_PASO_TEXTO_MAX).trim()
-      : '';
+    const cleanPasoTexto = cleanHelpText(pasoTexto, HELP_PASO_TEXTO_MAX);
 
     const asignada = await this.ActividadAsignadaRepository.getByIdAsync(numericId);
     if (!asignada) throw new AppError('Actividad asignada no encontrada.', 404);
@@ -202,10 +194,6 @@ export default class ActividadAsignadaService {
     }
 
     const cacheKey = `actividad-ayuda.${numericId}.${idUsuario}.${motivo}`;
-    const cached = await cacheService.get(cacheKey);
-    if (cached) return { avisados: Array.isArray(cached) ? cached : [], repetido: true };
-
-    const tutores = await this.VinculoTutorPertenecienteRepository.getActiveTutorUsersAsync(asignada.id_perteneciente);
 
     const [actividad, usuario] = await Promise.all([
       asignada.id_actividad_personalizada
@@ -225,43 +213,29 @@ export default class ActividadAsignadaService {
     };
     const { title, body } = messages[motivo];
 
-    const avisados = [];
-    for (const tutor of tutores || []) {
-      const notificationId = await this.NotificationProducerService.createAsync({
-        recipientUserId: tutor.id_usuario,
-        actorUserId: Number(idUsuario),
-        contextUserId: Number(idUsuario),
-        typeName: 'Alerta',
-        title,
-        body,
-        referenceType: `activity_help:${motivo}`,
-        referenceId: numericId,
-      });
-      if (notificationId) avisados.push(String(tutor.nombre || '').trim().split(/\s+/)[0]);
-    }
-
-    // Fire-and-forget: logAsync nunca tira, y no se espera su resultado.
-    this.UsageEventService.logAsync({
-      idUsuario: Number(idUsuario),
-      tipoEvento: USAGE_EVENT_TYPES.AYUDA_PEDIDA,
-      entidadTipo: 'actividad_asignada',
-      entidadId: String(numericId),
-      // titulo y pasoTexto quedan guardados en el evento: "Donde se traba" los
-      // lee de ahi sin consultar la actividad, y el historial no cambia si
-      // despues la editan.
-      valor: {
-        motivo,
-        paso: numericPaso,
-        avisados: avisados.length,
-        ...(actividad?.titulo ? { titulo: titulo.slice(0, 200) } : {}),
-        ...(cleanPasoTexto ? { pasoTexto: cleanPasoTexto } : {}),
+    return await this.HelpAlertService.sendAsync({
+      idUsuario,
+      idPerteneciente: asignada.id_perteneciente,
+      motivo,
+      title,
+      body,
+      cacheKey,
+      referenceId: numericId,
+      usageEvent: {
+        entidadTipo: 'actividad_asignada',
+        entidadId: String(numericId),
+        // titulo y pasoTexto quedan guardados en el evento: "Donde se traba" los
+        // lee de ahi sin consultar la actividad, y el historial no cambia si
+        // despues la editan.
+        valor: {
+          contexto: 'actividad',
+          motivo,
+          paso: numericPaso,
+          ...(actividad?.titulo ? { titulo: titulo.slice(0, 200) } : {}),
+          ...(cleanPasoTexto ? { pasoTexto: cleanPasoTexto } : {}),
+        },
       },
-      origen: 'perteneciente',
-    }).catch(() => {});
-
-    // Sin avisados no se cachea: "Probar de nuevo" tiene que volver a intentar.
-    if (avisados.length > 0) await cacheService.set(cacheKey, avisados, HELP_CACHE_TTL_SECONDS);
-    return { avisados, repetido: false };
+    });
   };
 
   deleteByIdAsync = async (id) => {
