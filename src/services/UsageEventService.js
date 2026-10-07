@@ -1,5 +1,7 @@
 import UsageEventRepository from '../repositories/UsageEventRepository.js';
+import ActividadAsignadaRepository from '../repositories/ActividadAsignadaRepository.js';
 import { validateUsageEvent } from '../modules/usage/event-types.js';
+import { buildHelpSpotsReport } from '../modules/usage/help-spots.js';
 
 // Unica responsabilidad: orquestar el guardado de un evento de uso.
 // Fire-and-forget por diseno (misma disciplina que NotificationProducerService):
@@ -9,6 +11,7 @@ import { validateUsageEvent } from '../modules/usage/event-types.js';
 export default class UsageEventService {
   constructor() {
     this.UsageEventRepository = new UsageEventRepository();
+    this.ActividadAsignadaRepository = new ActividadAsignadaRepository();
     this.schemaReady = null;
   }
 
@@ -27,9 +30,28 @@ export default class UsageEventService {
       if (event.valor?.executionId) return await this.UsageEventRepository.createIdempotentAsync(event, event.valor.executionId);
       return await this.UsageEventRepository.createAsync(event);
     } catch (error) {
-      console.error('[UsageEvent] no se pudo registrar', { event, error: error.message });
+      // No se vuelca el evento: su valor puede incluir texto de la persona.
+      console.error('[UsageEvent] no se pudo registrar', { tipoEvento: event?.tipoEvento, error: error.message });
       return null;
     }
+  }
+
+  // "Donde se traba": pasos donde mas pidio ayuda en los ultimos `dias`.
+  async getHelpSpotsAsync(idUsuario, dias) {
+    await this.ensureSchemaAsync();
+    const desde = new Date(Date.now() - dias * 86400000).toISOString();
+    const events = await this.UsageEventRepository.getHelpEventsSinceAsync(idUsuario, desde);
+
+    // Los eventos nuevos traen titulo y pasoTexto; solo los anteriores a eso
+    // necesitan leer la actividad.
+    const asignadaIds = [...new Set(events
+      .filter((event) => (!event.valor?.contexto || event.valor.contexto === 'actividad') && !event.valor?.titulo)
+      .map((event) => Number(event.entidad_id))
+      .filter((id) => Number.isInteger(id) && id > 0))];
+    const rows = await this.ActividadAsignadaRepository.getHelpContextByIdsAsync(asignadaIds, idUsuario);
+    const contextById = new Map((rows || []).map((row) => [Number(row.id), row]));
+
+    return buildHelpSpotsReport(events, contextById, { dias });
   }
 
   async logManyAsync(events) {

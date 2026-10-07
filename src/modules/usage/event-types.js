@@ -21,6 +21,9 @@ export const USAGE_EVENT_TYPES = Object.freeze({
   // se vea, no un motor de aprobaciones completo.
   PEDIDO_DIA: 'pedido_dia',
   RUTINA_SECUENCIA_COMPLETADA: 'rutina_secuencia_completada',
+  // El perteneciente avisa a sus tutores que se trabo en una actividad
+  // asignada (ayuda, no entiende un paso o pausa). Alimenta Evolucion.
+  AYUDA_PEDIDA: 'ayuda_pedida',
 });
 
 const VALID_TYPES = new Set(Object.values(USAGE_EVENT_TYPES));

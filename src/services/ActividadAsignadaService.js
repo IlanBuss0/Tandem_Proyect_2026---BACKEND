@@ -6,6 +6,11 @@ import ActividadPersonalizadaRepository from '../repositories/ActividadPersonali
 import AppError from '../modules/errors/AppError.js';
 import AuthorizationService from './AuthorizationService.js';
 import { PERTENECIENTE_PERMISSIONS } from '../modules/security/permissions.constants.js';
+import ActividadRepository from '../repositories/ActividadRepository.js';
+import UsuarioRepository from '../repositories/UsuarioRepository.js';
+import HelpAlertService, { HELP_MOTIVOS, cleanHelpText } from './HelpAlertService.js';
+
+const HELP_PASO_TEXTO_MAX = 200;
 
 export default class ActividadAsignadaService {
   constructor() {
@@ -14,6 +19,9 @@ export default class ActividadAsignadaService {
     this.PertenecienteRepository = new PertenecienteRepository();
     this.NotificationProducerService = new NotificationProducerService();
     this.ActividadPersonalizadaRepository = new ActividadPersonalizadaRepository();
+    this.ActividadRepository = new ActividadRepository();
+    this.UsuarioRepository = new UsuarioRepository();
+    this.HelpAlertService = new HelpAlertService();
   }
 
   getAllAsync = async () => {
@@ -145,15 +153,89 @@ export default class ActividadAsignadaService {
         recipientUserId: previousEntity.id_usuario_asignador,
         actorUserId: Number(idUsuario),
         contextUserId: Number(idUsuario),
-        typeName: 'InformaciÃ³n',
+        typeName: 'Información',
         title: 'Actividad completada',
-        body: 'Se completÃ³ una actividad asignada.',
+        body: 'Se completó una actividad asignada.',
         referenceType: 'activity',
         referenceId: numericId,
       });
     }
 
     return completed;
+  };
+
+  requestHelpAsync = async (id, idUsuario, { motivo, paso, totalPasos, pasoTexto } = {}) => {
+    const numericId = Number(id);
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      throw new AppError('El id de la actividad asignada es invalido.', 400);
+    }
+    if (!HELP_MOTIVOS.includes(motivo)) {
+      throw new AppError('El motivo es invalido.', 400);
+    }
+    const numericPaso = Number(paso);
+    if (typeof paso === 'boolean' || paso === null || paso === '' || !Number.isInteger(numericPaso) || numericPaso < 1) {
+      throw new AppError('El paso debe ser un entero mayor o igual a 1.', 400);
+    }
+    let numericTotal = null;
+    if (totalPasos !== undefined && totalPasos !== null) {
+      numericTotal = Number(totalPasos);
+      if (typeof totalPasos === 'boolean' || totalPasos === '' || !Number.isInteger(numericTotal) || numericTotal < numericPaso) {
+        throw new AppError('totalPasos debe ser un entero mayor o igual al paso.', 400);
+      }
+    }
+    const cleanPasoTexto = cleanHelpText(pasoTexto, HELP_PASO_TEXTO_MAX);
+
+    const asignada = await this.ActividadAsignadaRepository.getByIdAsync(numericId);
+    if (!asignada) throw new AppError('Actividad asignada no encontrada.', 404);
+
+    const context = await AuthorizationService.getUserContext(idUsuario);
+    if (Number(context?.perteneciente?.id) !== Number(asignada.id_perteneciente)) {
+      throw new AppError('Solo el perteneciente asignado puede pedir ayuda en esta actividad.', 403);
+    }
+
+    const cacheKey = `actividad-ayuda.${numericId}.${idUsuario}.${motivo}`;
+
+    const [actividad, usuario] = await Promise.all([
+      asignada.id_actividad_personalizada
+        ? this.ActividadPersonalizadaRepository.getByIdAsync(asignada.id_actividad_personalizada)
+        : this.ActividadRepository.getByIdAsync(asignada.id_actividad),
+      this.UsuarioRepository.getByIdAsync(Number(idUsuario)),
+    ]);
+    const titulo = String(actividad?.titulo || 'la actividad').trim();
+    const nombre = String(usuario?.nombre || '').trim().split(/\s+/)[0] || 'Tu familiar';
+
+    const pasoLabel = numericTotal ? `paso ${numericPaso} de ${numericTotal}` : `paso ${numericPaso}`;
+    const detalle = cleanPasoTexto ? `${pasoLabel}: ${cleanPasoTexto}` : `${pasoLabel}.`;
+    const messages = {
+      ayuda: { title: `${nombre} pidió ayuda`, body: `En «${titulo}», ${detalle}` },
+      no_entiende: { title: `${nombre} no entiende un paso`, body: `En «${titulo}», ${detalle}` },
+      pausa: { title: `${nombre} se está tomando una pausa`, body: `Estaba en «${titulo}», ${pasoLabel}. Quiso que lo sepas.` },
+    };
+    const { title, body } = messages[motivo];
+
+    return await this.HelpAlertService.sendAsync({
+      idUsuario,
+      idPerteneciente: asignada.id_perteneciente,
+      motivo,
+      title,
+      body,
+      cacheKey,
+      referenceId: numericId,
+      usageEvent: {
+        entidadTipo: 'actividad_asignada',
+        entidadId: String(numericId),
+        // titulo y pasoTexto quedan guardados en el evento: "Donde se traba" los
+        // lee de ahi sin consultar la actividad, y el historial no cambia si
+        // despues la editan.
+        valor: {
+          contexto: 'actividad',
+          motivo,
+          paso: numericPaso,
+          ...(actividad?.titulo ? { titulo: titulo.slice(0, 200) } : {}),
+          ...(cleanPasoTexto ? { pasoTexto: cleanPasoTexto } : {}),
+        },
+      },
+    });
   };
 
   deleteByIdAsync = async (id) => {
