@@ -27,6 +27,17 @@ export const inviteRateLimiter = rateLimit({
   message: { error: 'Demasiadas solicitudes. Probá nuevamente en unos minutos.' },
 });
 
+// Pagina publica de la tarjeta de ayuda (sin cuenta): se consulta con un
+// token de 64 hex, asi que el limite frena tanto la fuerza bruta como las
+// recargas en bucle.
+export const publicTarjetaRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados pedidos. Probá nuevamente en un minuto.' },
+});
+
 // Solo para creación de sesiones profesionales: cada request puede crear
 // hasta 52 sesiones de una serie recurrente, así que el límite de requests
 // ya pone un techo razonable al volumen total sin frenar la carga normal
@@ -76,6 +87,7 @@ export async function setupRedisRateLimit() {
     authRateLimiter.store = store;
     refreshRateLimiter.store = store;
     inviteRateLimiter.store = store;
+    publicTarjetaRateLimiter.store = store;
     console.log('[RateLimit] Redis store activado.');
   } catch (error) {
     console.error('[RateLimit] No se pudo activar Redis store, usando memoria:', error.message);
