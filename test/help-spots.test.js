@@ -7,7 +7,16 @@ const help = (entidadId, motivo, paso, ocurridoEn, saved = {}) => ({
   tipo_evento: 'ayuda_pedida', entidad_tipo: 'actividad_asignada', entidad_id: String(entidadId),
   valor: { motivo, paso, avisados: 1, ...saved }, ocurrido_en: ocurridoEn,
 });
-const comms = (ocurridoEn) => ({ tipo_evento: 'tarjeta_autonomia_usada', entidad_tipo: 'modo_no_puedo_hablar', entidad_id: 'p1', valor: { label: 'Agua' }, ocurrido_en: ocurridoEn });
+const comms = (ocurridoEn, motivo = 'ayuda') => ({
+  tipo_evento: 'ayuda_pedida', entidad_tipo: 'comunicador', entidad_id: 'necesito-ayuda',
+  valor: { motivo, contexto: 'comunicador' }, ocurrido_en: ocurridoEn,
+});
+const routine = (titulo, motivo, paso, ocurridoEn, extra = {}) => ({
+  tipo_evento: 'ayuda_pedida', entidad_tipo: 'rutina', entidad_id: 'rutina-local-1',
+  valor: { motivo, paso, titulo, contexto: 'rutina', ...extra }, ocurrido_en: ocurridoEn,
+});
+// Toque viejo de "Si" / "No" / "Estoy bien": ya no es un pedido de ayuda.
+const oldTap = (ocurridoEn) => ({ tipo_evento: 'tarjeta_autonomia_usada', entidad_tipo: 'modo_no_puedo_hablar', entidad_id: 'si', valor: { label: 'Sí' }, ocurrido_en: ocurridoEn });
 const context = new Map([
   [10, { titulo: 'Preparar la mochila', descripcion: 'Texto\nObjetivo: x\nPasos: Mirar el horario | Sacar lo que no necesitás | Agregar cuadernos y útiles\nJuego: {}' }],
   [11, { titulo: 'Ordenar el escritorio', descripcion: 'Pasos: Sacar todo | Limpiar la superficie' }],
@@ -38,9 +47,10 @@ test('buildHelpSpotsReport: agrupa por actividad y paso, cuenta por motivo y ord
   const report = buildHelpSpotsReport(events, context, { dias: 30 });
   assert.equal(report.dias, 30);
   assert.equal(report.total, 5);
-  assert.deepEqual(report.porMotivo, { ayuda: 2, no_entiende: 1, pausa: 1 });
+  assert.deepEqual(report.porMotivo, { ayuda: 3, no_entiende: 1, pausa: 1 });
   assert.equal(report.comunicacion, 1);
-  assert.equal(report.total, report.porMotivo.ayuda + report.porMotivo.no_entiende + report.porMotivo.pausa + report.comunicacion);
+  // total = suma de porMotivo (el comunicador ya esta contado en su motivo)
+  assert.equal(report.total, report.porMotivo.ayuda + report.porMotivo.no_entiende + report.porMotivo.pausa);
   assert.equal(report.lugares.length, 3);
   assert.deepEqual(report.lugares[0], {
     contexto: 'actividad', titulo: 'Preparar la mochila', paso: 3, pasoTexto: 'Agregar cuadernos y útiles',
@@ -119,4 +129,63 @@ test('getHelpSpotsAsync: no consulta actividades si todos los eventos traen titu
   const report = await service.getHelpSpotsAsync(7, 30);
   assert.deepEqual(ids, []);
   assert.equal(report.lugares[0].titulo, 'A');
+});
+
+test('buildHelpSpotsReport: rutinas distintas con el mismo paso no se mezclan; la misma rutina escrita distinto si', () => {
+  const report = buildHelpSpotsReport([
+    routine('Lavarse los dientes', 'ayuda', 2, '2026-10-01T10:00:00Z'),
+    routine('  lavarse  los DIENTES ', 'no_entiende', 2, '2026-10-02T10:00:00Z'),
+    routine('Armar la mochila', 'ayuda', 2, '2026-10-03T10:00:00Z', { pasoTexto: 'Poner los útiles' }),
+  ]);
+  assert.equal(report.lugares.length, 2);
+  const teeth = report.lugares.find((spot) => spot.titulo.toLowerCase().includes('dientes'));
+  assert.equal(teeth.contexto, 'rutina');
+  assert.equal(teeth.cantidad, 2);
+  assert.equal(teeth.titulo, 'Lavarse los dientes'); // el titulo del grupo es el del primer evento recibido (el mas nuevo en datos reales)
+  const bag = report.lugares.find((spot) => spot.titulo === 'Armar la mochila');
+  assert.equal(bag.pasoTexto, 'Poner los útiles');
+  assert.equal(bag.cantidad, 1);
+});
+
+test('buildHelpSpotsReport: el comunicador va en una sola fila sin paso y suma en su motivo', () => {
+  const report = buildHelpSpotsReport([comms('2026-10-01T10:00:00Z', 'ayuda'), comms('2026-10-02T10:00:00Z', 'pausa')]);
+  assert.equal(report.lugares.length, 1);
+  assert.deepEqual(report.lugares[0], { contexto: 'comunicacion', titulo: 'No puedo hablar', paso: null, pasoTexto: null, cantidad: 2, ultimaVez: '2026-10-02T10:00:00.000Z' });
+  assert.equal(report.comunicacion, 2);
+  assert.deepEqual(report.porMotivo, { ayuda: 1, no_entiende: 0, pausa: 1 });
+  assert.equal(report.total, 2);
+});
+
+test('buildHelpSpotsReport: los toques viejos de "Si" / "No" ya no cuentan', () => {
+  const report = buildHelpSpotsReport([oldTap('2026-10-01T10:00:00Z'), oldTap('2026-10-02T10:00:00Z')]);
+  assert.equal(report.total, 0);
+  assert.equal(report.comunicacion, 0);
+  assert.deepEqual(report.lugares, []);
+});
+
+test('buildHelpSpotsReport: los eventos viejos de actividad (sin contexto) siguen funcionando', () => {
+  const legacy = help(10, 'ayuda', 3, '2026-10-01T10:00:00Z');
+  const explicit = help(10, 'ayuda', 3, '2026-10-02T10:00:00Z', { contexto: 'actividad', titulo: 'Preparar la mochila', pasoTexto: 'Agregar cuadernos y útiles' });
+  const report = buildHelpSpotsReport([explicit, legacy], context);
+  assert.equal(report.lugares.length, 1);
+  assert.equal(report.lugares[0].contexto, 'actividad');
+  assert.equal(report.lugares[0].cantidad, 2);
+  assert.equal(report.lugares[0].pasoTexto, 'Agregar cuadernos y útiles');
+});
+
+test('getHelpSpotsAsync: solo busca actividades de los eventos de actividad sin titulo guardado', async () => {
+  const service = new UsageEventService();
+  service.ensureSchemaAsync = async () => {};
+  service.UsageEventRepository = {
+    getHelpEventsSinceAsync: async () => [
+      help(10, 'ayuda', 1, '2026-10-01T10:00:00Z'),
+      help(11, 'ayuda', 1, '2026-10-01T10:00:00Z', { titulo: 'Con titulo' }),
+      routine('Rutina', 'ayuda', 1, '2026-10-01T10:00:00Z'),
+      comms('2026-10-01T10:00:00Z'),
+    ],
+  };
+  let ids = null;
+  service.ActividadAsignadaRepository = { getHelpContextByIdsAsync: async (list) => { ids = list; return []; } };
+  await service.getHelpSpotsAsync(7, 30);
+  assert.deepEqual(ids, [10]);
 });

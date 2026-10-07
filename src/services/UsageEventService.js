@@ -45,7 +45,7 @@ export default class UsageEventService {
     // Los eventos nuevos traen titulo y pasoTexto; solo los anteriores a eso
     // necesitan leer la actividad.
     const asignadaIds = [...new Set(events
-      .filter((event) => event.tipo_evento === 'ayuda_pedida' && !event.valor?.titulo)
+      .filter((event) => (!event.valor?.contexto || event.valor.contexto === 'actividad') && !event.valor?.titulo)
       .map((event) => Number(event.entidad_id))
       .filter((id) => Number.isInteger(id) && id > 0))];
     const rows = await this.ActividadAsignadaRepository.getHelpContextByIdsAsync(asignadaIds, idUsuario);

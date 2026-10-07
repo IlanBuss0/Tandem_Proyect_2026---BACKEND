@@ -26,13 +26,15 @@ export function extractSteps(descripcion) {
   return line.trim().replace(/^Pasos:\s*/i, '').split('|').map((step) => step.trim()).filter(Boolean);
 }
 
+const normalizeTitle = (title) => String(title).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
 const toIso = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
 /**
- * @param {Array} events filas de eventos_uso: 'ayuda_pedida' y usos de "No puedo hablar"
+ * @param {Array} events filas de eventos_uso de tipo 'ayuda_pedida' (valor.contexto: actividad | rutina | comunicador)
  * @param {Map<number, {titulo: string|null, descripcion: string|null}>} contextByAsignadaId
  */
 export function buildHelpSpotsReport(events, contextByAsignadaId = new Map(), { dias = DEFAULT_DAYS } = {}) {
@@ -53,17 +55,35 @@ export function buildHelpSpotsReport(events, contextByAsignadaId = new Map(), { 
   };
 
   for (const event of events || []) {
-    if (event.tipo_evento === 'ayuda_pedida') {
-      const motivo = event.valor?.motivo;
-      if (!HELP_MOTIVOS.includes(motivo)) continue;
-      porMotivo[motivo] += 1;
+    if (event.tipo_evento !== 'ayuda_pedida') continue;
+    const saved = event.valor || {};
+    const motivo = saved.motivo;
+    if (!HELP_MOTIVOS.includes(motivo)) continue;
+    porMotivo[motivo] += 1;
 
-      const asignadaId = Number(event.entidad_id);
-      const paso = Number(event.valor?.paso);
-      const step = Number.isInteger(paso) && paso >= 1 ? paso : null;
+    const paso = Number(saved.paso);
+    const step = Number.isInteger(paso) && paso >= 1 ? paso : null;
+
+    if (saved.contexto === 'comunicador') {
+      // "No puedo hablar": solo cuenta cuando la persona avisó de verdad
+      // ("Necesito ayuda" / "Necesito espacio"), una sola fila sin paso.
+      comunicacion += 1;
+      add('comunicacion', { contexto: 'comunicacion', titulo: 'No puedo hablar', paso: null, pasoTexto: null }, event.ocurrido_en);
+    } else if (saved.contexto === 'rutina') {
+      // Una rutina no tiene un id propio estable: se agrupa por titulo (sin
+      // mayusculas, tildes ni espacios de mas) y paso, nunca por entidad_id.
+      const titulo = String(saved.titulo || '').trim() || 'Rutina';
+      add(`r:${normalizeTitle(titulo)}:${step}`, {
+        contexto: 'rutina',
+        titulo,
+        paso: step,
+        pasoTexto: saved.pasoTexto ? String(saved.pasoTexto).slice(0, MAX_STEP_TEXT) : null,
+      }, event.ocurrido_en);
+    } else {
+      // Sin contexto (eventos viejos) o 'actividad': actividad asignada.
       // Evento nuevo: titulo y pasoTexto guardados al pedir ayuda. Evento viejo:
       // se leen de la actividad (si todavia existe y es de esta persona).
-      const saved = event.valor || {};
+      const asignadaId = Number(event.entidad_id);
       const context = saved.titulo ? null : contextByAsignadaId.get(asignadaId);
       const titulo = String(saved.titulo || context?.titulo || '').trim() || 'Actividad';
       const rawStepText = saved.pasoTexto || (step && context ? extractSteps(context.descripcion)[step - 1] : null);
@@ -73,9 +93,6 @@ export function buildHelpSpotsReport(events, contextByAsignadaId = new Map(), { 
         paso: step,
         pasoTexto: rawStepText ? String(rawStepText).slice(0, MAX_STEP_TEXT) : null,
       }, event.ocurrido_en);
-    } else if (event.tipo_evento === 'tarjeta_autonomia_usada' && event.entidad_tipo === 'modo_no_puedo_hablar') {
-      comunicacion += 1;
-      add('comunicacion', { contexto: 'comunicacion', titulo: 'No puedo hablar', paso: null, pasoTexto: null }, event.ocurrido_en);
     }
   }
 
@@ -83,6 +100,7 @@ export function buildHelpSpotsReport(events, contextByAsignadaId = new Map(), { 
     .sort((a, b) => b.cantidad - a.cantidad || String(b.ultimaVez).localeCompare(String(a.ultimaVez)))
     .slice(0, MAX_SPOTS);
 
-  // total = suma de porMotivo + comunicacion (usos de "No puedo hablar").
+  // total = suma de porMotivo. comunicacion es cuantos de esos pedidos vinieron
+  // del comunicador ("No puedo hablar"); ya estan contados en porMotivo.
   return { dias, total, porMotivo, comunicacion, lugares };
 }
