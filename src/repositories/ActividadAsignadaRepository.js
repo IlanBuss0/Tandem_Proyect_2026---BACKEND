@@ -51,6 +51,25 @@ export default class ActividadAsignadaRepository {
     return await BD.queryOne(sql, [id]);
   };
 
+  // Titulo y descripcion de las actividades asignadas indicadas, solo si son de
+  // este usuario: los ids salen de eventos que el cliente puede registrar, asi
+  // que no se confia en ellos para leer actividades de otra persona.
+  getHelpContextByIdsAsync = async (ids, idUsuario) => {
+    if (!ids?.length) return [];
+    const sql = `
+      SELECT
+        aa.id,
+        COALESCE(ap.titulo, a.titulo) AS titulo,
+        COALESCE(ap.descripcion, a.descripcion) AS descripcion
+      FROM actividades_asignadas aa
+      INNER JOIN pertenecientes p ON p.id = aa.id_perteneciente AND p.id_usuario = $2
+      LEFT JOIN actividades_personalizadas ap ON ap.id = aa.id_actividad_personalizada
+      LEFT JOIN actividades a ON a.id = aa.id_actividad
+      WHERE aa.id = ANY($1::int[])
+    `;
+    return await BD.query(sql, [ids, idUsuario]);
+  };
+
   getByPertenecienteIdAsync = async (idPerteneciente) => {
     console.log(`ActividadAsignadaRepository.getByPertenecienteIdAsync(${idPerteneciente})`);
 

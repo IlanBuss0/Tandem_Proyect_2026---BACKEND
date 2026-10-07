@@ -46,7 +46,7 @@ test('requestHelpAsync avisa a los tutores activos con el texto correcto y regis
   assert.equal(n.title, 'Mateo no entiende un paso');
   assert.equal(n.body, 'En «Lavarse los dientes», paso 2 de 5: Poné pasta en el cepillo');
   assert.equal(calls.events[0].tipoEvento, 'ayuda_pedida');
-  assert.deepEqual(calls.events[0].valor, { motivo: 'no_entiende', paso: 2, avisados: 1 });
+  assert.deepEqual(calls.events[0].valor, { motivo: 'no_entiende', paso: 2, avisados: 1, titulo: 'Lavarse los dientes', pasoTexto: 'Poné pasta en el cepillo' });
 });
 
 test('requestHelpAsync arma los textos sin totalPasos / pasoTexto y para pausa', async () => {
