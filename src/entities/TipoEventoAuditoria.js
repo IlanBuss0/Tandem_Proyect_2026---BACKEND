@@ -1,9 +1,3 @@
-class TipoEventoAuditoria {
-  constructor({ id = null, nombre, orden }) {
-    this.id = id;
-    this.nombre = nombre;
-    this.orden = orden;
-  }
-}
+import CatalogEntity from './base/CatalogEntity.js';
 
-export default TipoEventoAuditoria;
+export default class TipoEventoAuditoria extends CatalogEntity {}

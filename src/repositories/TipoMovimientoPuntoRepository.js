@@ -1,43 +1,7 @@
-import BD from '../db/BD.js';
+import CatalogRepository from './base/CatalogRepository.js';
 
-export default class TipoMovimientoPuntoRepository {
+export default class TipoMovimientoPuntoRepository extends CatalogRepository {
   constructor() {
-    console.log('Estoy en: TipoMovimientoPuntoRepository.constructor()');
+    super({ table: 'tipos_movimientos_puntos' });
   }
-
-  getAllAsync = async () => {
-    console.log('TipoMovimientoPuntoRepository.getAllAsync()');
-    const sql = `SELECT id, nombre, orden FROM tipos_movimientos_puntos ORDER BY id DESC`;
-    return await BD.query(sql);
-  };
-
-  getByIdAsync = async (id) => {
-    console.log(`TipoMovimientoPuntoRepository.getByIdAsync(${id})`);
-    const sql = `SELECT id, nombre, orden FROM tipos_movimientos_puntos WHERE id = $1`;
-    return await BD.queryOne(sql, [id]);
-  };
-
-  createAsync = async (entity) => {
-    console.log(`TipoMovimientoPuntoRepository.createAsync(${JSON.stringify(entity)})`);
-    const sql = `INSERT INTO tipos_movimientos_puntos (nombre, orden) VALUES ($1, $2) RETURNING id`;
-    const values = [entity?.nombre ?? null, entity?.orden ?? null];
-    const result = await BD.queryOne(sql, values);
-    return result?.id ?? 0;
-  };
-
-  updateAsync = async (entity) => {
-    console.log(`TipoMovimientoPuntoRepository.updateAsync(${JSON.stringify(entity)})`);
-    const id = entity.id;
-    const previousEntity = await this.getByIdAsync(id);
-    if (previousEntity == null) return 0;
-    const sql = `UPDATE tipos_movimientos_puntos SET nombre = $2, orden = $3 WHERE id = $1`;
-    const values = [id, entity?.nombre ?? previousEntity.nombre, entity?.orden ?? previousEntity.orden];
-    return await BD.execute(sql, values);
-  };
-
-  deleteByIdAsync = async (id) => {
-    console.log(`TipoMovimientoPuntoRepository.deleteByIdAsync(${id})`);
-    const sql = `DELETE FROM tipos_movimientos_puntos WHERE id = $1`;
-    return await BD.execute(sql, [id]);
-  };
 }

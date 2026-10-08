@@ -1,7 +1,3 @@
-class PlanSuscripcion {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
-  }
-}
+import DataEntity from './base/DataEntity.js';
 
-export default PlanSuscripcion;
+export default class PlanSuscripcion extends DataEntity {}

@@ -1,7 +1,3 @@
-class PermisoArchivo {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
-  }
-}
+import DataEntity from './base/DataEntity.js';
 
-export default PermisoArchivo;
+export default class PermisoArchivo extends DataEntity {}
