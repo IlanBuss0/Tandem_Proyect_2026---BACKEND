@@ -1,7 +1,3 @@
-class MensajeArchivo {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
-  }
-}
+import DataEntity from './base/DataEntity.js';
 
-export default MensajeArchivo;
+export default class MensajeArchivo extends DataEntity {}

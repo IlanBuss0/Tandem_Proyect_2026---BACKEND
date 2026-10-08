@@ -1,7 +1,3 @@
-class VinculoProfesionalPerteneciente {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
-  }
-}
+import DataEntity from './base/DataEntity.js';
 
-export default VinculoProfesionalPerteneciente;
+export default class VinculoProfesionalPerteneciente extends DataEntity {}

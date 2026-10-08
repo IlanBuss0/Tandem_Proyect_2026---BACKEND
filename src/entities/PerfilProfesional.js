@@ -1,7 +1,3 @@
-class PerfilProfesional {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
-  }
-}
+import DataEntity from './base/DataEntity.js';
 
-export default PerfilProfesional;
+export default class PerfilProfesional extends DataEntity {}

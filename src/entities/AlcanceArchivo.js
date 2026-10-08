@@ -1,9 +1,3 @@
-class AlcanceArchivo {
-  constructor({ id = null, nombre, orden }) {
-    this.id = id;
-    this.nombre = nombre;
-    this.orden = orden;
-  }
-}
+import CatalogEntity from './base/CatalogEntity.js';
 
-export default AlcanceArchivo;
+export default class AlcanceArchivo extends CatalogEntity {}
