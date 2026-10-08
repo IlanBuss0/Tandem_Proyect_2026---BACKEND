@@ -1,7 +1,3 @@
-class HistorialPermisoOtorgadoPerteneciente {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
-  }
-}
+import DataEntity from './base/DataEntity.js';
 
-export default HistorialPermisoOtorgadoPerteneciente;
+export default class HistorialPermisoOtorgadoPerteneciente extends DataEntity {}

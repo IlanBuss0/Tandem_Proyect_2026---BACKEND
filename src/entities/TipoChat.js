@@ -1,9 +1,3 @@
-class TipoChat {
-  constructor({ id = null, nombre, orden }) {
-    this.id = id;
-    this.nombre = nombre;
-    this.orden = orden;
-  }
-}
+import CatalogEntity from './base/CatalogEntity.js';
 
-export default TipoChat;
+export default class TipoChat extends CatalogEntity {}
