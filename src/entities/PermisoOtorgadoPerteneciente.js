@@ -1,7 +1,3 @@
-class PermisoOtorgadoPerteneciente {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
-  }
-}
+import DataEntity from './base/DataEntity.js';
 
-export default PermisoOtorgadoPerteneciente;
+export default class PermisoOtorgadoPerteneciente extends DataEntity {}

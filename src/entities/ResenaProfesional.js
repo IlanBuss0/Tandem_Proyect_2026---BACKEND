@@ -1,7 +1,3 @@
-class ResenaProfesional {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
-  }
-}
+import DataEntity from './base/DataEntity.js';
 
-export default ResenaProfesional;
+export default class ResenaProfesional extends DataEntity {}

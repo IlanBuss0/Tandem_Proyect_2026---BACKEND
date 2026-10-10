@@ -1,9 +1,3 @@
-class TipoMovimientoPunto {
-  constructor({ id = null, nombre, orden }) {
-    this.id = id;
-    this.nombre = nombre;
-    this.orden = orden;
-  }
-}
+import CatalogEntity from './base/CatalogEntity.js';
 
-export default TipoMovimientoPunto;
+export default class TipoMovimientoPunto extends CatalogEntity {}

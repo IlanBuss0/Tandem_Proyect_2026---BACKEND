@@ -1,9 +1,3 @@
-class TipoPermisoArchivo {
-  constructor({ id = null, nombre, orden }) {
-    this.id = id;
-    this.nombre = nombre;
-    this.orden = orden;
-  }
-}
+import CatalogEntity from './base/CatalogEntity.js';
 
-export default TipoPermisoArchivo;
+export default class TipoPermisoArchivo extends CatalogEntity {}

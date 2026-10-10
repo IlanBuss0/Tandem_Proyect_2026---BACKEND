@@ -1,9 +1,3 @@
-class DificultadActividad {
-  constructor({ id = null, nombre, orden }) {
-    this.id = id;
-    this.nombre = nombre;
-    this.orden = orden;
-  }
-}
+import CatalogEntity from './base/CatalogEntity.js';
 
-export default DificultadActividad;
+export default class DificultadActividad extends CatalogEntity {}

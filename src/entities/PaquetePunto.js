@@ -1,7 +1,3 @@
-class PaquetePunto {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
-  }
-}
+import DataEntity from './base/DataEntity.js';
 
-export default PaquetePunto;
+export default class PaquetePunto extends DataEntity {}

@@ -5,6 +5,7 @@ import ConfiguracionUsuario from '../entities/ConfiguracionUsuario.js';
 import AuthorizationService from '../services/AuthorizationService.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { PERTENECIENTE_PERMISSIONS } from '../modules/security/permissions.constants.js';
+import { assertCanWriteUsuarioConfigAsync, getReadableUsuarioIdsAsync } from '../modules/security/usuario-config-access.js';
 
 const router = Router();
 const currentService = new ConfiguracionUsuarioService();
@@ -18,7 +19,7 @@ function permissionForConfigKey(key = '') {
 
 async function assertCanWriteConfig(req, entity) {
   const permission = permissionForConfigKey(String(entity?.clave || ''));
-  if (!permission) return;
+  if (!permission) return assertCanWriteUsuarioConfigAsync(req.user.id, entity?.id_usuario);
 
   const key = String(entity?.clave || '');
   const idUsuarioTarget = Number(entity.id_usuario);
@@ -35,21 +36,6 @@ async function assertCanWriteConfig(req, entity) {
     idUsuarioTarget,
     permission,
   );
-}
-
-// Los ids de usuario que el que llama puede leer: el suyo propio, mas los
-// pertenecientes que tutela o atiende como profesional. Reusa
-// getPermissionContext (ya cacheado 60s) en vez de armar SQL nueva.
-async function getReadableUsuarioIdsAsync(idUsuario) {
-  const context = await AuthorizationService.getPermissionContext(idUsuario);
-  const ids = new Set([Number(idUsuario)]);
-  for (const p of context.pertenecientes || []) {
-    if (p.usuario?.id) ids.add(Number(p.usuario.id));
-  }
-  for (const v of context.vinculos || []) {
-    if (v.perteneciente?.usuario?.id) ids.add(Number(v.perteneciente.usuario.id));
-  }
-  return ids;
 }
 
 // Estas 4 rutas GET estaban sin ningun chequeo de propiedad: cualquier

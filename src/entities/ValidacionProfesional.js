@@ -1,7 +1,3 @@
-class ValidacionProfesional {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
-  }
-}
+import DataEntity from './base/DataEntity.js';
 
-export default ValidacionProfesional;
+export default class ValidacionProfesional extends DataEntity {}

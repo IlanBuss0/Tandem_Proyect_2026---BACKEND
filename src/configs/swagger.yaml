@@ -79,6 +79,47 @@ components:
       in: cookie
       name: tandem_access_token
   schemas:
+    TarjetaAyudaTutor:
+      type: object
+      properties:
+        activa:
+          type: boolean
+        mostrarCelular:
+          type: boolean
+        mostrarMail:
+          type: boolean
+        mostrarDomicilio:
+          type: boolean
+        domicilio:
+          type: string
+          nullable: true
+        mensaje:
+          type: string
+          nullable: true
+        url:
+          type: string
+          example: '/tarjeta/<token de 64 hex>'
+        fechaModificacion:
+          type: string
+          format: date-time
+        tutores:
+          type: array
+          items:
+            type: object
+            properties:
+              nombre:
+                type: string
+              apellido:
+                type: string
+              parentesco:
+                type: string
+                nullable: true
+              esTutorPrincipal:
+                type: boolean
+              tieneCelular:
+                type: boolean
+              tieneMail:
+                type: boolean
     Usuario:
       type: object
       properties:
@@ -8265,6 +8306,166 @@ paths:
           description: 'Eliminado correctamente'
         '404':
           description: 'No encontrado'
+  '/public/tarjeta/{token}':
+    get:
+      summary: 'Página pública de la tarjeta de ayuda (sin sesión): muestra solo lo que el tutor activó'
+      description: 'Ruta pública con rate limit propio (30 pedidos por minuto por IP). Si el token no existe, es viejo o la tarjeta está apagada responde 404 con el mismo mensaje. Al responder, avisa a los tutores activos (máximo una vez cada 10 minutos por perteneciente). Headers: Cache-Control no-store y X-Robots-Tag noindex.'
+      tags:
+        - 'Tarjeta de ayuda'
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{64}$'
+      responses:
+        '200':
+          description: 'Datos publicados por el tutor (sin ids internos; celular, mail y domicilio solo si están habilitados)'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nombre:
+                    type: string
+                  apellido:
+                    type: string
+                  mensaje:
+                    type: string
+                  domicilio:
+                    type: string
+                  tutores:
+                    type: array
+                    description: 'Tutores activos, el principal primero'
+                    items:
+                      type: object
+                      properties:
+                        nombre:
+                          type: string
+                        apellido:
+                          type: string
+                        parentesco:
+                          type: string
+                        celular:
+                          type: string
+                          description: 'Solo dígitos, sin formato'
+                        mail:
+                          type: string
+        '404':
+          description: 'Tarjeta no disponible (token inválido, viejo o tarjeta apagada)'
+        '429':
+          description: 'Demasiados pedidos'
+  '/tarjeta-ayuda/perteneciente/{idPerteneciente}':
+    get:
+      summary: 'Configuración de la tarjeta de ayuda (solo tutor con vínculo activo). Si no existe, la crea apagada'
+      tags:
+        - 'Tarjeta de ayuda'
+      parameters:
+        - name: idPerteneciente
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 'Configuración, URL pública relativa (/tarjeta/<token>) y vista previa de tutores con tieneCelular / tieneMail'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TarjetaAyudaTutor'
+        '400':
+          description: 'idPerteneciente inválido'
+        '403':
+          description: 'No es tutor con vínculo activo del perteneciente'
+    put:
+      summary: 'Configurar la tarjeta de ayuda (solo tutor con vínculo activo)'
+      tags:
+        - 'Tarjeta de ayuda'
+      parameters:
+        - name: idPerteneciente
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [activa, mostrarCelular, mostrarMail, mostrarDomicilio]
+              properties:
+                activa:
+                  type: boolean
+                mostrarCelular:
+                  type: boolean
+                mostrarMail:
+                  type: boolean
+                mostrarDomicilio:
+                  type: boolean
+                domicilio:
+                  type: string
+                  maxLength: 160
+                mensaje:
+                  type: string
+                  maxLength: 200
+      responses:
+        '200':
+          description: 'Configuración actualizada'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TarjetaAyudaTutor'
+        '400':
+          description: 'Booleanos inválidos o textos demasiado largos'
+        '403':
+          description: 'No es tutor con vínculo activo del perteneciente'
+  '/tarjeta-ayuda/perteneciente/{idPerteneciente}/regenerar':
+    post:
+      summary: 'Cambiar el QR: genera un token nuevo y el anterior deja de funcionar (solo tutor con vínculo activo)'
+      tags:
+        - 'Tarjeta de ayuda'
+      parameters:
+        - name: idPerteneciente
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 'Configuración con la URL nueva'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TarjetaAyudaTutor'
+        '403':
+          description: 'No es tutor con vínculo activo del perteneciente'
+  /tarjeta-ayuda/mia:
+    get:
+      summary: 'Tarjeta de ayuda del perteneciente autenticado (sin datos de los tutores)'
+      tags:
+        - 'Tarjeta de ayuda'
+      responses:
+        '200':
+          description: 'Estado y URL para armar el QR'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activa:
+                    type: boolean
+                  url:
+                    type: string
+                    example: '/tarjeta/<token de 64 hex>'
+                  nombre:
+                    type: string
+                  apellido:
+                    type: string
+        '403':
+          description: 'Quien llama no es un perteneciente'
   /ubicaciones-actuales:
     get:
       summary: 'Listar ubicaciones-actuales'

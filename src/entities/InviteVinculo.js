@@ -1,7 +1,3 @@
-class InviteVinculo {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
-  }
-}
+import DataEntity from './base/DataEntity.js';
 
-export default InviteVinculo;
+export default class InviteVinculo extends DataEntity {}

@@ -1,7 +1,3 @@
-class VinculoTutorPerteneciente {
-  constructor(data = {}) {
-    Object.assign(this, { id: null }, data);
-  }
-}
+import DataEntity from './base/DataEntity.js';
 
-export default VinculoTutorPerteneciente;
+export default class VinculoTutorPerteneciente extends DataEntity {}

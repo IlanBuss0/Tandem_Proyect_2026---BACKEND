@@ -1,9 +1,3 @@
-class TipoActividad {
-  constructor({ id = null, nombre, orden }) {
-    this.id = id;
-    this.nombre = nombre;
-    this.orden = orden;
-  }
-}
+import CatalogEntity from './base/CatalogEntity.js';
 
-export default TipoActividad;
+export default class TipoActividad extends CatalogEntity {}

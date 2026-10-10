@@ -1,9 +1,3 @@
-class PuntoOtorgado {
-  constructor({ id = null, nombre, orden }) {
-    this.id = id;
-    this.nombre = nombre;
-    this.orden = orden;
-  }
-}
+import CatalogEntity from './base/CatalogEntity.js';
 
-export default PuntoOtorgado;
+export default class PuntoOtorgado extends CatalogEntity {}
