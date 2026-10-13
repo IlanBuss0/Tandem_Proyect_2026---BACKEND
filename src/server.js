@@ -98,6 +98,13 @@ import VinculoTutorPertenecienteController from './controllers/VinculoTutorPerte
 import AcompanamientoController from './controllers/AcompanamientoController.js';
 import { authMiddleware, verifiedAccountMiddleware } from './middlewares/auth.middleware.js';
 import { csrfMiddleware } from './middlewares/csrf.middleware.js';
+import {
+  CATALOG_ROUTE_PREFIXES,
+  PERSONAL_PICTOGRAM_PREFIXES,
+  PUBLIC_PICTOGRAM_CATALOG_PREFIXES,
+  catalogCache,
+  privateNoCache,
+} from './middlewares/cache-control.middleware.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { authRateLimiter, inviteRateLimiter, publicTarjetaRateLimiter, refreshRateLimiter, resendVerificationRateLimiter, setupRedisRateLimit } from './middlewares/rate-limit.middleware.js';
 import { envConfig, validateEnvConfig } from './configs/env.config.js';
@@ -175,8 +182,11 @@ app.use('/api/auth/refresh', refreshRateLimiter);
 app.use('/api/auth/resend-verification', resendVerificationRateLimiter);
 app.use('/api/auth/forgot-password', resendVerificationRateLimiter);
 app.use('/api/auth/reset-password', authRateLimiter);
+app.use('/api/auth/me', privateNoCache);
 app.use('/api/auth', AuthController);
 app.use('/api/refeps', authRateLimiter, RefepsSearchController);
+app.use(PUBLIC_PICTOGRAM_CATALOG_PREFIXES, catalogCache());
+app.use(PERSONAL_PICTOGRAM_PREFIXES, privateNoCache);
 app.use('/api/pictograms', PictogramaController);
 app.use('/api/pictogramas', PictogramaController);
 app.use('/pictograms', PictogramaController);
@@ -184,6 +194,8 @@ app.use('/api/public/tarjeta', publicTarjetaRateLimiter, publicTarjetaAyudaRoute
 app.use('/api', authMiddleware);
 app.use('/api', verifiedAccountMiddleware);
 app.use('/api', csrfMiddleware);
+app.use('/api', privateNoCache);
+app.use(CATALOG_ROUTE_PREFIXES, catalogCache());
 app.use('/api/usuarios', UsuarioController);
 app.use('/api/tarjeta-ayuda', TarjetaAyudaController);
 // TEMPORAL (admin): borrar despues de verificar la IP real en produccion.
