@@ -4,6 +4,7 @@ import AuthorizationService from './AuthorizationService.js';
 import AuthorizationRepository from '../repositories/AuthorizationRepository.js';
 import AppError from '../modules/errors/AppError.js';
 import { AUTH_ACTIONS } from '../modules/security/permissions.constants.js';
+import { invalidateAuthorizationCaches } from '../cache/cacheTags.js';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 8;
@@ -182,6 +183,7 @@ export default class VinculoProfesionalPertenecienteService {
         });
 
     await this.VinculoProfesionalPertenecienteRepository.marcarInviteUsadoAsync(invite.id);
+    await AuthorizationService.invalidateProfesionalPermissions(idVinculo);
 
     const vinculo = await this.VinculoProfesionalPertenecienteRepository.getByIdAsync(idVinculo);
     const permisos_efectivos = await AuthorizationService.getEffectiveProfesionalPermissions(idVinculo);
@@ -201,6 +203,7 @@ export default class VinculoProfesionalPertenecienteService {
   deleteByIdAsync = async (id) => {
     console.log(`VinculoProfesionalPertenecienteService.deleteByIdAsync(${id})`);
     const rowsAffected = await this.VinculoProfesionalPertenecienteRepository.deleteByIdAsync(id);
+    await invalidateAuthorizationCaches();
     return rowsAffected;
   };
 
@@ -220,6 +223,7 @@ export default class VinculoProfesionalPertenecienteService {
     });
 
     const rowsAffected = await this.VinculoProfesionalPertenecienteRepository.deleteByIdAsync(numericIdVinculo);
+    await AuthorizationService.invalidateProfesionalPermissions(numericIdVinculo);
     return {
       rowsAffected,
       vinculo,

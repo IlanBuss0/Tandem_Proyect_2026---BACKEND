@@ -6,6 +6,8 @@ import RefepsPublicProvider from '../providers/professional-verification/RefepsP
 import ProfessionalIdentityMatcher from './ProfessionalIdentityMatcher.js';
 import { namesMatch, normalizeDocument } from '../modules/professional-verification/name-normalization.js';
 import { VERIFICATION_METHOD, VERIFICATION_SOURCE, VERIFICATION_STATUS } from '../modules/professional-verification/verification.constants.js';
+import { invalidateProfessionalDirectoryCache } from './PerfilProfesionalService.js';
+import { invalidateAuthorizationCaches } from '../cache/cacheTags.js';
 
 // Order shown to the user in the live verification checklist.
 const VERIFICATION_STEPS = [
@@ -271,6 +273,9 @@ export default class ValidacionProfesionalService {
       observacion: reason,
       fecha_validacion: new Date(),
     });
+    // Cambia id_estado_validacion: entra o sale del directorio publico.
+    await invalidateProfessionalDirectoryCache();
+    await invalidateAuthorizationCaches();
     return { status, reviewStatus: effectiveStatus, messageCode: this.messageCode(status) };
   };
 

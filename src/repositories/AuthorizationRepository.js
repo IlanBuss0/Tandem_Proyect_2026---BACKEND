@@ -461,6 +461,30 @@ class AuthorizationRepository {
     return Boolean(row);
   };
 
+  // Mismas condiciones que isTutorActivoForPerteneciente, pero para todos los
+  // pertenecientes del tutor en una sola consulta.
+  getActiveTutorPertenecienteIds = async (idTutor) => {
+    const rows = await BD.query(
+      `
+        SELECT DISTINCT vtp.id_perteneciente
+        FROM vinculos_tutor_pertenecientes vtp
+        INNER JOIN estados_vinculos ev ON ev.id = vtp.id_estado_vinculo
+        INNER JOIN tutores t ON t.id = vtp.id_tutor
+        INNER JOIN usuarios ut ON ut.id = t.id_usuario
+        INNER JOIN pertenecientes p ON p.id = vtp.id_perteneciente
+        INNER JOIN usuarios up ON up.id = p.id_usuario
+        WHERE vtp.id_tutor = $1
+          AND vtp.fecha_fin IS NULL
+          AND ut.activo = true
+          AND up.activo = true
+          AND LOWER(ev.nombre) IN ('activo', 'activa', 'aprobado', 'aprobada', 'aceptado', 'aceptada')
+      `,
+      [idTutor],
+    );
+
+    return rows.map((row) => row.id_perteneciente);
+  };
+
   getPertenecientePermission = async (idPerteneciente, nombrePermiso) => {
     return await BD.queryOne(
       `

@@ -9,6 +9,8 @@ import StylePreferenceStore from '../modules/pictograms/style-preference.js';
 import AppError from '../modules/errors/AppError.js';
 import { envConfig } from '../configs/env.config.js';
 import { falImageProvider, pollinationsImageProvider } from '../providers/ai/aiProviders.js';
+import { buildCacheKey, getOrSetCache, invalidateCache } from '../cache/cacheHelper.js';
+import { CACHE_TAGS, CACHE_TTL } from '../cache/cacheTags.js';
 
 // Los pictogramas de IA se suben con upsert:true y su arte puede volver a
 // generarse (revisiones, re-sync), asi que no se cachean "para siempre":
@@ -145,9 +147,25 @@ export default class AiPictogramService {
     this.pollinationsImageProvider = pollinationsImageProvider;
   }
 
+  // Memoizado (mismo patron que PictogramaService/UsageEventService): antes
+  // corria ~40 sentencias DDL en serie (CREATE/ALTER ... IF NOT EXISTS) en
+  // CADA pedido, incluido GET /ai/creations/mine. Si falla se reintenta en el
+  // proximo pedido.
   ensureSchemaAsync = async () => {
-    await this.pictograms.ensureSchemaAsync();
-    await this.repository.ensureSchemaAsync();
+    if (!this.schemaReady) {
+      this.schemaReady = (async () => {
+        await this.pictograms.ensureSchemaAsync();
+        await this.repository.ensureSchemaAsync();
+      })().catch((error) => {
+        this.schemaReady = null;
+        throw error;
+      });
+    }
+    await this.schemaReady;
+  };
+
+  invalidateCreationsCacheAsync = async () => {
+    await invalidateCache({ tags: [CACHE_TAGS.AI_CREATIONS] });
   };
 
   // usuarioId (ademas del id de perteneciente) para que consumidores que
@@ -440,7 +458,9 @@ export default class AiPictogramService {
     for (const targetId of effectiveTargetIds) {
       await this.assertTargetAsync(userId, targetId);
     }
-    return await this.repository.saveGenerationAsync(generation, effectiveTargetIds);
+    const saved = await this.repository.saveGenerationAsync(generation, effectiveTargetIds);
+    await this.invalidateCreationsCacheAsync();
+    return saved;
   };
 
   discardAsync = async (id, userId) => {
@@ -452,10 +472,19 @@ export default class AiPictogramService {
     ].filter(Boolean)));
     await Promise.all(pathsToDelete.map((path) => this.storage.deleteAsync(path).catch(() => undefined)));
     await this.repository.discardGenerationAsync(id);
+    await this.invalidateCreationsCacheAsync();
     return { discarded: true };
   };
 
-  listMineAsync = async (userId) => { await this.ensureSchemaAsync(); return this.repository.listPrivateAsync(userId); };
+  listMineAsync = async (userId) => {
+    await this.ensureSchemaAsync();
+    return await getOrSetCache(
+      buildCacheKey('ai-creations-mine', { userId }),
+      CACHE_TTL.AI_CREATIONS,
+      () => this.repository.listPrivateAsync(userId),
+      { tags: [CACHE_TAGS.AI_CREATIONS] },
+    );
+  };
   listAvailableAsync = async (userId) => {
     await this.ensureSchemaAsync();
     const context = await AuthorizationService.getPermissionContext(userId);
@@ -465,6 +494,7 @@ export default class AiPictogramService {
   submitAsync = async (id, userId) => {
     const result = await this.repository.submitAsync(id, userId);
     if (!result) throw new AppError('Pictograma no encontrado o no editable.', 404);
+    await this.invalidateCreationsCacheAsync();
     return result;
   };
   updateCreationAsync = async (id, userId, body) => {
@@ -475,6 +505,7 @@ export default class AiPictogramService {
     const result = await this.repository.updateCreationAsync(id, userId, { name, category });
     if (!result) throw new AppError('Pictograma no encontrado o no editable.', 404);
     await this.repository.updateGenerationDescriptionAsync(id, userId, description);
+    await this.invalidateCreationsCacheAsync();
     return { ...result, description };
   };
 
@@ -490,6 +521,7 @@ export default class AiPictogramService {
     if (!approved && reason.length < 3) throw new AppError('Indica el motivo del rechazo.', 400);
     const result = await this.repository.reviewAsync(id, userId, approved, reason);
     if (!result) throw new AppError('Pictograma pendiente no encontrado.', 404);
+    await this.invalidateCreationsCacheAsync();
     return result;
   };
 }

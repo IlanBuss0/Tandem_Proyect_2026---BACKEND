@@ -1,5 +1,14 @@
 import UsuarioRepository from '../repositories/UsuarioRepository.js';
 import AppError from '../modules/errors/AppError.js';
+import { toPublicUser } from '../modules/security/account-update.policy.js';
+import { buildCacheKey, getOrSetCache } from '../cache/cacheHelper.js';
+import { CACHE_TAGS, CACHE_TTL, invalidateUserCaches } from '../cache/cacheTags.js';
+
+function stripHash(usuario) {
+  if (!usuario) return usuario;
+  const { contrasena_hash, ...safe } = usuario;
+  return safe;
+}
 
 export default class UsuarioService {
   constructor() {
@@ -15,6 +24,20 @@ export default class UsuarioService {
     if (returnArray == null) return null;
 
     return returnArray;
+  };
+
+  /**
+   * Lista de usuarios tal como la ve `idSolicitante`: admin sin hash, el resto
+   * solo campos publicos. Se cachea ya filtrada (nunca con contrasena_hash) y
+   * con el id del solicitante en la clave.
+   */
+  getAllForRequesterAsync = async (idSolicitante, isAdmin) => {
+    const key = buildCacheKey('usuarios', { userId: idSolicitante, params: { admin: Boolean(isAdmin) } });
+    return await getOrSetCache(key, CACHE_TTL.PERSONAL_LIST, async () => {
+      const returnArray = await this.getAllAsync();
+      if (returnArray == null) return null;
+      return returnArray.map(isAdmin ? stripHash : toPublicUser);
+    }, { tags: [CACHE_TAGS.USUARIOS] });
   };
 
   getByIdAsync = async (id) => {
@@ -50,6 +73,7 @@ export default class UsuarioService {
     }
 
     const newId = await this.UsuarioRepository.createAsync(entity);
+    await invalidateUserCaches(newId);
 
     return newId;
   };
@@ -87,6 +111,7 @@ export default class UsuarioService {
     }
 
     const rowsAffected = await this.UsuarioRepository.updateAsync(entity);
+    await invalidateUserCaches(entity.id);
 
     return rowsAffected;
   };
@@ -99,6 +124,7 @@ export default class UsuarioService {
     }
 
     const rowsAffected = await this.UsuarioRepository.deleteByIdAsync(id);
+    await invalidateUserCaches(id);
 
     return rowsAffected;
   };
