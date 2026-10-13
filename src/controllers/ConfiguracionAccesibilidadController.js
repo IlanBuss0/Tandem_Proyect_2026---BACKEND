@@ -16,9 +16,9 @@ router.get('', async (req, res) => {
   try {
     console.log('ConfiguracionAccesibilidadController.getAll');
     const readableIds = await getReadableUsuarioIdsAsync(req.user.id);
-    const r = await currentService.getAllAsync();
+    const r = await currentService.getReadableForUserAsync(Number(req.user.id), readableIds);
     if (r == null) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
-    res.status(StatusCodes.OK).json(r.filter((row) => readableIds.has(Number(row.id_usuario))));
+    res.status(StatusCodes.OK).json(r);
   } catch (error) {
     console.log(error);
     res.status(error.statusCode ?? StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);

@@ -1,4 +1,14 @@
 import PerfilProfesionalRepository from '../repositories/PerfilProfesionalRepository.js';
+import { buildCacheKey, getOrSetCache, invalidateCache } from '../cache/cacheHelper.js';
+import { CACHE_TAGS, CACHE_TTL } from '../cache/cacheTags.js';
+
+// El directorio es igual para todos los que pueden verlo (tutores y
+// pertenecientes; el controller lo chequea antes): clave global.
+const DIRECTORY_CACHE_KEY = buildCacheKey('profesionales-directory');
+
+export async function invalidateProfessionalDirectoryCache() {
+  await invalidateCache({ tags: [CACHE_TAGS.PROFESSIONAL_DIRECTORY] });
+}
 
 export default class PerfilProfesionalService {
   constructor() {
@@ -6,7 +16,12 @@ export default class PerfilProfesionalService {
   }
 
   getMineAsync = (idProfessional) => this.repository.getByProfessionalIdAsync(idProfessional);
-  getDirectoryAsync = () => this.repository.getDirectoryAsync();
+  getDirectoryAsync = () => getOrSetCache(
+    DIRECTORY_CACHE_KEY,
+    CACHE_TTL.PROFESSIONAL_DIRECTORY,
+    () => this.repository.getDirectoryAsync(),
+    { tags: [CACHE_TAGS.PROFESSIONAL_DIRECTORY] },
+  );
 
   saveMineAsync = async (idProfessional, data = {}) => {
     const email = String(data.correo_contacto || '').trim().toLowerCase();
@@ -21,7 +36,7 @@ export default class PerfilProfesionalService {
       error.statusCode = 400;
       throw error;
     }
-    return this.repository.upsertForProfessionalAsync(idProfessional, {
+    const saved = await this.repository.upsertForProfessionalAsync(idProfessional, {
       descripcion: String(data.descripcion || '').trim().slice(0, 2000) || null,
       experiencia: String(data.experiencia || '').trim().slice(0, 1000) || null,
       precio_sesion: data.precio_sesion === '' || data.precio_sesion == null ? null : Number(data.precio_sesion),
@@ -34,5 +49,7 @@ export default class PerfilProfesionalService {
       publicar_correo: Boolean(data.publicar_correo),
       publicar_whatsapp: Boolean(data.publicar_whatsapp),
     });
+    await invalidateProfessionalDirectoryCache();
+    return saved;
   };
 }

@@ -9,9 +9,28 @@ import {
   PROFESIONAL_PERMISSIONS,
 } from '../modules/security/permissions.constants.js';
 import { isVerifiedProfessionalStatus } from '../modules/professional-verification/professional-status.js';
+import { buildCacheKey, getOrSetCache, invalidateCache } from '../cache/cacheHelper.js';
+import { CACHE_TAGS, CACHE_TTL, invalidateAuthorizationCaches } from '../cache/cacheTags.js';
+
+function userContextCacheKey(idUsuario) {
+  return buildCacheKey('authz-usercontext', { userId: idUsuario });
+}
 
 class AuthorizationService {
+  // Roles del usuario (fila de usuario + perteneciente/tutor/profesional). Lo
+  // usan casi todos los chequeos de permisos: se cachea 60 s por usuario y se
+  // invalida junto con el resto del cache de autorizacion y de la cuenta.
   async getUserContext(idUsuario) {
+    if (idUsuario == null || Number.isNaN(Number(idUsuario))) return await this.loadUserContext(idUsuario);
+    return await getOrSetCache(
+      userContextCacheKey(Number(idUsuario)),
+      CACHE_TTL.AUTHZ_USER_CONTEXT,
+      () => this.loadUserContext(idUsuario),
+      { tags: [CACHE_TAGS.AUTHZ] },
+    );
+  }
+
+  async loadUserContext(idUsuario) {
     const usuario = await AuthorizationRepository.getUsuarioById(idUsuario);
     if (!usuario?.activo) return null;
 
@@ -259,6 +278,42 @@ class AuthorizationService {
 
     if (!tutorAccess.allowed) throw new AppError(tutorAccess.reason || 'No autorizado', 403);
     return tutorAccess;
+  }
+
+  /**
+   * Version por lotes de assertCanReadPertenecienteResource: devuelve el Set de
+   * ids (de `idsPertenecientes`) que `idUsuario` puede leer, con las mismas
+   * reglas (es el propio perteneciente, tutor con vinculo activo, o
+   * profesional con vinculo aprobado y `profesionalPermissionName`), pero
+   * resolviendo el contexto UNA vez en vez de una vez por perteneciente.
+   */
+  async filterReadablePertenecienteIds(idUsuario, idsPertenecientes, profesionalPermissionName = null) {
+    const wanted = new Set((idsPertenecientes || []).map(Number));
+    const readable = new Set();
+    const userContext = await this.getUserContext(idUsuario);
+    if (!userContext) return readable;
+
+    const ownId = Number(userContext.perteneciente?.id);
+    if (ownId && wanted.has(ownId)) readable.add(ownId);
+
+    if (userContext.tutor?.id) {
+      const tutorIds = await AuthorizationRepository.getActiveTutorPertenecienteIds(userContext.tutor.id);
+      for (const id of tutorIds.map(Number)) if (wanted.has(id)) readable.add(id);
+    }
+
+    if (userContext.profesional?.id && profesionalPermissionName) {
+      const links = await AuthorizationRepository.getApprovedProfessionalLinks(userContext.profesional.id);
+      const candidates = [...new Set(links.map((link) => Number(link.id_perteneciente)))]
+        .filter((id) => wanted.has(id) && !readable.has(id));
+      const results = await Promise.all(candidates.map((id) => this.canProfesionalPermission(
+        userContext,
+        { id_perteneciente: id },
+        profesionalPermissionName,
+      )));
+      candidates.forEach((id, index) => { if (results[index].allowed) readable.add(id); });
+    }
+
+    return readable;
   }
 
   async assertCanReadPertenecienteResource(idUsuario, idPerteneciente, profesionalPermissionName = null) {
@@ -576,30 +631,37 @@ class AuthorizationService {
   async invalidateUserContext(idUsuario) {
     if (!idUsuario) {
       await cacheService.delByPattern('auth.context.*');
+      await invalidateAuthorizationCaches();
       return;
     }
 
     await cacheService.delByPattern(`auth.context.${idUsuario}`);
+    await invalidateCache({ keys: [userContextCacheKey(Number(idUsuario))] });
+    await invalidateAuthorizationCaches();
   }
 
   async invalidatePertenecientePermissions(idPerteneciente) {
     await cacheService.delByPattern(`auth.permisos.pert.${idPerteneciente}`);
     await cacheService.delByPattern('auth.context.*');
+    await invalidateAuthorizationCaches();
   }
 
   async invalidateProfesionalPermissions(idVinculo) {
     await cacheService.delByPattern(`auth.permisos.prof.${idVinculo}`);
     await cacheService.delByPattern('auth.context.*');
+    await invalidateAuthorizationCaches();
   }
 
   async invalidateAllForUser(idUsuario) {
     if (idUsuario) {
       await cacheService.delByPattern(`auth.context.${idUsuario}`);
+      await invalidateCache({ keys: [userContextCacheKey(Number(idUsuario))] });
     } else {
       await cacheService.delByPattern('auth.context.*');
     }
 
     await cacheService.delByPattern(`auth.permisos.*`);
+    await invalidateAuthorizationCaches();
   }
 
   actionForPertenecientePermission(permissionName) {

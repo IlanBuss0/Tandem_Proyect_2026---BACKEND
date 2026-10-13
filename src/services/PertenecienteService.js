@@ -1,4 +1,8 @@
 import PertenecienteRepository from '../repositories/PertenecienteRepository.js';
+import AuthorizationService from './AuthorizationService.js';
+import { PROFESIONAL_PERMISSIONS } from '../modules/security/permissions.constants.js';
+import { buildCacheKey, getOrSetCache } from '../cache/cacheHelper.js';
+import { CACHE_TAGS, CACHE_TTL } from '../cache/cacheTags.js';
 
 export default class PertenecienteService {
   constructor() {
@@ -11,6 +15,28 @@ export default class PertenecienteService {
     const returnArray = await this.PertenecienteRepository.getAllAsync();
     if (returnArray == null) return null;
     return returnArray;
+  };
+
+  /**
+   * GET /api/pertenecientes: los perfiles que `idUsuario` puede leer (admin:
+   * todos; resto: propio, tutor con vinculo activo o profesional con
+   * VER_HISTORIAL). Antes se resolvian los permisos uno por uno (varias
+   * consultas por cada perteneciente de la base); ahora en lote, y el
+   * resultado ya filtrado se cachea con el usuario en la clave.
+   */
+  getVisibleForUserAsync = async (idUsuario, { isAdmin = false } = {}) => {
+    const key = buildCacheKey('pertenecientes', { userId: idUsuario, params: { admin: Boolean(isAdmin) } });
+    return await getOrSetCache(key, CACHE_TTL.PERSONAL_LIST, async () => {
+      const returnArray = await this.getAllAsync();
+      if (returnArray == null) return null;
+      if (isAdmin) return returnArray;
+      const readable = await AuthorizationService.filterReadablePertenecienteIds(
+        idUsuario,
+        returnArray.map((item) => item.id),
+        PROFESIONAL_PERMISSIONS.VER_HISTORIAL,
+      );
+      return returnArray.filter((item) => readable.has(Number(item.id)));
+    }, { tags: [CACHE_TAGS.PERTENECIENTES, CACHE_TAGS.AUTHZ] });
   };
 
   getByIdAsync = async (id) => {
@@ -38,6 +64,7 @@ export default class PertenecienteService {
       throw new Error(`Ya existe un perteneciente asociado al usuario con id ${entity.id_usuario}.`);
     }
     const newId = await this.PertenecienteRepository.createAsync(entity);
+    await this.invalidateCachesAsync(entity.id_usuario);
     return newId;
   };
 
@@ -55,6 +82,9 @@ export default class PertenecienteService {
       }
     }
     const rowsAffected = await this.PertenecienteRepository.updateAsync(entity);
+    // puede_autogestionarse cambia el modo de permisos y el contexto del usuario.
+    await AuthorizationService.invalidatePertenecientePermissions(entity.id);
+    await this.invalidateCachesAsync(previousEntity.id_usuario);
     return rowsAffected;
   };
 
@@ -63,8 +93,16 @@ export default class PertenecienteService {
     if (!id || Number.isNaN(id)) {
       throw new Error('El id del perteneciente es invalido.');
     }
+    const previousEntity = await this.PertenecienteRepository.getByIdAsync(id);
     const rowsAffected = await this.PertenecienteRepository.deleteByIdAsync(id);
+    await AuthorizationService.invalidatePertenecientePermissions(id);
+    await this.invalidateCachesAsync(previousEntity?.id_usuario);
     return rowsAffected;
+  };
+
+  invalidateCachesAsync = async (idUsuario) => {
+    if (idUsuario != null) await AuthorizationService.invalidateUserContext(idUsuario);
+    else await AuthorizationService.invalidateUserContext();
   };
 
   validarPertenecienteParaCrear = (entity) => {

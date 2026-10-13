@@ -1,4 +1,6 @@
 import TutorRepository from '../repositories/TutorRepository.js';
+import { buildCacheKey, getOrSetCache, invalidateCache } from '../cache/cacheHelper.js';
+import { CACHE_TAGS, CACHE_TTL, invalidateAuthorizationCaches } from '../cache/cacheTags.js';
 
 export default class TutorService {
   constructor() {
@@ -30,6 +32,21 @@ export default class TutorService {
     return await this.TutorRepository.getByUsuarioIdAsync(idUsuario);
   };
 
+  // GET /api/tutores/usuario/:id (lo pide el Inicio del tutor). Cacheado con
+  // el solicitante y el parametro en la clave.
+  getByUsuarioIdForRequesterAsync = async (idSolicitante, idUsuario) => {
+    if (!idUsuario || Number.isNaN(idUsuario)) return await this.getByUsuarioIdAsync(idUsuario);
+    const key = buildCacheKey('tutores', { userId: idSolicitante, params: { idUsuario } });
+    return await getOrSetCache(key, CACHE_TTL.TUTOR_PROFILE, () => this.getByUsuarioIdAsync(idUsuario), {
+      tags: [CACHE_TAGS.TUTORES],
+    });
+  };
+
+  invalidateCachesAsync = async () => {
+    await invalidateCache({ tags: [CACHE_TAGS.TUTORES] });
+    await invalidateAuthorizationCaches();
+  };
+
   createAsync = async (entity) => {
     console.log(`TutorService.createAsync(${JSON.stringify(entity)})`);
     this.validarTutorParaCrear(entity);
@@ -38,6 +55,7 @@ export default class TutorService {
       throw new Error(`Ya existe un tutor asociado al usuario con id ${entity.id_usuario}.`);
     }
     const newId = await this.TutorRepository.createAsync(entity);
+    await this.invalidateCachesAsync();
     return newId;
   };
 
@@ -55,6 +73,7 @@ export default class TutorService {
       }
     }
     const rowsAffected = await this.TutorRepository.updateAsync(entity);
+    await this.invalidateCachesAsync();
     return rowsAffected;
   };
 
@@ -64,6 +83,7 @@ export default class TutorService {
       throw new Error('El id del tutor es invalido.');
     }
     const rowsAffected = await this.TutorRepository.deleteByIdAsync(id);
+    await this.invalidateCachesAsync();
     return rowsAffected;
   };
 

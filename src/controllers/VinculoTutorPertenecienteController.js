@@ -13,7 +13,7 @@ router.get('', async (req, res) => {
   try {
     console.log('VinculoTutorPertenecienteController.getAll');
 
-    const returnArray = await currentService.getAllAsync();
+    const returnArray = await currentService.getAllForRequesterAsync(Number(req.user.id));
 
     if (returnArray != null) {
       res.status(StatusCodes.OK).json(returnArray);
