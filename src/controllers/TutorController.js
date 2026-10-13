@@ -20,7 +20,7 @@ router.get('', async (req, res) => {
 router.get('/usuario/:idUsuario', async (req, res) => {
   try {
     const idUsuario = parseInt(req.params.idUsuario);
-    const returnEntity = await currentService.getByUsuarioIdAsync(idUsuario);
+    const returnEntity = await currentService.getByUsuarioIdForRequesterAsync(Number(req.user.id), idUsuario);
     if (returnEntity != null) res.status(StatusCodes.OK).json(returnEntity);
     else res.status(StatusCodes.NOT_FOUND).send(`No se encontro el tutor del usuario con id: ${idUsuario}.`);
   } catch (error) {

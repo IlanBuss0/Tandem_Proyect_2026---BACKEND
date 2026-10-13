@@ -1,5 +1,7 @@
 import ProfesionalRepository from '../repositories/ProfesionalRepository.js';
 import AppError from '../modules/errors/AppError.js';
+import { invalidateProfessionalDirectoryCache } from './PerfilProfesionalService.js';
+import { invalidateAuthorizationCaches } from '../cache/cacheTags.js';
 
 export default class ProfesionalService {
   constructor() {
@@ -60,7 +62,10 @@ export default class ProfesionalService {
       throw new AppError('No se encontro un estado de validacion inicial configurado.', 500);
     }
 
-    return await this.ProfesionalRepository.createAsync(entity);
+    const newId = await this.ProfesionalRepository.createAsync(entity);
+    await invalidateProfessionalDirectoryCache();
+    await invalidateAuthorizationCaches();
+    return newId;
   };
 
   updateMineAsync = async (idUsuario, { profesion, especialidad, matricula, institucion } = {}) => {
@@ -90,7 +95,9 @@ export default class ProfesionalService {
       }
     }
 
-    return await this.ProfesionalRepository.updateAsync(entity);
+    const rowsAffected = await this.ProfesionalRepository.updateAsync(entity);
+    await invalidateProfessionalDirectoryCache();
+    return rowsAffected;
   };
 
   validarProfesionalParaCrear = (entity) => {

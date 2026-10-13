@@ -24,12 +24,13 @@ router.get('', async (req, res) => {
   try {
     console.log('UsuarioController.getAll');
 
-    const returnArray = await currentService.getAllAsync();
+    // El rol del solicitante ya lo cargo authMiddleware en req.account (misma
+    // fila de usuarios): no hace falta otra consulta para saber si es admin.
+    const isAdmin = Number(req.account?.id_tipo_usuario) === 4;
+    const returnArray = await currentService.getAllForRequesterAsync(Number(req.user.id), isAdmin);
 
     if (returnArray != null) {
-      const requester = await currentService.getByIdAsync(Number(req.user.id));
-      const isAdmin = Number(requester?.id_tipo_usuario) === 4;
-      res.status(StatusCodes.OK).json(returnArray.map(isAdmin ? stripHash : toPublicUser));
+      res.status(StatusCodes.OK).json(returnArray);
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
     }

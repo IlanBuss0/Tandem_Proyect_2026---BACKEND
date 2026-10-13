@@ -22,6 +22,8 @@ import {
 import { envConfig } from '../configs/env.config.js';
 import ValidacionProfesionalServiceClass from './ValidacionProfesionalService.js';
 import { VERIFICATION_STATUS } from '../modules/professional-verification/verification.constants.js';
+import { invalidateAccountCache } from '../cache/accountCache.js';
+import { invalidateUserCaches } from '../cache/cacheTags.js';
 
 const UsuarioService = new UsuarioServiceClass();
 const PertenecienteService = new PertenecienteServiceClass();
@@ -179,6 +181,7 @@ class AuthService {
     if (!token) throw new AppError('token es obligatorio.', 400);
 
     const tokenHash = hashRefreshToken(String(token));
+    let verifiedUserId = null;
     await BD.transaction(async (client) => {
       const record = await EmailVerificationRepository.findByTokenHashForUpdate(tokenHash, client);
       if (!record) throw new AppError('El link de verificacion no es valido.', 400);
@@ -186,7 +189,9 @@ class AuthService {
       if (new Date(record.expires_at).getTime() <= Date.now()) throw new AppError('El link de verificacion expiro. Pedi uno nuevo.', 400);
       await EmailVerificationRepository.markUsed(record.id, client);
       await AuthRepository.markEmailVerified(record.id_usuario, client);
+      verifiedUserId = record.id_usuario;
     });
+    await invalidateAccountCache(verifiedUserId);
 
     return { verified: true };
   }
@@ -230,6 +235,7 @@ class AuthService {
 
     const tokenHash = hashRefreshToken(token);
     const passwordHash = await hashValue(newPassword);
+    let resetUserId = null;
     await BD.transaction(async (client) => {
       const record = await PasswordResetRepository.findByTokenHashForUpdate(tokenHash, client);
       if (!record || record.used_at || new Date(record.expires_at).getTime() <= Date.now()) {
@@ -238,7 +244,9 @@ class AuthService {
       await AuthRepository.updatePasswordHash(record.id_usuario, passwordHash, client);
       await PasswordResetRepository.markUsed(record.id, client);
       await RefreshTokenRepository.revokeAllForUser(record.id_usuario, client);
+      resetUserId = record.id_usuario;
     });
+    await invalidateAccountCache(resetUserId);
     return { changed: true };
   }
 
@@ -274,6 +282,7 @@ class AuthService {
     }
 
     const updated = await AuthRepository.updateTutorAccount(idUsuario, { nombre, apellido, correo, telefono, parentesco });
+    await invalidateUserCaches(idUsuario);
     if (emailChanged) {
       await this._issueAndSendVerificationEmail(updated);
     }
@@ -301,6 +310,7 @@ class AuthService {
       await AuthRepository.updatePasswordHash(idUsuario, passwordHash, client);
       await RefreshTokenRepository.revokeAllForUser(idUsuario, client);
     });
+    await invalidateAccountCache(idUsuario);
     return { changed: true };
   }
 
@@ -324,6 +334,7 @@ class AuthService {
       await AuthRepository.updateEmail(idUsuario, correo, client);
       await RefreshTokenRepository.revokeAllForUser(idUsuario, client);
     });
+    await invalidateUserCaches(idUsuario);
     const updated = await AuthRepository.findSafeById(idUsuario);
     await this._issueAndSendVerificationEmail(updated);
     return { correo: updated.correo, email_verificado: updated.email_verificado };
@@ -602,13 +613,16 @@ class AuthService {
     if (!existing) return { revoked: false };
 
     await RefreshTokenRepository.revoke(tokenHash);
+    await invalidateAccountCache(existing.id_usuario);
     return { revoked: true };
   }
 
   async me(req) {
     if (!req.user?.id) throw new AppError('No autenticado', 401);
 
-    const user = await AuthRepository.findSafeById(req.user.id);
+    // authMiddleware ya cargo la cuenta (desde cache o base) con estos mismos
+    // campos seguros: no repetir la consulta.
+    const user = req.account ?? await AuthRepository.findSafeById(req.user.id);
 
     if (!user) throw new AppError('Usuario no encontrado', 404);
 
