@@ -1,6 +1,8 @@
 import VinculoTutorPertenecienteRepository from '../repositories/VinculoTutorPertenecienteRepository.js';
 import AuthorizationService from './AuthorizationService.js';
 import AppError from '../modules/errors/AppError.js';
+import { buildCacheKey, getOrSetCache } from '../cache/cacheHelper.js';
+import { CACHE_TAGS, CACHE_TTL, invalidateAuthorizationCaches } from '../cache/cacheTags.js';
 
 export default class VinculoTutorPertenecienteService {
   constructor() {
@@ -16,6 +18,15 @@ export default class VinculoTutorPertenecienteService {
     if (returnArray == null) return null;
 
     return returnArray;
+  };
+
+  // Lectura cacheada para GET /api/vinculos-tutor-pertenecientes (con el
+  // usuario que pide en la clave). Se invalida en cada alta/baja/edicion.
+  getAllForRequesterAsync = async (idSolicitante) => {
+    const key = buildCacheKey('vinculos-tutor', { userId: idSolicitante });
+    return await getOrSetCache(key, CACHE_TTL.PERSONAL_LIST, () => this.getAllAsync(), {
+      tags: [CACHE_TAGS.VINCULOS_TUTOR, CACHE_TAGS.AUTHZ],
+    });
   };
 
   getByIdAsync = async (id) => {
@@ -79,6 +90,7 @@ export default class VinculoTutorPertenecienteService {
     }
 
     const newId = await this.VinculoTutorPertenecienteRepository.createAsync(entity);
+    await invalidateAuthorizationCaches();
 
     return newId;
   };
@@ -110,6 +122,7 @@ export default class VinculoTutorPertenecienteService {
     }
 
     const rowsAffected = await this.VinculoTutorPertenecienteRepository.updateAsync(entity);
+    await invalidateAuthorizationCaches();
 
     return rowsAffected;
   };
@@ -122,6 +135,7 @@ export default class VinculoTutorPertenecienteService {
     }
 
     const rowsAffected = await this.VinculoTutorPertenecienteRepository.deleteByIdAsync(id);
+    await invalidateAuthorizationCaches();
 
     return rowsAffected;
   };
@@ -151,6 +165,7 @@ export default class VinculoTutorPertenecienteService {
     }
 
     const rowsAffected = await this.VinculoTutorPertenecienteRepository.deleteByIdAsync(numericIdVinculo);
+    await invalidateAuthorizationCaches();
     return {
       rowsAffected,
       vinculo: await this.VinculoTutorPertenecienteRepository.getByIdAsync(numericIdVinculo),

@@ -30,10 +30,11 @@ async function canReadProfile(req, idPerteneciente) {
 
 router.get('', async (req, res) => {
   try {
-    const returnArray = await currentService.getAllAsync();
+    const returnArray = await currentService.getVisibleForUserAsync(Number(req.user.id), {
+      isAdmin: Number(req.account?.id_tipo_usuario) === 4,
+    });
     if (returnArray == null) return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('Error interno.');
-    const visibility = await Promise.all(returnArray.map((item) => canReadProfile(req, item.id)));
-    res.status(StatusCodes.OK).json(returnArray.filter((_, index) => visibility[index]));
+    res.status(StatusCodes.OK).json(returnArray);
   } catch (error) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`Error: ${error.message}`);
   }
