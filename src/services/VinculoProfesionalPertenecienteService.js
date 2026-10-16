@@ -152,6 +152,9 @@ export default class VinculoProfesionalPertenecienteService {
       throw new AppError('Solo un profesional puede aceptar esta invitacion.', 403);
     }
 
+    const tutorContext = await AuthorizationService.getUserContext((await AuthorizationRepository.getTutorById(invite.id_tutor_creador))?.id_usuario);
+    const tutorAccess = tutorContext && await AuthorizationService.canTutorActOnPerteneciente(tutorContext, { id_perteneciente: invite.id_perteneciente }, { requirePrincipal: true });
+    if (!tutorAccess?.allowed) throw new AppError('La invitacion ya no tiene un tutor principal autorizado.', 403);
     const profesional = await this.VinculoProfesionalPertenecienteRepository.getProfesionalActivoByIdAsync(userContext.profesional.id);
     if (!profesional) throw new AppError('Profesional no encontrado o inactivo.', 404);
 

@@ -1,3 +1,6 @@
+import { beforeEach } from 'node:test';
+import AuthorizationService from '../src/services/AuthorizationService.js';
+beforeEach(t => { t.mock.method(AuthorizationService, 'assertCanReadPertenecienteResource', async () => ({ allowed: true })); });
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Writable } from 'node:stream';
@@ -14,6 +17,7 @@ const sesionesPdf = [
 
 function pdfService({ vinculos = [5, 6] } = {}) {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
   const calls = { ia: 0 };
   service.VinculoProfesionalPertenecienteRepository = {
     getByProfesionalYPertenecienteAsync: async (_profesional, idPerteneciente) => (vinculos.includes(Number(idPerteneciente)) ? { estado_vinculo: 'activo' } : null),

@@ -1,3 +1,4 @@
+import RefreshTokenRepository from '../src/repositories/RefreshTokenRepository.js';
 import './helpers/test-env.js';
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
@@ -12,7 +13,9 @@ import TarjetaAyudaRepository from '../src/repositories/TarjetaAyudaRepository.j
 import TarjetaAyudaController, { publicTarjetaAyudaRouter } from '../src/controllers/TarjetaAyudaController.js';
 import { publicTarjetaRateLimiter } from '../src/middlewares/rate-limit.middleware.js';
 import { errorMiddleware } from '../src/middlewares/error.middleware.js';
-import { signJwt } from '../src/modules/security/jwt.helper.js';
+import { signJwt as realSignJwt } from '../src/modules/security/jwt.helper.js';
+const signJwt = payload => realSignJwt({ ...payload, sid: 'test-session' });
+RefreshTokenRepository.isFamilyActive = async (_id, sid) => sid === 'test-session';
 import { ACCESS_COOKIE_NAME } from '../src/configs/auth-cookies.config.js';
 
 // Actores: P (10) es el perteneciente 50; T (30) su tutor activo; T2 (31) tutor

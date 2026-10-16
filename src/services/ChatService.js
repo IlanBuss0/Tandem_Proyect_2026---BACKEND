@@ -6,6 +6,7 @@ import TipoChatRepository from '../repositories/TipoChatRepository.js';
 import UsuarioRepository from '../repositories/UsuarioRepository.js';
 import VinculoProfesionalPertenecienteRepository from '../repositories/VinculoProfesionalPertenecienteRepository.js';
 import AuthorizationService from './AuthorizationService.js';
+import { leaveUserChatRoom } from '../realtime/realtime.js';
 import { AUTH_ACTIONS } from '../modules/security/permissions.constants.js';
 import FileStorageService from './FileStorageService.js';
 import { compressImageAsync } from './ImageProcessingService.js';
@@ -79,6 +80,9 @@ export default class ChatService {
     }
 
     await this.assertUsuariosActivosAsync(participantIds);
+    for (const targetId of participantIds) {
+      if (Number(targetId) !== Number(id_usuario_creador)) await this.validarRelacionDirectaPermitidaAsync(id_usuario_creador, targetId);
+    }
 
     const idTipoChat = id_tipo_chat ? parseInt(id_tipo_chat) : await this.resolveTipoChatGrupoAsync();
     const chat = await this.ChatRepository.createWithParticipantsAsync({
@@ -171,7 +175,13 @@ export default class ChatService {
 
     if (Array.isArray(payload?.participantes) || Array.isArray(payload?.administradores)) {
       await this.assertUsuariosActivosAsync(participantIds);
+      for (const targetId of participantIds) {
+        if (Number(targetId) !== Number(idUsuario)) await this.validarRelacionDirectaPermitidaAsync(idUsuario, targetId);
+      }
       await this.ChatRepository.replaceParticipantsAsync(idChat, participantIds, adminIds);
+      for (const previous of participanteActual) {
+        if (!participantIds.includes(previous.id_usuario)) leaveUserChatRoom(previous.id_usuario, idChat);
+      }
     }
 
     const updatedChat = await this.ChatRepository.getByIdAsync(idChat);

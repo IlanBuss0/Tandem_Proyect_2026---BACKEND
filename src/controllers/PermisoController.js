@@ -166,10 +166,12 @@ router.put('/perteneciente/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const current = await PermisoService.getPertenecientePermissionById(id);
-    const idPerteneciente = Number(req.body?.id_perteneciente ?? current?.id_perteneciente);
+    const idPerteneciente = Number(current?.id_perteneciente);
     await AuthorizationService.assertCan(req.user.id, AUTH_ACTIONS.TUTOR_PERMISOS_MODIFICAR, { id_perteneciente: idPerteneciente });
     res.status(200).json({ ok: true, data: await PermisoService.updatePerteneciente(id, {
       ...req.body,
+      id_perteneciente: current.id_perteneciente,
+      id_permiso_perteneciente: current.id_permiso_perteneciente,
       id_usuario_modificador: req.user.id,
       fecha_modificacion: req.body?.fecha_modificacion ?? new Date(),
     }) });
@@ -180,10 +182,12 @@ router.put('/profesional/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const current = await PermisoService.getProfesionalPermissionById(id);
-    const idVinculo = Number(req.body?.id_vinculo_profesional_perteneciente ?? current?.id_vinculo_profesional_perteneciente);
+    const idVinculo = Number(current?.id_vinculo_profesional_perteneciente);
     await AuthorizationService.assertCanModifyProfesionalPermissions(req.user.id, idVinculo);
     res.status(200).json({ ok: true, data: await PermisoService.updateProfesional(id, {
       ...req.body,
+      id_vinculo_profesional_perteneciente: current.id_vinculo_profesional_perteneciente,
+      id_permiso_profesional: current.id_permiso_profesional,
       id_usuario_modificador: req.user.id,
       fecha_modificacion: req.body?.fecha_modificacion ?? new Date(),
     }) });

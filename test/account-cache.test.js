@@ -6,7 +6,9 @@ import AuthService from '../src/services/AuthService.js';
 import RefreshTokenRepository from '../src/repositories/RefreshTokenRepository.js';
 import { authMiddleware } from '../src/middlewares/auth.middleware.js';
 import { ACCESS_COOKIE_NAME } from '../src/configs/auth-cookies.config.js';
-import { signJwt } from '../src/modules/security/jwt.helper.js';
+import { signJwt as realSignJwt } from '../src/modules/security/jwt.helper.js';
+const signJwt = payload => realSignJwt({ ...payload, sid: 'test-session' });
+RefreshTokenRepository.isFamilyActive = async (_id, sid) => sid === 'test-session';
 import { __setCacheRedisClientProviderForTests } from '../src/cache/cacheHelper.js';
 import {
   ACCOUNT_MEMORY_TTL_MS,

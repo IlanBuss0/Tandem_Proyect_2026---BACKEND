@@ -202,7 +202,17 @@ export default class ActividadAsignadaRepository {
         fecha_ultimo_intento
     `;
 
-    return await BD.queryOne(sql, [id, score]);
+    return BD.transaction(async client => {
+      const { rows: [assignment] } = await client.query(
+        'SELECT aa.*, p.id_usuario, COALESCE(a.id_punto_otorgado, ap.id_punto_otorgado, 1) AS reward_level FROM actividades_asignadas aa JOIN pertenecientes p ON p.id=aa.id_perteneciente LEFT JOIN actividades a ON a.id=aa.id_actividad LEFT JOIN actividades_personalizadas ap ON ap.id=aa.id_actividad_personalizada WHERE aa.id=$1 FOR UPDATE OF aa', [id]);
+      if (!assignment) return null;
+      const { rows: [completed] } = await client.query(sql, [id, score]);
+      if (!assignment.fecha_completada && Number(assignment.id_usuario_asignador) !== Number(assignment.id_usuario)) {
+        const reward = Math.min(100, Math.max(10, Number(assignment.reward_level) * 5));
+        await client.query('INSERT INTO saldos_puntos (id_perteneciente,saldo) VALUES ($1,$2) ON CONFLICT (id_perteneciente) DO UPDATE SET saldo=saldos_puntos.saldo+EXCLUDED.saldo', [assignment.id_perteneciente, reward]);
+      }
+      return completed;
+    });
   };
 
   getResultsByCustomActivityIdAsync = async (idActividadPersonalizada) => {

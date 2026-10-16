@@ -142,6 +142,7 @@ test('controller conserva rutas, status y formatos', async () => {
     deleteByIdAsync: async (id) => id === 1 ? 1 : 0,
   };
   const app = express();
+  app.use((req, _res, next) => { req.account = { id_tipo_usuario: 4 }; next(); });
   app.use(express.json());
   app.use('/items', new BaseCrudController(service, TipoActividad).router);
   const server = app.listen(0);
@@ -167,6 +168,7 @@ test('controller conserva rutas, status y formatos', async () => {
 test('routers concretos del piloto conservan el montaje HTTP', async () => {
   BD.query = async () => [{ id: 1, nombre: 'Facil', orden: 1 }];
   const app = express();
+  app.use((req, _res, next) => { req.account = { id_tipo_usuario: 4 }; next(); });
   app.use('/api/tipos-actividades', TipoActividadController);
   app.use('/api/dificultades-actividades', DificultadActividadController);
   const server = app.listen(0);

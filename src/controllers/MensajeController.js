@@ -155,7 +155,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     const id = parseInt(req.params.id);
     console.log(`MensajeController.getById(${id})`);
     const r = await currentService.getByIdAsync(id);
-    if (r != null) {
+    if (r != null && !r.eliminado) {
       await currentService.ParticipanteChatService.ensureActiveParticipantAsync(r.id_chat, req.user.id);
       res.status(StatusCodes.OK).json(r);
     } else {
