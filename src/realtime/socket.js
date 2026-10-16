@@ -1,6 +1,7 @@
 import { Server } from 'socket.io';
+import { protectStorageUrls } from '../services/ProtectedStorageService.js';
 import { createAdapter } from '@socket.io/redis-adapter';
-import { verifyJwt } from '../modules/security/jwt.helper.js';
+import AuthorizationService from '../services/AuthorizationService.js';
 import MensajeService from '../services/MensajeService.js';
 import ParticipanteChatService from '../services/ParticipanteChatService.js';
 import { chatRoom, userRoom } from './rooms.js';
@@ -8,6 +9,7 @@ import { setRealtimeServer } from './realtime.js';
 import { connectRedisClient, createRedisConnection, isRedisEnabled } from '../redis/redisClient.js';
 import { socketCorsOptions } from '../configs/cors.config.js';
 import { ACCESS_COOKIE_NAME } from '../configs/auth-cookies.config.js';
+import { authenticateSessionToken } from '../middlewares/auth.middleware.js';
 
 const mensajeService = new MensajeService();
 const participanteChatService = new ParticipanteChatService();
@@ -50,10 +52,6 @@ function ack(callback, response) {
 export async function setupRealtime(httpServer) {
   const io = new Server(httpServer, {
     cors: socketCorsOptions,
-    connectionStateRecovery: {
-      maxDisconnectionDuration: 2 * 60 * 1000,
-      skipMiddlewares: false,
-    },
   });
 
   setRealtimeServer(io);
@@ -75,36 +73,43 @@ export async function setupRealtime(httpServer) {
     console.log('[Socket.io] Redis adapter desactivado; REDIS_URL no configurado.');
   }
 
-  io.use((socket, next) => {
-    const token = getTokenFromSocket(socket);
-    const payload = token ? verifyJwt(token) : null;
-
-    if (!payload?.id) {
-      return next(new Error('Token invalido'));
-    }
-
-    socket.data.user = payload;
-    return next();
+  io.use(async (socket, next) => {
+    try {
+      const token = getTokenFromSocket(socket);
+      const { payload, account } = await authenticateSessionToken(token, { fresh: true });
+      if (!account.email_verificado) throw new Error('Verifica tu correo para continuar');
+      socket.data.user = payload;
+      socket.data.token = token;
+      return next();
+    } catch (error) { next(new Error(error.message)); }
   });
 
   io.on('connection', (socket) => {
     const idUsuario = socket.data.user.id;
     socket.join(userRoom(idUsuario));
+    const expires = setTimeout(() => socket.disconnect(true), Math.max(0, socket.data.user.exp * 1000 - Date.now()));
+    const validateSession = async () => {
+      const { account } = await authenticateSessionToken(socket.data.token, { fresh: true });
+      if (!account.email_verificado) throw new Error('Cuenta no verificada');
+    };
+    const recheck = setInterval(() => validateSession().catch(() => socket.disconnect(true)), 5000);
+    socket.use(async (_packet, next) => {
+      try { await validateSession(); next(); }
+      catch { socket.disconnect(true); }
+    });
     console.log(`[Socket.io] usuario conectado user:${idUsuario} socket:${socket.id}`);
 
     socket.on('disconnect', (reason) => {
+      clearTimeout(expires);
+      clearInterval(recheck);
       console.log(`[Socket.io] usuario desconectado user:${idUsuario} socket:${socket.id} reason:${reason}`);
     });
 
-    socket.on('chat:join', async ({ id_chat }, callback) => {
+    socket.on('chat:join', async (payload, callback) => {
+      const id_chat = payload?.id_chat;
       try {
         const idChat = parsePositiveInt(id_chat);
         if (!idChat) throw new Error('id_chat invalido.');
-
-        if (socket.rooms.has(chatRoom(idChat))) {
-          ack(callback, { ok: true, data: { id_chat: idChat, already_joined: true } });
-          return;
-        }
 
         await participanteChatService.ensureActiveParticipantAsync(idChat, idUsuario);
         socket.join(chatRoom(idChat));
@@ -117,7 +122,8 @@ export async function setupRealtime(httpServer) {
       }
     });
 
-    socket.on('chat:leave', ({ id_chat }, callback) => {
+    socket.on('chat:leave', (payload, callback) => {
+      const id_chat = payload?.id_chat;
       const idChat = parsePositiveInt(id_chat);
       if (idChat) socket.leave(chatRoom(idChat));
 
@@ -144,7 +150,7 @@ export async function setupRealtime(httpServer) {
         participantes
           .filter((participante) => !participante.fecha_salida)
           .forEach((participante) => {
-            io.to(userRoom(participante.id_usuario)).emit('message:new', message);
+            io.to(userRoom(participante.id_usuario)).emit('message:new', protectStorageUrls(message));
           });
         ack(callback, { ok: true, data: message });
       } catch (error) {
@@ -158,6 +164,7 @@ export async function setupRealtime(httpServer) {
         if (!idChat) throw new Error('id_chat invalido.');
 
         await participanteChatService.ensureActiveParticipantAsync(idChat, idUsuario);
+        await AuthorizationService.assertCanSendMessageToChat(idUsuario, idChat);
         socket.to(chatRoom(idChat)).emit('message:typing', {
           id_chat: idChat,
           id_usuario: idUsuario,

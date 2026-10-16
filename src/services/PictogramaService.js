@@ -1,3 +1,4 @@
+import ProtectedStorageService, { parseStorageObject } from './ProtectedStorageService.js';
 import axiosClient from '../modules/axios/axiosClient.js';
 import PictogramaRepository from '../repositories/PictogramaRepository.js';
 import { cacheService } from './CacheService.js';
@@ -224,7 +225,8 @@ export default class PictogramaService {
     if (!pictogram?.downloadUrl && !pictogram?.imageUrl) return null;
 
     const url = pictogram.downloadUrl || pictogram.imageUrl;
-    const response = await axiosClient.get(url, {
+    const storageObject = parseStorageObject(url);
+    const response = storageObject ? await new ProtectedStorageService().download(storageObject.bucket, storageObject.path) : await axiosClient.get(url, {
       responseType: 'arraybuffer',
       timeout: Number.parseInt(process.env.ARASAAC_REQUEST_TIMEOUT_MS || 30000, 10),
     });

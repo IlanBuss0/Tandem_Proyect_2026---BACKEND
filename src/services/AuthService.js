@@ -23,6 +23,8 @@ import { envConfig } from '../configs/env.config.js';
 import ValidacionProfesionalServiceClass from './ValidacionProfesionalService.js';
 import { VERIFICATION_STATUS } from '../modules/professional-verification/verification.constants.js';
 import { invalidateAccountCache } from '../cache/accountCache.js';
+import { getRealtimeServer } from '../realtime/realtime.js';
+import { userRoom } from '../realtime/rooms.js';
 import { invalidateUserCaches } from '../cache/cacheTags.js';
 
 const UsuarioService = new UsuarioServiceClass();
@@ -51,7 +53,7 @@ const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 
 class AuthService {
   async createSession(user, familyId = createSessionFamilyId(), db = BD) {
-    const accessToken = signJwt({ id: user.id, correo: user.correo, nombre_usuario: user.nombre_usuario });
+    const accessToken = signJwt({ id: user.id, correo: user.correo, nombre_usuario: user.nombre_usuario, sid: familyId });
     const refreshToken = generateRefreshToken();
     const refreshTokenHash = hashRefreshToken(refreshToken);
     const refreshExpiresAt = getRefreshExpiresAt();
@@ -247,6 +249,7 @@ class AuthService {
       resetUserId = record.id_usuario;
     });
     await invalidateAccountCache(resetUserId);
+    getRealtimeServer()?.in(userRoom(resetUserId)).disconnectSockets(true);
     return { changed: true };
   }
 
@@ -311,6 +314,7 @@ class AuthService {
       await RefreshTokenRepository.revokeAllForUser(idUsuario, client);
     });
     await invalidateAccountCache(idUsuario);
+    getRealtimeServer()?.in(userRoom(idUsuario)).disconnectSockets(true);
     return { changed: true };
   }
 
@@ -614,6 +618,7 @@ class AuthService {
 
     await RefreshTokenRepository.revoke(tokenHash);
     await invalidateAccountCache(existing.id_usuario);
+    getRealtimeServer()?.in(userRoom(existing.id_usuario)).disconnectSockets(true);
     return { revoked: true };
   }
 

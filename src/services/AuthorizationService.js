@@ -9,25 +9,41 @@ import {
   PROFESIONAL_PERMISSIONS,
 } from '../modules/security/permissions.constants.js';
 import { isVerifiedProfessionalStatus } from '../modules/professional-verification/professional-status.js';
-import { buildCacheKey, getOrSetCache, invalidateCache } from '../cache/cacheHelper.js';
-import { CACHE_TAGS, CACHE_TTL, invalidateAuthorizationCaches } from '../cache/cacheTags.js';
+import { buildCacheKey, invalidateCache } from '../cache/cacheHelper.js';
+import { invalidateAuthorizationCaches } from '../cache/cacheTags.js';
+import BD from '../db/BD.js';
 
 function userContextCacheKey(idUsuario) {
   return buildCacheKey('authz-usercontext', { userId: idUsuario });
 }
 
 class AuthorizationService {
-  // Roles del usuario (fila de usuario + perteneciente/tutor/profesional). Lo
-  // usan casi todos los chequeos de permisos: se cachea 60 s por usuario y se
-  // invalida junto con el resto del cache de autorizacion y de la cuenta.
+  async assertCanReadFile(idUsuario, file) {
+    if (!file || file.activo === false) throw new AppError('Archivo no encontrado.', 404);
+    if (Number(file.id_usuario_creador) === Number(idUsuario)) return this.allow();
+    const access = await BD.queryOne(`
+      SELECT 1 FROM archivos a WHERE a.id=$1 AND (
+        EXISTS (SELECT 1 FROM permisos_archivos pa WHERE pa.id_archivo=a.id AND (
+          pa.id_usuario=$2 OR EXISTS (SELECT 1 FROM participantes_chats pc
+            WHERE pc.id_chat=pa.id_chat AND pc.id_usuario=$2 AND pc.fecha_salida IS NULL)))
+        OR EXISTS (SELECT 1 FROM mensajes_archivos ma JOIN mensajes m ON m.id=ma.id_mensaje
+          JOIN participantes_chats pc ON pc.id_chat=m.id_chat
+          WHERE ma.id_archivo=a.id AND m.eliminado=false AND pc.id_usuario=$2 AND pc.fecha_salida IS NULL
+            AND (pc.oculto_desde IS NULL OR m.fecha_envio>=pc.oculto_desde)))`, [file.id, idUsuario]);
+    if (!access) throw new AppError('No autorizado para consultar este archivo.', 403);
+    return this.allow();
+  }
+
+  async assertCanManageAccompaniment(idUsuario, idPerteneciente) {
+    return this.assertCanWritePertenecienteResource(idUsuario, idPerteneciente, {
+      profesionalPermissionName: PROFESIONAL_PERMISSIONS.ASIGNAR_ACTIVIDADES,
+      allowTutor: true,
+    });
+  }
+
+  // Resolve roles from current records so revocation takes effect immediately.
   async getUserContext(idUsuario) {
-    if (idUsuario == null || Number.isNaN(Number(idUsuario))) return await this.loadUserContext(idUsuario);
-    return await getOrSetCache(
-      userContextCacheKey(Number(idUsuario)),
-      CACHE_TTL.AUTHZ_USER_CONTEXT,
-      () => this.loadUserContext(idUsuario),
-      { tags: [CACHE_TAGS.AUTHZ] },
-    );
+    return this.loadUserContext(idUsuario);
   }
 
   async loadUserContext(idUsuario) {
@@ -44,9 +60,7 @@ class AuthorizationService {
   }
 
   async getEffectivePertenecientePermissions(idPerteneciente) {
-    const cacheKey = `auth.permisos.pert.${idPerteneciente}`;
-    const cached = await cacheService.get(cacheKey);
-    if (cached) return cached;
+    // Authorization decisions always resolve current links and grants.
 
     const perteneciente = await AuthorizationRepository.getPertenecienteById(idPerteneciente);
     if (!perteneciente?.usuario_activo) throw new AppError('Perteneciente no encontrado o inactivo', 404);
@@ -73,14 +87,11 @@ class AuthorizationService {
       permisos,
     };
 
-    await cacheService.set(cacheKey, result, 60);
     return result;
   }
 
   async getEffectiveProfesionalPermissions(idVinculoProfesionalPerteneciente) {
-    const cacheKey = `auth.permisos.prof.${idVinculoProfesionalPerteneciente}`;
-    const cached = await cacheService.get(cacheKey);
-    if (cached) return cached;
+    // Authorization decisions always resolve current links and grants.
 
     const vinculo = await AuthorizationRepository.getVinculoProfesionalById(idVinculoProfesionalPerteneciente);
     if (!vinculo) throw new AppError('Vinculo profesional-perteneciente no encontrado', 404);
@@ -104,14 +115,11 @@ class AuthorizationService {
       permisos,
     };
 
-    await cacheService.set(cacheKey, result, 60);
     return result;
   }
 
   async getPermissionContext(idUsuario) {
-    const cacheKey = `auth.context.${idUsuario}`;
-    const cached = await cacheService.get(cacheKey);
-    if (cached) return cached;
+    // Authorization decisions always resolve current links and grants.
 
     const userContext = await this.getUserContext(idUsuario);
     if (!userContext) throw new AppError('Usuario no encontrado o inactivo', 404);
@@ -159,7 +167,12 @@ class AuthorizationService {
     }
 
     if (userContext.profesional) {
-      const vinculos = await AuthorizationRepository.getProfesionalVinculos(userContext.profesional.id);
+      const allVinculos = await AuthorizationRepository.getProfesionalVinculos(userContext.profesional.id);
+      const vinculos = [];
+      for (const row of allVinculos) {
+        const access = await this.canProfesionalPermission(userContext, { id_perteneciente: row.id_perteneciente }, PROFESIONAL_PERMISSIONS.VER_HISTORIAL);
+        if (access.allowed) vinculos.push(row);
+      }
       data.profesional = userContext.profesional;
       data.vinculos = await Promise.all(vinculos.map(async (row) => ({
         id_vinculo: row.id_vinculo_profesional_perteneciente,
@@ -173,7 +186,6 @@ class AuthorizationService {
       })));
     }
 
-    await cacheService.set(cacheKey, data, 60);
     return data;
   }
 
@@ -274,7 +286,7 @@ class AuthorizationService {
 
     const tutorAccess = await this.canTutorActOnPerteneciente(userContext, {
       id_perteneciente: vinculo.id_perteneciente,
-    });
+    }, { requirePrincipal: true });
 
     if (!tutorAccess.allowed) throw new AppError(tutorAccess.reason || 'No autorizado', 403);
     return tutorAccess;
@@ -415,8 +427,10 @@ class AuthorizationService {
 
     if (userContext.profesional?.id) {
       const vinculos = await AuthorizationRepository.getApprovedProfessionalLinks(userContext.profesional.id);
-      const tieneVinculoAprobado = (vinculos || []).some((v) => this.isProfessionalLinkApproved(v));
-      if (tieneVinculoAprobado) return this.allow();
+      for (const vinculo of vinculos || []) {
+        const access = await this.canProfesionalPermission(userContext, { id_perteneciente: vinculo.id_perteneciente }, PROFESIONAL_PERMISSIONS.CREAR_ACTIVIDADES_PERSONALIZADAS);
+        if (access.allowed) return access;
+      }
       throw new AppError('No autorizado: no existe un vinculo profesional aprobado', 403);
     }
 
@@ -574,6 +588,20 @@ class AuthorizationService {
       });
     }
 
+    const participants = await BD.query(`SELECT id_usuario FROM participantes_chats WHERE id_chat=$1 AND fecha_salida IS NULL`, [idChat]);
+    for (const participant of participants) {
+      if (Number(participant.id_usuario) === Number(idUsuarioEmisor)) continue;
+      const blocked = await BD.queryOne(`SELECT id FROM bloqueos_usuarios WHERE
+        (id_usuario_bloqueador=$1 AND id_usuario_bloqueado=$2) OR (id_usuario_bloqueador=$2 AND id_usuario_bloqueado=$1)`, [idUsuarioEmisor, participant.id_usuario]);
+      if (blocked) throw new AppError('La comunicacion entre estos usuarios esta bloqueada.', 403);
+      const other = await this.getUserContext(participant.id_usuario);
+      if (userContext.profesional && other?.perteneciente) {
+        await this.assertCan(idUsuarioEmisor, AUTH_ACTIONS.PROFESIONAL_CHAT_ENVIAR, { id_perteneciente: other.perteneciente.id });
+      }
+      if (userContext.perteneciente && other?.profesional) {
+        await this.assertCan(idUsuarioEmisor, AUTH_ACTIONS.PERTENECIENTE_CHAT_PROFESIONAL_ENVIAR, { id_perteneciente: userContext.perteneciente.id, id_profesional: other.profesional.id });
+      }
+    }
     const chatContext = await this.getProfessionalPertenecienteChatContext(idChat, idUsuarioEmisor);
     if (!chatContext) return this.allow();
 

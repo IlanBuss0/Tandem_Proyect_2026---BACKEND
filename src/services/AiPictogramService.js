@@ -1,3 +1,6 @@
+import AuthorizationRepository from '../repositories/AuthorizationRepository.js';
+import { PROFESIONAL_PERMISSIONS } from '../modules/security/permissions.constants.js';
+import ProtectedStorageService from './ProtectedStorageService.js';
 import crypto from 'crypto';
 import axios from 'axios';
 import sharp from 'sharp';
@@ -173,25 +176,20 @@ export default class AiPictogramService {
   // Sesion 8) puedan resolver a que perteneciente generarle un pictograma
   // sin tener que adivinar por nombre (Sesion 23, item 16).
   getTargetsAsync = async (userId) => {
-    const context = await AuthorizationService.getPermissionContext(userId);
-    if (context.tutor) {
-      return (context.pertenecientes || []).map(item => ({
-        id: item.id,
-        usuarioId: item.usuario?.id ?? null,
-        name: `${item.usuario?.nombre || ''} ${item.usuario?.apellido || ''}`.trim() || item.usuario?.nombre_usuario,
-      }));
+    const context = await AuthorizationService.getUserContext(userId);
+    if (!context?.tutor && !context?.profesional) throw new AppError('Solo tutores y profesionales pueden crear pictogramas con IA.', 403);
+    const rows = context.tutor
+      ? await AuthorizationRepository.getTutorPertenecientes(context.tutor.id)
+      : await AuthorizationRepository.getProfesionalVinculos(context.profesional.id);
+    const targets = [];
+    for (const row of rows) {
+      if (context.profesional && !context.tutor) {
+        const access = await AuthorizationService.canProfesionalPermission(context, { id_perteneciente: row.id_perteneciente }, PROFESIONAL_PERMISSIONS.CREAR_ACTIVIDADES_PERSONALIZADAS);
+        if (!access.allowed) continue;
+      }
+      targets.push({ id: row.id_perteneciente, usuarioId: row.id_usuario_perteneciente, name: [row.nombre, row.apellido].filter(Boolean).join(' ') || row.nombre_usuario });
     }
-    if (context.profesional) {
-      return (context.vinculos || [])
-        .filter(item => item.vinculo?.fue_aprobado_por_tutor !== false)
-        .map(item => ({
-          id: item.perteneciente.id,
-          usuarioId: item.perteneciente.usuario?.id ?? null,
-          name: `${item.perteneciente.usuario?.nombre || ''} ${item.perteneciente.usuario?.apellido || ''}`.trim()
-            || item.perteneciente.usuario?.nombre_usuario,
-        }));
-    }
-    throw new AppError('Solo tutores y profesionales pueden crear pictogramas con IA.', 403);
+    return targets;
   };
 
   assertTargetAsync = async (userId, targetId) => {
@@ -244,6 +242,7 @@ export default class AiPictogramService {
   };
 
   createImageBufferAsync = async ({ model, prompt, referenceUrls, name, description }) => {
+    referenceUrls = await Promise.all((referenceUrls || []).map(url => new ProtectedStorageService().signProviderReference(url)));
     const hasFalKey = envConfig.falKey && envConfig.falKey !== 'replace-with-fal-api-key';
     let providerRequestId = null;
     let seed = null;

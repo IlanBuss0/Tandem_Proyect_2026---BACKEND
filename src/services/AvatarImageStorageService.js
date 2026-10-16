@@ -145,7 +145,11 @@ function parseAvatarJson(raw) {
 }
 
 function buildDiceBearPngUrl(entity) {
-  if (entity?.avatar_imagen_origen_url) return entity.avatar_imagen_origen_url;
+  if (entity?.avatar_imagen_origen_url) {
+    const source = new URL(entity.avatar_imagen_origen_url);
+    if (source.origin !== new URL(envConfig.dicebearAvatarPngBaseUrl).origin || source.protocol !== 'https:') throw new Error('Proveedor de avatar no permitido.');
+    return source.toString();
+  }
 
   const { appearance, equipped } = parseAvatarJson(entity?.avatar_json);
   const options = {
@@ -221,7 +225,7 @@ export default class AvatarImageStorageService {
           // URL publica que se devuelve lleva ?v={avatar_imagen_actualizada_en}
           // (ver AvatarService), asi que el navegador vuelve a pedir la imagen
           // cuando cambia aunque este marcada como immutable.
-          'cache-control': 'public, max-age=31536000, immutable',
+          'cache-control': 'private, no-store',
           'x-upsert': 'true',
         },
       },

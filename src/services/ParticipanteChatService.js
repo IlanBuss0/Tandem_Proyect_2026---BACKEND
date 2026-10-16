@@ -1,8 +1,8 @@
 import ParticipanteChatRepository from '../repositories/ParticipanteChatRepository.js';
+import { leaveUserChatRoom } from '../realtime/realtime.js';
 import {
   addCachedChatMember,
   hydrateCachedChatMembers,
-  isCachedChatMember,
   removeCachedChatMember,
 } from '../cache/chatMembershipCache.js';
 
@@ -24,11 +24,6 @@ export default class ParticipanteChatService {
   getByChatAndUsuarioAsync = async (idChat, idUsuario) => { console.log(`ParticipanteChatService.getByChatAndUsuarioAsync(${idChat}, ${idUsuario})`); if (!idChat || Number.isNaN(idChat)) { throw new Error('El id del chat es invalido.'); } if (!idUsuario || Number.isNaN(idUsuario)) { throw new Error('El id del usuario es invalido.'); } return await this.ParticipanteChatRepository.getByChatAndUsuarioAsync(idChat, idUsuario); };
 
   ensureActiveParticipantAsync = async (idChat, idUsuario) => {
-    const cachedMember = await isCachedChatMember(idChat, idUsuario);
-    if (cachedMember === true) {
-      return { id_chat: idChat, id_usuario: idUsuario };
-    }
-
     const participante = await this.getByChatAndUsuarioAsync(idChat, idUsuario);
     if (!participante || participante.fecha_salida) {
       await removeCachedChatMember(idChat, idUsuario);
@@ -66,7 +61,10 @@ export default class ParticipanteChatService {
       throw new Error('El grupo necesita al menos un administrador antes de que puedas salir.');
     }
 
-    return await this.ParticipanteChatRepository.leaveForUserAsync(idChat, idUsuario);
+    const affected = await this.ParticipanteChatRepository.leaveForUserAsync(idChat, idUsuario);
+    leaveUserChatRoom(idUsuario, idChat);
+    await removeCachedChatMember(idChat, idUsuario);
+    return affected;
   };
 
   createAsync = async (entity) => {

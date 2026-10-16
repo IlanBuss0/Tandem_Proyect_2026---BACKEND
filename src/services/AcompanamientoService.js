@@ -1,3 +1,4 @@
+import BD from '../db/BD.js';
 import AcompanamientoRepository from '../repositories/AcompanamientoRepository.js';
 import AuthorizationService from './AuthorizationService.js';
 import { PROFESIONAL_PERMISSIONS } from '../modules/security/permissions.constants.js';
@@ -50,7 +51,7 @@ export default class AcompanamientoService {
   };
 
   assertCanManageObjectiveAsync = async (idUsuario, idPerteneciente) => {
-    await this.assertCanReadAsync(idUsuario, idPerteneciente);
+    await AuthorizationService.assertCanManageAccompaniment(idUsuario, idPerteneciente);
   };
 
   getForUserAsync = async (idUsuario, idPerteneciente) => {
@@ -121,7 +122,14 @@ export default class AcompanamientoService {
 
   deleteNoteAsync = async (idUsuario, idPerteneciente, noteId) => {
     const belongingId = this.assertPertenecienteId(idPerteneciente);
-    await this.assertCanReadAsync(idUsuario, belongingId);
+    await AuthorizationService.assertCanManageAccompaniment(idUsuario, belongingId);
+    const note = await BD.queryOne('SELECT id_usuario_autor FROM acompanamiento_notas_compartidas WHERE id=$1 AND id_perteneciente=$2', [Number(noteId), belongingId]);
+    if (!note) throw Object.assign(new Error('Nota compartida no encontrada.'), { statusCode: 404 });
+    if (Number(note.id_usuario_autor) !== Number(idUsuario)) {
+      const context = await AuthorizationService.getUserContext(idUsuario);
+      const access = await AuthorizationService.canTutorActOnPerteneciente(context, { id_perteneciente: belongingId }, { requirePrincipal: true });
+      if (!access.allowed) throw Object.assign(new Error('Solo el autor o el tutor principal puede eliminar esta nota.'), { statusCode: 403 });
+    }
     const affected = await this.repository.deleteSharedNoteAsync(this.assertId(noteId, 'La nota'), belongingId);
     if (!affected) throw Object.assign(new Error('Nota compartida no encontrada.'), { statusCode: 404 });
     return this.getForUserAsync(idUsuario, belongingId);
@@ -172,7 +180,7 @@ export default class AcompanamientoService {
 
   updateAgreementAsync = async (idUsuario, idPerteneciente, agreementId, payload) => {
     const belongingId = this.assertPertenecienteId(idPerteneciente);
-    await this.assertCanReadAsync(idUsuario, belongingId);
+    await AuthorizationService.assertCanManageAccompaniment(idUsuario, belongingId);
     const updated = await this.repository.updateAgreementAsync({
       id: this.assertId(agreementId, 'El acuerdo'), idPerteneciente: belongingId,
       texto: payload?.texto === undefined ? undefined : this.assertText(payload.texto, 'El acuerdo', MAX_AGREEMENT_LENGTH),
@@ -184,7 +192,7 @@ export default class AcompanamientoService {
 
   deleteAgreementAsync = async (idUsuario, idPerteneciente, agreementId) => {
     const belongingId = this.assertPertenecienteId(idPerteneciente);
-    await this.assertCanReadAsync(idUsuario, belongingId);
+    await AuthorizationService.assertCanManageAccompaniment(idUsuario, belongingId);
     const affected = await this.repository.deleteAgreementAsync(this.assertId(agreementId, 'El acuerdo'), belongingId);
     if (!affected) throw Object.assign(new Error('Acuerdo no encontrado.'), { statusCode: 404 });
     return this.getForUserAsync(idUsuario, belongingId);

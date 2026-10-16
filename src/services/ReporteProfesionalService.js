@@ -1,3 +1,5 @@
+import AuthorizationService from './AuthorizationService.js';
+import { PROFESIONAL_PERMISSIONS } from '../modules/security/permissions.constants.js';
 import ReporteProfesionalRepository from '../repositories/ReporteProfesionalRepository.js';
 import ProfesionalRepository from '../repositories/ProfesionalRepository.js';
 import VinculoProfesionalPertenecienteRepository from '../repositories/VinculoProfesionalPertenecienteRepository.js';
@@ -53,6 +55,8 @@ export default class ReporteProfesionalService {
       error.statusCode = 403;
       throw error;
     }
+    const idUsuario = await this.resolveProfesionalUsuarioIdAsync(idProfesional);
+    await AuthorizationService.assertCanReadPertenecienteResource(idUsuario, Number(idPerteneciente), PROFESIONAL_PERMISSIONS.VER_HISTORIAL);
   };
 
   buildPacienteContextAsync = async (idPerteneciente) => {
@@ -101,6 +105,7 @@ export default class ReporteProfesionalService {
   /** Reporte "liviano" para tareas programadas: nunca incluye texto de notas. */
   generateScheduledAsync = async (idProfesional, idPerteneciente) => {
     console.log(`ReporteProfesionalService.generateScheduledAsync(profesional=${idProfesional}, perteneciente=${idPerteneciente})`);
+    await this.assertVinculoActivoAsync(idProfesional, idPerteneciente);
     const { pacienteNombre, nivelApoyoNombre } = await this.buildPacienteContextAsync(idPerteneciente);
     const sesiones = await this.SesionProfesionalRepository.getByProfesionalIdAsync(idProfesional);
     const sesionesPaciente = sesiones.filter((s) => Number(s.id_perteneciente) === Number(idPerteneciente));
@@ -186,7 +191,9 @@ export default class ReporteProfesionalService {
   };
 
   getForTutorAsync = async (idUsuarioTutor) => {
-    return await this.ReporteProfesionalRepository.getByTutorUserIdAsync(idUsuarioTutor);
+    const rows = await this.ReporteProfesionalRepository.getByTutorUserIdAsync(idUsuarioTutor);
+    const ids = await AuthorizationService.filterReadablePertenecienteIds(idUsuarioTutor, rows.map(row => row.id_perteneciente));
+    return rows.filter(row => ids.has(Number(row.id_perteneciente)));
   };
 
   resolveProfesionalUsuarioIdAsync = async (idProfesional) => {
@@ -285,7 +292,9 @@ export default class ReporteProfesionalService {
       throw error;
     }
 
+    await this.assertVinculoActivoAsync(idProfesional, Number(reporte.id_perteneciente));
     const idUsuarioTutor = await this.resolveTutorUserIdAsync(reporte.id_perteneciente);
+    await AuthorizationService.assertCanReadPertenecienteResource(idUsuarioTutor, Number(reporte.id_perteneciente));
     const { chat } = await this.ChatService.createDirectChatAsync(idUsuarioProfesional, idUsuarioTutor, 1, null, {
       skipRelationshipValidation: true,
     });
@@ -343,6 +352,7 @@ export default class ReporteProfesionalService {
 
     const pacientes = [];
     for (const [idPerteneciente, sesionesPaciente] of porPaciente) {
+      await this.assertVinculoActivoAsync(idProfesional, idPerteneciente);
       const { pacienteNombre } = await this.buildPacienteContextAsync(idPerteneciente);
       const completadas = sesionesPaciente.filter((s) => s.estado === 'completada').length;
       const canceladas = sesionesPaciente.filter((s) => s.estado === 'cancelada').length;

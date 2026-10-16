@@ -1,3 +1,4 @@
+import RefreshTokenRepository from '../src/repositories/RefreshTokenRepository.js';
 import './helpers/test-env.js';
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
@@ -12,7 +13,9 @@ import ConfiguracionAccesibilidadController from '../src/controllers/Configuraci
 import ConfiguracionUsuarioController from '../src/controllers/ConfiguracionUsuarioController.js';
 import AuthRepository from '../src/repositories/AuthRepository.js';
 import { authMiddleware } from '../src/middlewares/auth.middleware.js';
-import { signJwt } from '../src/modules/security/jwt.helper.js';
+import { signJwt as realSignJwt } from '../src/modules/security/jwt.helper.js';
+const signJwt = payload => realSignJwt({ ...payload, sid: 'test-session' });
+RefreshTokenRepository.isFamilyActive = async (_id, sid) => sid === 'test-session';
 import { ACCESS_COOKIE_NAME } from '../src/configs/auth-cookies.config.js';
 import { errorMiddleware } from '../src/middlewares/error.middleware.js';
 

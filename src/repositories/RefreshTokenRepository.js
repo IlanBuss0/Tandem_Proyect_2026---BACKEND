@@ -19,6 +19,11 @@ function execute(db, sql, params) {
 }
 
 class RefreshTokenRepository {
+  async isFamilyActive(idUsuario, familyId) {
+    if (!familyId) return false;
+    return Boolean(await BD.queryOne(`SELECT id FROM refresh_tokens WHERE id_usuario=$1 AND family_id=$2
+      AND revoked_at IS NULL AND expires_at>CURRENT_TIMESTAMP LIMIT 1`, [idUsuario, familyId]));
+  }
   create({ idUsuario, tokenHash, familyId, expiresAt }, db = BD) {
     return queryOne(
       db,

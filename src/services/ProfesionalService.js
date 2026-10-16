@@ -2,6 +2,7 @@ import ProfesionalRepository from '../repositories/ProfesionalRepository.js';
 import AppError from '../modules/errors/AppError.js';
 import { invalidateProfessionalDirectoryCache } from './PerfilProfesionalService.js';
 import { invalidateAuthorizationCaches } from '../cache/cacheTags.js';
+import AuthorizationService from './AuthorizationService.js';
 
 export default class ProfesionalService {
   constructor() {
@@ -42,6 +43,8 @@ export default class ProfesionalService {
   createMineAsync = async (idUsuario, { profesion, especialidad = null, matricula, institucion = null } = {}) => {
     console.log(`ProfesionalService.createMineAsync(${idUsuario})`);
 
+    const context = await AuthorizationService.getUserContext(idUsuario);
+    if (Number(context?.usuario?.id_tipo_usuario) !== 3) throw new AppError('Se requiere una cuenta profesional.', 403);
     const existente = await this.ProfesionalRepository.getByUsuarioIdAsync(idUsuario);
     if (existente != null) {
       throw new AppError('Ya existe un perfil profesional asociado a tu usuario.', 409);
@@ -97,6 +100,7 @@ export default class ProfesionalService {
 
     const rowsAffected = await this.ProfesionalRepository.updateAsync(entity);
     await invalidateProfessionalDirectoryCache();
+    await invalidateAuthorizationCaches();
     return rowsAffected;
   };
 

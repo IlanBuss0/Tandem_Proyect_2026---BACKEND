@@ -1,10 +1,12 @@
+import StorageController from './controllers/StorageController.js';
+import ProtectedStorageService, { protectStorageUrls } from './services/ProtectedStorageService.js';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import path from 'path';
 import { createServer } from 'http';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 import AuthController from './controllers/AuthController.js';
 import InviteVinculoController from './controllers/InviteVinculoController.js';
@@ -98,6 +100,7 @@ import VinculoTutorPertenecienteController from './controllers/VinculoTutorPerte
 import AcompanamientoController from './controllers/AcompanamientoController.js';
 import { authMiddleware, verifiedAccountMiddleware } from './middlewares/auth.middleware.js';
 import { csrfMiddleware } from './middlewares/csrf.middleware.js';
+import { resourceAuthorizationMiddleware } from './middlewares/resource-authorization.middleware.js';
 import {
   CATALOG_ROUTE_PREFIXES,
   PERSONAL_PICTOGRAM_PREFIXES,
@@ -136,6 +139,14 @@ app.use(helmet({
 app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
+app.use((req, res, next) => {
+  const sendJson = res.json.bind(res);
+  const redirect = res.redirect.bind(res);
+  res.json = data => sendJson(protectStorageUrls(data));
+  res.redirect = (...args) => redirect(...args.map(arg => typeof arg === 'string' ? protectStorageUrls(arg) : arg));
+  next();
+});
+app.use('/api/storage', StorageController);
 
 // Documentación Interactiva con Swagger (Solo disponible en Desarrollo)
 if (process.env.NODE_ENV !== 'production') {
@@ -187,6 +198,10 @@ app.use('/api/auth', AuthController);
 app.use('/api/refeps', authRateLimiter, RefepsSearchController);
 app.use(PUBLIC_PICTOGRAM_CATALOG_PREFIXES, catalogCache());
 app.use(PERSONAL_PICTOGRAM_PREFIXES, privateNoCache);
+app.use(['/api/pictograms', '/api/pictogramas', '/pictograms'], (req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD') return next();
+  authMiddleware(req, res, error => error ? next(error) : verifiedAccountMiddleware(req, res, next));
+});
 app.use('/api/pictograms', PictogramaController);
 app.use('/api/pictogramas', PictogramaController);
 app.use('/pictograms', PictogramaController);
@@ -194,6 +209,7 @@ app.use('/api/public/tarjeta', publicTarjetaRateLimiter, publicTarjetaAyudaRoute
 app.use('/api', authMiddleware);
 app.use('/api', verifiedAccountMiddleware);
 app.use('/api', csrfMiddleware);
+app.use('/api', resourceAuthorizationMiddleware);
 app.use('/api', privateNoCache);
 app.use(CATALOG_ROUTE_PREFIXES, catalogCache());
 app.use('/api/usuarios', UsuarioController);
@@ -292,20 +308,20 @@ export default app;
 async function startServer() {
   try {
     await BD.testConnection();
+    await new ProtectedStorageService().assertPrivateBuckets();
     console.log('Conexion a base de datos OK');
 
     await setupRedisRateLimit();
 
     await setupRealtime(httpServer);
 
-    if (envConfig.startNotificationWorker) {
-      startNotificationWorker();
+    if (process.env.START_BACKGROUND_WORKERS !== 'false') {
+      if (envConfig.startNotificationWorker) startNotificationWorker();
+      startPictogramaSyncJob();
+      startRoutineReminderWorker();
+      startScheduledReportWorker();
+      startInactivePatientWorker();
     }
-
-    startPictogramaSyncJob();
-    startRoutineReminderWorker();
-    startScheduledReportWorker();
-    startInactivePatientWorker();
 
     httpServer.listen(envConfig.port, () => {
       console.log(`Servidor escuchando en puerto ${envConfig.port}`);
@@ -317,4 +333,4 @@ async function startServer() {
   }
 }
 
-startServer();
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) startServer();

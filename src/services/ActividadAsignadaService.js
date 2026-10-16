@@ -57,6 +57,12 @@ export default class ActividadAsignadaService {
     return result;
   };
 
+  assertCanUseCustomActivityAsync = async (id, idUsuario) => {
+    if (!id) return;
+    const activity = await this.ActividadPersonalizadaRepository.getByIdAsync(Number(id));
+    if (!activity || Number(activity.id_usuario_creador) !== Number(idUsuario)) throw new AppError('No autorizado para asignar esta actividad personalizada.', 403);
+  };
+
   createAsync = async (entity) => {
     console.log(`ActividadAsignadaService.createAsync(${JSON.stringify(entity)})`);
     this.validarActividadAsignadaParaCrear(entity);
