@@ -1,3 +1,5 @@
+import BD from '../db/BD.js';
+import AppError from '../modules/errors/AppError.js';
 import AvatarRepository from '../repositories/AvatarRepository.js';
 import AvatarImageStorageService from './AvatarImageStorageService.js';
 
@@ -46,9 +48,22 @@ export default class AvatarService {
     }
   };
 
+  assertOwnedEquipmentAsync = async (entity, avatarId = null) => {
+    if (!entity.avatar_json) return;
+    let parsed;
+    try { parsed = typeof entity.avatar_json === 'string' ? JSON.parse(entity.avatar_json) : entity.avatar_json; }
+    catch { throw new AppError('Configuracion de avatar no valida.', 400); }
+    const requested = Object.values(parsed?.equipped || {}).filter(Boolean);
+    if (requested.some(value => typeof value !== 'string')) throw new AppError('Equipamiento no valido.', 400);
+    const owned = avatarId ? await BD.query('SELECT it.codigo_item_externo FROM inventarios_avatares inv JOIN items_avatares it ON it.id=inv.id_item_avatar WHERE inv.id_avatar=$1 AND it.activo=true', [avatarId]) : [];
+    const allowed = new Set(['shirt-blue', 'bg-default', ...owned.map(row => row.codigo_item_externo)]);
+    if (requested.some(code => !allowed.has(code))) throw new AppError('El avatar solo puede equipar articulos de su inventario.', 403);
+  };
+
   createAsync = async (entity) => {
     console.log(`AvatarService.createAsync(${JSON.stringify(entity)})`);
     this.validarAvatarParaCrear(entity);
+    await this.assertOwnedEquipmentAsync(entity);
 
     const avatarConMismoPerteneciente = await this.AvatarRepository.getByPertenecienteIdAsync(entity.id_perteneciente);
 
@@ -85,6 +100,7 @@ export default class AvatarService {
       id: entity.id,
     };
 
+    await this.assertOwnedEquipmentAsync(nextEntity, previousEntity.id);
     const rowsAffected = await this.AvatarRepository.updateAsync(nextEntity);
     if (rowsAffected > 0) {
       await this.cacheAvatarImageBestEffortAsync(nextEntity);

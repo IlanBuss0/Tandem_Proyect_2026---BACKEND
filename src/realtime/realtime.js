@@ -1,3 +1,4 @@
+import { protectStorageUrls } from '../services/ProtectedStorageService.js';
 import { Emitter } from '@socket.io/redis-emitter';
 import { chatRoom, userRoom } from './rooms.js';
 import { connectRedisClient, createRedisConnection, isRedisEnabled } from '../redis/redisClient.js';
@@ -11,6 +12,10 @@ export function setRealtimeServer(io) {
 
 export function getRealtimeServer() {
   return ioInstance;
+}
+
+export function leaveUserChatRoom(idUsuario, idChat) {
+  ioInstance?.in(userRoom(idUsuario)).socketsLeave(chatRoom(idChat));
 }
 
 export function emitToUser(idUsuario, eventName, payload) {
@@ -39,6 +44,7 @@ async function getRedisEmitter() {
 }
 
 function emitToRoom(room, eventName, payload) {
+  payload = protectStorageUrls(payload);
   if (ioInstance) {
     ioInstance.to(room).emit(eventName, payload);
     return;

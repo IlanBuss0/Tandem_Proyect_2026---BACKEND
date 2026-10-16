@@ -121,6 +121,9 @@ export default class MensajeService {
     if (mensaje.id_usuario_emisor !== idUsuario) {
         throw new Error('No tienes permiso para editar este mensaje.');
     }
+    await this.ParticipanteChatService.ensureActiveParticipantAsync(mensaje.id_chat, idUsuario);
+    await AuthorizationService.assertCanSendMessageToChat(idUsuario, mensaje.id_chat);
+    if (mensaje.eliminado) throw new Error('Mensaje no disponible.');
     const updatedEntity = { ...mensaje, contenido: entity.contenido, fecha_edicion: new Date() };
     return await this.MensajeRepository.updateAsync(updatedEntity);
   };

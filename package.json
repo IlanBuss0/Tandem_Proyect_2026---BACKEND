@@ -7,6 +7,9 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
+    "test:all": "node --import ./test/helpers/postgres-env.js --test test/*.test.js",
+    "test:authorization:postgres": "node --import ./test/helpers/postgres-env.js --test test/authorization-postgres.test.js",
+    "test:authorization": "node --import ./test/helpers/isolated-db.js --test test/resource-boundaries.test.js test/http-authorization.test.js test/realtime-authorization.test.js test/wallet-authorization.test.js test/authorization-regressions.test.js",
     "server": "cls && node --watch src/server.js",
     "worker:notifications": "node src/workers/notification.worker.js",
     "test:chat-flow": "node scripts/test-chat-flow.mjs",

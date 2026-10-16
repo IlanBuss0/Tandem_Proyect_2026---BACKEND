@@ -4,6 +4,14 @@ import { StatusCodes } from 'http-status-codes';
 export default class BaseCrudController {
   constructor(service, Entity) {
     const router = Router();
+    router.use((req, res, next) => {
+      const isAdmin = Number(req.account?.id_tipo_usuario) === 4;
+      const isRead = req.method === 'GET' || req.method === 'HEAD';
+      if ((!isRead && !isAdmin) || (isRead && !isAdmin && !service.catalogTable && !req.resourceAuthorizationPolicy)) {
+        return res.status(StatusCodes.FORBIDDEN).json({ error: 'No autorizado para este recurso.' });
+      }
+      next();
+    });
 
     router.get('', async (req, res) => {
       try {

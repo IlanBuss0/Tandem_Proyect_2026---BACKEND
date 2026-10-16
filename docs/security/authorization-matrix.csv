@@ -1,0 +1,53 @@
+resource,read_scope,write_scope,test_file
+/api/actividades,authenticated catalog,administrator,http-authorization.test.js
+/api/alcances-archivos,authenticated catalog,administrator,http-authorization.test.js
+/api/autonomias-operativas,authenticated catalog,administrator,http-authorization.test.js
+/api/catalogos-permisos-pertenecientes,authenticated catalog,administrator,http-authorization.test.js
+/api/catalogos-permisos-profesionales,authenticated catalog,administrator,http-authorization.test.js
+/api/dificultades-actividades,authenticated catalog,administrator,http-authorization.test.js
+/api/entidades-afectadas-auditorias,authenticated catalog,administrator,http-authorization.test.js
+/api/estados-actividades,authenticated catalog,administrator,http-authorization.test.js
+/api/estados-contactos,authenticated catalog,administrator,http-authorization.test.js
+/api/estados-pagos,authenticated catalog,administrator,http-authorization.test.js
+/api/estados-reportes,authenticated catalog,administrator,http-authorization.test.js
+/api/estados-suscripciones,authenticated catalog,administrator,http-authorization.test.js
+/api/estados-validaciones-profesionales,authenticated catalog,administrator,http-authorization.test.js
+/api/estados-vinculos,authenticated catalog,administrator,http-authorization.test.js
+/api/niveles-apoyos,authenticated catalog,administrator,http-authorization.test.js
+/api/planes-suscripciones,authenticated catalog,administrator,http-authorization.test.js
+/api/roles-administradores,authenticated catalog,administrator,http-authorization.test.js
+/api/tipos-actividades,authenticated catalog,administrator,http-authorization.test.js
+/api/tipos-archivos,authenticated catalog,administrator,http-authorization.test.js
+/api/tipos-chats,authenticated catalog,administrator,http-authorization.test.js
+/api/tipos-eventos-auditorias,authenticated catalog,administrator,http-authorization.test.js
+/api/tipos-eventos-zonas-seguras,authenticated catalog,administrator,http-authorization.test.js
+/api/tipos-items-avatares,authenticated catalog,administrator,http-authorization.test.js
+/api/tipos-mensajes,authenticated catalog,administrator,http-authorization.test.js
+/api/tipos-movimientos-puntos,authenticated catalog,administrator,http-authorization.test.js
+/api/tipos-notificaciones,authenticated catalog,administrator,http-authorization.test.js
+/api/tipos-permisos-archivos,authenticated catalog,administrator,http-authorization.test.js
+/api/tipos-usuarios,authenticated catalog,administrator,http-authorization.test.js
+/api/items-avatares,authenticated catalog,administrator,http-authorization.test.js
+/api/paquetes-puntos,authenticated catalog,administrator,http-authorization.test.js
+/api/puntos-otorgados,authenticated catalog,administrator,http-authorization.test.js
+/api/archivos,file,resource ownership and controller permission,resource-boundaries.test.js
+/api/avatares,belonging,resource ownership and controller permission,resource-boundaries.test.js
+/api/inventarios-avatares,inventory,resource ownership and controller permission,resource-boundaries.test.js
+/api/eventos-zonas-seguras,zoneEvent,resource ownership and controller permission,resource-boundaries.test.js
+/api/calificaciones-actividades,belonging,resource ownership and controller permission,resource-boundaries.test.js
+/api/favoritos-actividades,belonging,resource ownership and controller permission,resource-boundaries.test.js
+/api/saldos-puntos,belonging,administrator or internal service,resource-boundaries.test.js
+/api/movimientos-puntos,belonging,administrator or internal service,resource-boundaries.test.js
+/api/compras-puntos,user,administrator or internal service,resource-boundaries.test.js
+/api/auditorias-eventos,admin,administrator or internal service,resource-boundaries.test.js
+/api/pagos-suscripciones,admin,administrator or internal service,resource-boundaries.test.js
+/api/beneficiarios-suscripciones,user,administrator or internal service,resource-boundaries.test.js
+/api/permisos-archivos,filePermission,administrator or internal service,resource-boundaries.test.js
+/api/mensajes-archivos,attachment,administrator or internal service,resource-boundaries.test.js
+/api/permisos-otorgados-pertenecientes,belongingPermission,resource ownership and controller permission,resource-boundaries.test.js
+/api/permisos-otorgados-profesionales,professionalPermission,resource ownership and controller permission,resource-boundaries.test.js
+/api/historiales-permisos-otorgados-pertenecientes,belongingPermission,administrator or internal service,resource-boundaries.test.js
+/api/historiales-permisos-otorgados-profesionales,professionalPermission,administrator or internal service,resource-boundaries.test.js
+/api/vinculos-tutor-pertenecientes,tutorLink,resource ownership and controller permission,resource-boundaries.test.js
+/api/contactos,contact,resource ownership and controller permission,resource-boundaries.test.js
+/api/tutores,tutor,resource ownership and controller permission,resource-boundaries.test.js

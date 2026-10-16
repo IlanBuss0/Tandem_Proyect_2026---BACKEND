@@ -1,3 +1,4 @@
+import { assertAdmin } from '../middlewares/resource-authorization.middleware.js';
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
@@ -45,6 +46,7 @@ router.get('/:id', async (req, res) => {
 
 router.post('', async (req, res) => {
   try {
+    assertAdmin(req);
     console.log('ActividadController.create');
 
     const entity = new Actividad(req.body);
@@ -69,6 +71,7 @@ router.post('', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
+    assertAdmin(req);
     const id = parseInt(req.params.id);
     const entity = new Actividad(req.body);
 
@@ -100,6 +103,7 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
+    assertAdmin(req);
     const id = parseInt(req.params.id);
 
     console.log(`ActividadController.delete(${id})`);

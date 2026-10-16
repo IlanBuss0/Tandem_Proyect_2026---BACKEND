@@ -261,7 +261,8 @@ test('ProfesionalService.updateMineAsync resetea la validacion a pendiente si ca
   assert.equal(capturedEntity.id_estado_validacion, 1);
 });
 
-test('ProfesionalService.createMineAsync rechaza si ya existe un profesional para el usuario', async () => {
+test('ProfesionalService.createMineAsync rechaza si ya existe un profesional para el usuario', async t => {
+  t.mock.method(AuthorizationService, 'getUserContext', async () => ({ usuario: { id_tipo_usuario: 3 } }));
   const service = new ProfesionalService();
   service.ProfesionalRepository = { getByUsuarioIdAsync: async () => ({ id: 1 }) };
 

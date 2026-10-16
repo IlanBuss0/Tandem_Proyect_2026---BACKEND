@@ -96,7 +96,12 @@ router.post('', async (req, res) => {
       pertenecientePermissionName: PERTENECIENTE_PERMISSIONS.CREAR_ACTIVIDADES_PROPIAS,
       profesionalPermissionName: PROFESIONAL_PERMISSIONS.ASIGNAR_ACTIVIDADES,
     });
+    await currentService.assertCanUseCustomActivityAsync(entity.id_actividad_personalizada, req.user.id);
     entity.id_usuario_asignador = req.user.id;
+    entity.fecha_completada = null;
+    entity.puntaje_ultimo = null;
+    entity.puntaje_mejor = null;
+    entity.fecha_ultimo_intento = null;
     const newId = await currentService.createAsync(entity);
     if (newId > 0) {
       res.status(StatusCodes.CREATED).json({
@@ -131,6 +136,9 @@ router.put('/:id', async (req, res) => {
       pertenecientePermissionName: PERTENECIENTE_PERMISSIONS.COMPLETAR_ACTIVIDADES,
       profesionalPermissionName: PROFESIONAL_PERMISSIONS.ASIGNAR_ACTIVIDADES,
     });
+    await currentService.assertCanUseCustomActivityAsync(entity.id_actividad_personalizada, req.user.id);
+    entity.id_actividad = previousEntity.id_actividad;
+    entity.id_actividad_personalizada = previousEntity.id_actividad_personalizada;
     entity.id_perteneciente = previousEntity.id_perteneciente;
     entity.id_usuario_asignador = previousEntity.id_usuario_asignador;
     const rowsAffected = await currentService.updateAsync(entity);
@@ -158,6 +166,7 @@ router.delete('/:id', async (req, res) => {
     await AuthorizationService.assertCanWritePertenecienteResource(req.user.id, previousEntity.id_perteneciente, {
       profesionalPermissionName: PROFESIONAL_PERMISSIONS.ASIGNAR_ACTIVIDADES,
     });
+    if (Number((await AuthorizationService.getUserContext(req.user.id))?.perteneciente?.id) === Number(previousEntity.id_perteneciente)) throw Object.assign(new Error('Solo quien administra las actividades puede eliminar una asignacion.'), { statusCode: 403 });
     const rowCount = await currentService.deleteByIdAsync(id);
     if (rowCount !== 0) {
       res.status(StatusCodes.OK).json({

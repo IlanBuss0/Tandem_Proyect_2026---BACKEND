@@ -73,6 +73,7 @@ router.post('', async (req, res) => {
     console.log('EvaluacionAutonomiaController.create');
     const entity = new EvaluacionAutonomia(req.body);
     await assertCanWriteEvaluacion(req.user.id, entity.id_perteneciente);
+    entity.id_profesional = (await AuthorizationService.getUserContext(req.user.id)).profesional.id;
     const newId = await currentService.createAsync(entity);
     if (newId > 0) {
       res.status(StatusCodes.CREATED).json({
@@ -102,8 +103,10 @@ router.put('/:id', async (req, res) => {
     const previous = await currentService.getByIdAsync(id);
     if (previous == null) return res.status(StatusCodes.NOT_FOUND).send(`No se encontro la evaluacion con id: ${id}.`);
     await assertCanWriteEvaluacion(req.user.id, previous.id_perteneciente);
+    if (Number(previous.id_profesional) !== Number((await AuthorizationService.getUserContext(req.user.id)).profesional.id)) throw new AppError('Solo el autor puede modificar esta evaluacion.', 403);
     entity.id = id;
     entity.id_perteneciente = previous.id_perteneciente;
+    entity.id_profesional = previous.id_profesional;
     const rowsAffected = await currentService.updateAsync(entity);
     if (rowsAffected !== 0) {
       res.status(StatusCodes.OK).json({
@@ -126,6 +129,7 @@ router.delete('/:id', async (req, res) => {
     const previous = await currentService.getByIdAsync(id);
     if (previous == null) return res.status(StatusCodes.NOT_FOUND).send(`No se encontro la evaluacion con id: ${id}.`);
     await assertCanWriteEvaluacion(req.user.id, previous.id_perteneciente);
+    if (Number(previous.id_profesional) !== Number((await AuthorizationService.getUserContext(req.user.id)).profesional.id)) throw new AppError('Solo el autor puede modificar esta evaluacion.', 403);
     const rowCount = await currentService.deleteByIdAsync(id);
     if (rowCount !== 0) {
       res.status(StatusCodes.OK).json({

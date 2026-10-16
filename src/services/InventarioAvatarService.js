@@ -1,3 +1,5 @@
+import BD from '../db/BD.js';
+import AppError from '../modules/errors/AppError.js';
 import InventarioAvatarRepository from '../repositories/InventarioAvatarRepository.js';
 
 export default class InventarioAvatarService {
@@ -23,16 +25,26 @@ export default class InventarioAvatarService {
   };
 
   createAsync = async (entity) => {
-    console.log(`InventarioAvatarService.createAsync(${JSON.stringify(entity)})`);
     this.validarInventarioParaCrear(entity);
-
-    const existente = await this.InventarioAvatarRepository.getByAvatarAndItemAsync(entity.id_avatar, entity.id_item_avatar);
-    if (existente != null) {
-      throw new Error(`El avatar con id ${entity.id_avatar} ya tiene el item con id ${entity.id_item_avatar}.`);
-    }
-
-    const newId = await this.InventarioAvatarRepository.createAsync(entity);
-    return newId;
+    return BD.transaction(async client => {
+      const { rows: [avatar] } = await client.query('SELECT * FROM avatares WHERE id=$1 FOR UPDATE', [entity.id_avatar]);
+      const { rows: [item] } = await client.query('SELECT * FROM items_avatares WHERE id=$1 AND activo=true FOR SHARE', [entity.id_item_avatar]);
+      if (!avatar || !item) throw new AppError('Avatar o articulo no disponible.', 404);
+      const { rows: existing } = await client.query('SELECT id FROM inventarios_avatares WHERE id_avatar=$1 AND id_item_avatar=$2', [avatar.id, item.id]);
+      if (existing.length) throw new AppError('El articulo ya pertenece al inventario.', 409);
+      if (item.requiere_id_dificultad_actividad) throw new AppError('Este articulo requiere una validacion de dificultad antes de habilitar su compra.', 403);
+      const price = Number(item.precio_punto);
+      if (!Number.isFinite(price) || price < 0) throw new AppError('Precio no valido.', 409);
+      if (item.requiere_cantidad_actividad) {
+        const { rows: [completed] } = await client.query('SELECT COUNT(*)::int AS total FROM actividades_asignadas WHERE id_perteneciente=$1 AND fecha_completada IS NOT NULL', [avatar.id_perteneciente]);
+        if (completed.total < Number(item.requiere_cantidad_actividad)) throw new AppError('Todavia no cumplis los requisitos del articulo.', 403);
+      }
+      await client.query('INSERT INTO saldos_puntos (id_perteneciente,saldo) VALUES ($1,0) ON CONFLICT (id_perteneciente) DO NOTHING', [avatar.id_perteneciente]);
+      const { rowCount } = await client.query('UPDATE saldos_puntos SET saldo=saldo-$2 WHERE id_perteneciente=$1 AND saldo >= $2', [avatar.id_perteneciente, price]);
+      if (!rowCount) throw new AppError('Saldo insuficiente.', 409);
+      const { rows: [created] } = await client.query('INSERT INTO inventarios_avatares (id_avatar,id_item_avatar,equipado,fecha_obtencion) VALUES ($1,$2,$3,NOW()) RETURNING id', [avatar.id, item.id, entity.equipado === true]);
+      return created.id;
+    });
   };
 
   updateAsync = async (entity) => {

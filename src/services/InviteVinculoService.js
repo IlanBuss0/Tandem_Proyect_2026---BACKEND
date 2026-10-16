@@ -1,3 +1,5 @@
+import AuthorizationService from './AuthorizationService.js';
+import { AUTH_ACTIONS } from '../modules/security/permissions.constants.js';
 import crypto from 'crypto';
 import InviteVinculoRepository from '../repositories/InviteVinculoRepository.js';
 import VinculoTutorPertenecienteService from '../services/VinculoTutorPertenecienteService.js';
@@ -140,7 +142,8 @@ export default class InviteVinculoService {
     if (vinculoExistente) throw new AppError('Ya existe un vinculo con este tutor', 409);
 
     const vinculacionesExistentes = await this.vinculoService.getByPertenecienteIdAsync(perteneciente.id);
-    const esPrincipal = !vinculacionesExistentes || vinculacionesExistentes.length === 0;
+    const esPrincipal = !vinculacionesExistentes || vinculacionesExistentes.every(link => link.fecha_fin != null);
+    if (!esPrincipal) await AuthorizationService.assertCan(idUsuario, AUTH_ACTIONS.PERTENECIENTE_PERFIL_SENSIBLE_EDITAR, { id_perteneciente: perteneciente.id });
 
     const estadoActivo = await this.inviteRepo.getEstadoVinculoActivoAsync();
     if (!estadoActivo?.id) {

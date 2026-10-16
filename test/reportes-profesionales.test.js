@@ -1,3 +1,6 @@
+import { beforeEach } from 'node:test';
+import AuthorizationService from '../src/services/AuthorizationService.js';
+beforeEach(t => { t.mock.method(AuthorizationService, 'assertCanReadPertenecienteResource', async () => ({ allowed: true })); });
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import ReporteProfesionalService from '../src/services/ReporteProfesionalService.js';
@@ -5,6 +8,7 @@ import AiReportService from '../src/services/AiReportService.js';
 
 test('assertVinculoActivoAsync rechaza si no hay vinculo entre ese profesional y ese perteneciente', async () => {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
   service.VinculoProfesionalPertenecienteRepository = {
     getByProfesionalYPertenecienteAsync: async () => null,
   };
@@ -16,6 +20,7 @@ test('assertVinculoActivoAsync rechaza si no hay vinculo entre ese profesional y
 
 test('assertVinculoActivoAsync acepta un vinculo propio y activo', async () => {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
   service.VinculoProfesionalPertenecienteRepository = {
     getByProfesionalYPertenecienteAsync: async () => ({ id_profesional: 10, estado_vinculo: 'aprobado' }),
   };
@@ -33,6 +38,8 @@ test('AiReportService tira 503 si no hay API key configurada', async () => {
 
 test('generateScheduledAsync nunca manda texto de notas a la IA', async () => {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
+  service.assertVinculoActivoAsync = async () => {};
   let capturedNotasTexto = 'sin-llamar';
   service.PertenecienteRepository = { getByIdAsync: async () => ({ id: 5, id_usuario: 1, id_nivel_apoyo: null }) };
   service.UsuarioRepository = { getByIdAsync: async () => ({ nombre: 'Juan Pered' }) };
@@ -59,6 +66,7 @@ test('generateScheduledAsync nunca manda texto de notas a la IA', async () => {
 
 test('generateOnDemandAsync manda el texto de notas seleccionadas a la IA', async () => {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
   let capturedNotasTexto = null;
   service.VinculoProfesionalPertenecienteRepository = {
     getByProfesionalYPertenecienteAsync: async () => ({ id_profesional: 10, estado_vinculo: 'activo' }),
@@ -87,6 +95,8 @@ test('generateOnDemandAsync manda el texto de notas seleccionadas a la IA', asyn
 
 test('sendToTutorAsync escribe fecha_envio como objeto Date, no como string', async () => {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
+  service.assertVinculoActivoAsync = async () => {};
   let capturedFechaEnvio = null;
 
   service.ReporteProfesionalRepository = {
@@ -122,6 +132,7 @@ test('sendToTutorAsync escribe fecha_envio como objeto Date, no como string', as
 
 test('sendToTutorAsync rechaza enviar un reporte de otro profesional', async () => {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
   service.ReporteProfesionalRepository = {
     getByIdAsync: async () => ({ id: 1, id_profesional: 99, id_perteneciente: 5 }),
   };
@@ -133,6 +144,7 @@ test('sendToTutorAsync rechaza enviar un reporte de otro profesional', async () 
 
 test('generateSessionPrepAsync nunca persiste y no requiere id', async () => {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
   service.VinculoProfesionalPertenecienteRepository = {
     getByProfesionalYPertenecienteAsync: async () => ({ id_profesional: 10, estado_vinculo: 'activo' }),
   };
@@ -159,6 +171,7 @@ test('generateSessionPrepAsync nunca persiste y no requiere id', async () => {
 
 test('generateSessionPrepAsync rechaza si no hay vinculo activo', async () => {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
   service.VinculoProfesionalPertenecienteRepository = {
     getByProfesionalYPertenecienteAsync: async () => null,
   };
@@ -174,6 +187,7 @@ test('generateSessionPrepAsync rechaza si no hay vinculo activo', async () => {
 
 test('generateSessionPrepAsync rechaza si ninguna sesion pasada tiene contenido de nota', async () => {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
   service.VinculoProfesionalPertenecienteRepository = {
     getByProfesionalYPertenecienteAsync: async () => ({ id_profesional: 10, estado_vinculo: 'activo' }),
   };
@@ -188,6 +202,7 @@ test('generateSessionPrepAsync rechaza si ninguna sesion pasada tiene contenido 
 
 test('answerPatientQuestionAsync nunca persiste y devuelve la respuesta', async () => {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
   service.VinculoProfesionalPertenecienteRepository = {
     getByProfesionalYPertenecienteAsync: async () => ({ id_profesional: 10, estado_vinculo: 'activo' }),
   };
@@ -209,6 +224,7 @@ test('answerPatientQuestionAsync nunca persiste y devuelve la respuesta', async 
 
 test('answerPatientQuestionAsync rechaza sin pregunta', async () => {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
   await assert.rejects(() => service.answerPatientQuestionAsync(10, {
     id_perteneciente: 5,
     pregunta: '',
@@ -218,6 +234,7 @@ test('answerPatientQuestionAsync rechaza sin pregunta', async () => {
 
 test('generatePatientHistoryPdfDataAsync calcula estadisticas correctas por paciente', async () => {
   const service = new ReporteProfesionalService();
+  service.ProfesionalRepository.getByIdAsync = async () => ({ id_usuario: 10 });
   service.VinculoProfesionalPertenecienteRepository = {
     getByProfesionalYPertenecienteAsync: async () => ({ id_profesional: 10, estado_vinculo: 'activo' }),
   };

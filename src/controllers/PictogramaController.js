@@ -1,3 +1,4 @@
+import { assertAdmin } from '../middlewares/resource-authorization.middleware.js';
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
@@ -403,7 +404,7 @@ router.get('/attributions', async (req, res) => {
     res.status(StatusCodes.OK).json(attributions);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_GATEWAY).json({ message: error.message });
+    res.status(error.statusCode ?? StatusCodes.BAD_GATEWAY).json({ message: error.message });
   }
 });
 
@@ -415,7 +416,7 @@ router.get('/filters', async (req, res) => {
     res.status(StatusCodes.OK).json(filters);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_GATEWAY).json({ message: error.message });
+    res.status(error.statusCode ?? StatusCodes.BAD_GATEWAY).json({ message: error.message });
   }
 });
 
@@ -425,7 +426,7 @@ router.get('/categories', async (req, res) => {
     res.status(StatusCodes.OK).json(categories);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_GATEWAY).json({ message: error.message });
+    res.status(error.statusCode ?? StatusCodes.BAD_GATEWAY).json({ message: error.message });
   }
 });
 
@@ -474,7 +475,7 @@ router.get('/:id/download', async (req, res) => {
     res.status(StatusCodes.OK).send(file.data);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_GATEWAY).json({ message: error.message });
+    res.status(error.statusCode ?? StatusCodes.BAD_GATEWAY).json({ message: error.message });
   }
 });
 
@@ -528,6 +529,7 @@ router.delete('/:id/save', authMiddleware, csrfMiddleware, async (req, res) => {
 
 router.post('/sync', authMiddleware, csrfMiddleware, async (req, res) => {
   try {
+    assertAdmin(req);
     const result = await currentService.syncFromArasaacAsync({
       language: req.body?.language || req.query.language || req.query.lang,
     });
@@ -535,7 +537,7 @@ router.post('/sync', authMiddleware, csrfMiddleware, async (req, res) => {
     res.status(StatusCodes.OK).json(result);
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_GATEWAY).json({ message: error.message });
+    res.status(error.statusCode ?? StatusCodes.BAD_GATEWAY).json({ message: error.message });
   }
 });
 
@@ -550,7 +552,7 @@ router.get('/:id', async (req, res) => {
     }
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_GATEWAY).json({ message: error.message });
+    res.status(error.statusCode ?? StatusCodes.BAD_GATEWAY).json({ message: error.message });
   }
 });
 

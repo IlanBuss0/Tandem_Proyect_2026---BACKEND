@@ -20,7 +20,7 @@ const REQUEST_TIMEOUT_DELETE = 15000;
 // pisan, asi que se pueden cachear fuerte y para siempre. Los callers que
 // re-suben con upsert:true (catalogo de pictogramas, pictogramas de IA)
 // pasan un cacheControl mas corto.
-const DEFAULT_CACHE_CONTROL = 'public, max-age=31536000, immutable';
+const DEFAULT_CACHE_CONTROL = 'private, no-store';
 
 export default class FileStorageService {
   uploadAsync = async ({

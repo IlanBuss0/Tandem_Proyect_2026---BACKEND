@@ -72,6 +72,10 @@ router.put('/:id', async (req, res) => {
     console.log(`UsuarioController.update(${id})`);
 
     const isSelf = Number(req.user.id) === id;
+    if (isSelf) {
+      const context = await AuthorizationService.getUserContext(req.user.id);
+      if (context?.perteneciente) await AuthorizationService.assertCanWritePertenecienteResource(req.user.id, context.perteneciente.id, { pertenecientePermissionName: PERTENECIENTE_PERMISSIONS.EDITAR_PERFIL, allowTutor: false });
+    }
     if (!isSelf) {
       // No es el propio usuario: el unico otro caso legitimo es un
       // tutor/profesional autorizado editando los datos basicos del
@@ -113,7 +117,7 @@ router.put('/:id', async (req, res) => {
     }
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+    res.status(error.statusCode ?? StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
   }
 });
 
