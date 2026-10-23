@@ -30,6 +30,7 @@ import EvaluacionAutonomiaController from './controllers/EvaluacionAutonomiaCont
 import ZonaSeguraController from './controllers/ZonaSeguraController.js';
 import InventarioAvatarController from './controllers/InventarioAvatarController.js';
 import ItemAvatarController from './controllers/ItemAvatarController.js';
+import ItemAvatarService from './services/ItemAvatarService.js';
 import EventoZonaSeguraController from './controllers/EventoZonaSeguraController.js';
 import CompraPuntoController from './controllers/CompraPuntoController.js';
 import SesionProfesionalController from './controllers/SesionProfesionalController.js';
@@ -308,6 +309,7 @@ export default app;
 async function startServer() {
   try {
     await BD.testConnection();
+    await new ItemAvatarService().initializeStudioCatalogAsync();
     await new ProtectedStorageService().assertPrivateBuckets();
     console.log('Conexion a base de datos OK');
 

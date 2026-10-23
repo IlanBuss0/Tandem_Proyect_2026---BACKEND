@@ -2,6 +2,7 @@ import BD from '../db/BD.js';
 import AppError from '../modules/errors/AppError.js';
 import AvatarRepository from '../repositories/AvatarRepository.js';
 import AvatarImageStorageService from './AvatarImageStorageService.js';
+import { assertStudioEquipment } from '../modules/avatar-studio.js';
 
 export default class AvatarService {
   constructor() {
@@ -56,6 +57,10 @@ export default class AvatarService {
     const requested = Object.values(parsed?.equipped || {}).filter(Boolean);
     if (requested.some(value => typeof value !== 'string')) throw new AppError('Equipamiento no valido.', 400);
     const owned = avatarId ? await BD.query('SELECT it.codigo_item_externo FROM inventarios_avatares inv JOIN items_avatares it ON it.id=inv.id_item_avatar WHERE inv.id_avatar=$1 AND it.activo=true', [avatarId]) : [];
+    if (parsed?.version === 2) {
+      assertStudioEquipment(parsed, owned.map(row => row.codigo_item_externo));
+      return;
+    }
     const allowed = new Set(['shirt-blue', 'bg-default', ...owned.map(row => row.codigo_item_externo)]);
     if (requested.some(code => !allowed.has(code))) throw new AppError('El avatar solo puede equipar articulos de su inventario.', 403);
   };
@@ -127,6 +132,8 @@ export default class AvatarService {
   };
 
   cacheAvatarImageBestEffortAsync = async (entity) => {
+    // Studio avatars render locally from validated vectors. Never replace a custom photo with DiceBear.
+    try { if (JSON.parse(entity.avatar_json || '{}')?.version === 2) return; } catch { /* Legacy validation handles malformed JSON. */ }
     try {
       const imageData = await this.AvatarImageStorageService.cacheAvatarImageAsync(entity);
       if (imageData) {

@@ -69,16 +69,16 @@ export default class InventarioAvatarService {
 
   validarInventarioParaCrear = (entity) => {
     if (!entity) {
-      throw new Error('El inventario es obligatorio.');
+      throw new AppError('El inventario es obligatorio.', 400);
     }
     if (!entity.id_avatar) {
-      throw new Error('id_avatar es obligatorio.');
+      throw new AppError('id_avatar es obligatorio.', 400);
     }
     if (!entity.id_item_avatar) {
-      throw new Error('id_item_avatar es obligatorio.');
+      throw new AppError('id_item_avatar es obligatorio.', 400);
     }
     if (!entity.fecha_obtencion) {
-      throw new Error('fecha_obtencion es obligatorio.');
+      throw new AppError('fecha_obtencion es obligatorio.', 400);
     }
   };
 }
