@@ -1,4 +1,5 @@
 import ItemAvatarRepository from '../repositories/ItemAvatarRepository.js';
+import { studioCatalog } from '../modules/avatar-studio.js';
 
 export default class ItemAvatarService {
   constructor() {
@@ -12,6 +13,8 @@ export default class ItemAvatarService {
     if (returnArray == null) return null;
     return returnArray;
   };
+
+  initializeStudioCatalogAsync = () => this.ItemAvatarRepository.ensureStudioCatalogAsync(studioCatalog);
 
   getByIdAsync = async (id) => {
     console.log(`ItemAvatarService.getByIdAsync(${id})`);

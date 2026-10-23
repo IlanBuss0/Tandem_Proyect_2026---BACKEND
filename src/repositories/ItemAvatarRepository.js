@@ -1,6 +1,27 @@
 import BD from '../db/BD.js';
 
 export default class ItemAvatarRepository {
+  ensureStudioCatalogAsync = async (catalog) => BD.transaction(async client => {
+    // Serialize additive catalog initialization without relying on a new unique index.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('tandem-avatar-studio-catalog'))");
+    const { rows: types } = await client.query('SELECT id, nombre FROM tipos_items_avatares ORDER BY id');
+    if (catalog.some(item => item.category === 'hairstyle') && !types.some(type => /^peinados?$/i.test(type.nombre))) {
+      const { rows: [type] } = await client.query(`INSERT INTO tipos_items_avatares (nombre,orden)
+        SELECT 'Peinados',COALESCE(MAX(orden),0)+1 FROM tipos_items_avatares RETURNING id,nombre`);
+      types.push(type);
+    }
+    for (const item of catalog) {
+      const type = types.find(type => /^peinados?$/i.test(type.nombre) && item.category === 'hairstyle')
+        || types.find(type => /accesorio/i.test(type.nombre) && item.category === 'accessory')
+        || types.find(type => /ropa/i.test(type.nombre)) || types[0];
+      if (!type) throw new Error('Falta el catalogo de tipos de articulos de avatar.');
+      await client.query(`INSERT INTO items_avatares (id_tipo_item_avatar,nombre,codigo_item_externo,precio_punto,activo)
+        SELECT $1,$2,$3,$4,true WHERE NOT EXISTS (SELECT 1 FROM items_avatares WHERE codigo_item_externo=$5)`,
+      // INSERT infers varchar for $3; the equality operator infers text for $5.
+      [type.id, item.name, item.id, item.price, item.id]);
+    }
+  });
+
   constructor() {
     console.log('Estoy en: ItemAvatarRepository.constructor()');
   }

@@ -55,7 +55,9 @@ router.post('', async (req, res) => {
     }
   } catch (error) {
     console.log(error);
-    res.status(StatusCodes.BAD_REQUEST).send(`Error: ${error.message}`);
+    res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
+      message: error.statusCode ? error.message : 'No pudimos completar la compra. Intenta nuevamente.',
+    });
   }
 });
 
