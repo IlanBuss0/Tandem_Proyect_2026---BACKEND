@@ -1,6 +1,7 @@
 import RoutineReminderRepository from '../repositories/RoutineReminderRepository.js';
 
 const OFFSETS = new Set([-60, -30, -15, -10, -5, 0, 5, 10, 15]);
+const MAX_CALENDAR_NOTICE_MINUTES = 4 * 7 * 24 * 60;
 const DEFAULT_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 
 function validTimeZone(timeZone) {
@@ -81,7 +82,8 @@ export function buildCalendarReminderEntries(events, requestedTimeZone, now = ne
   const entries = [];
   for (const event of events) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(event.date)) || !/^\d{2}:\d{2}$/.test(String(event.time))) continue;
-    const offsets = [...new Set(Array.isArray(event.reminders) ? event.reminders.map(Number) : [])].filter(offset => OFFSETS.has(offset));
+    const offsets = [...new Set(Array.isArray(event.reminders) ? event.reminders.map(Number) : [])]
+      .filter(offset => OFFSETS.has(offset) || (Number.isInteger(offset) && offset < 0 && offset >= -MAX_CALENDAR_NOTICE_MINUTES));
     const occurrenceAt = localDateTimeToUtc(event.date, event.time, timeZone);
     for (const offsetMinutes of offsets) {
       const scheduledAt = new Date(occurrenceAt.getTime() + offsetMinutes * 60_000);
